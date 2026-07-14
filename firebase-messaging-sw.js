@@ -36,8 +36,8 @@ messaging.onBackgroundMessage(function(payload){
 
   var options = {
     body: body,
-    icon: data.icon || '/icon-192.png',
-    badge: '/icon-192.png',
+    icon: data.icon || '/notif-logo.png',
+    badge: '/notif-badge.png',
     image: image,
     vibrate: [200, 100, 200, 100, 200],   // vibration plus franche
     tag: tag,

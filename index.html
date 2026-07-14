@@ -129,8 +129,8 @@ body{font-family:'Exo 2',sans-serif;background:var(--bg);color:var(--text);
 #sidebar{
   position:fixed;top:0;left:-280px;bottom:0;width:270px;z-index:450;
   background:var(--bg2);border-right:1px solid var(--border);
-  padding-top:calc(var(--topbar) + 12px);padding-bottom:20px;
-  overflow-y:auto;transition:left .28s cubic-bezier(.4,0,.2,1);
+  padding-top:calc(var(--topbar) + 12px);padding-bottom:110px;
+  overflow-y:auto;-webkit-overflow-scrolling:touch;transition:left .28s cubic-bezier(.4,0,.2,1);
 }
 #sidebar.open{left:0}
 .sidebar-section{margin-bottom:4px}
@@ -2380,6 +2380,8 @@ async function loadConfig(){
     if(doc.exists){
       const d=doc.data();
       shopConfig=Object.assign(shopConfig,d);
+      if(typeof syncCinetPayKeys==='function')syncCinetPayKeys(); // 🔑 clés CinetPay depuis l'admin
+      if(typeof refreshPayMethodsVisibility==='function')refreshPayMethodsVisibility(); // affiche/masque CinetPay en direct
       if(d.logoUrl){
         const el=document.getElementById('logo-img');el.innerHTML=`<img src="${d.logoUrl}" onerror="this.parentElement.innerHTML='N'">` ;
         applyAppIcon(d.logoUrl); // 🖼️ le logo de l'admin devient aussi l'icône de l'application
@@ -3041,6 +3043,17 @@ async function confirmPtsBuy(){
 // ════ RECHARGE DU PORTEFEUILLE (choix de la méthode) ════
 let _rcMethod='',_rcAdyenCheckout=null,_rcUnsub=null;
 const RC_QUICK=[5,10,20,50];
+// 🔧 Applique la visibilité des méthodes (admin + clés) partout, même overlays fermés
+function refreshPayMethodsVisibility(){
+  var pm=(shopConfig&&shopConfig.payMethods)||{};
+  document.querySelectorAll('.rc-method').forEach(function(el){
+    var m=el.dataset.m;
+    var hidden=(pm[m]===false)
+      ||(m==='paypal'&&!PAYPAL_CLIENT_ID)
+      ||(m==='cinetpay'&&(!CINETPAY_SITE_ID||!CINETPAY_API_KEY));
+    el.style.display=hidden?'none':'flex';
+  });
+}
 function openRecharge(){
   var pp=document.getElementById('rc-paypal');if(pp)pp.style.display=PAYPAL_CLIENT_ID?'flex':'none';
   // 🔧 Méthodes activées/désactivées par l'admin (config/shop.payMethods)
@@ -3178,7 +3191,7 @@ function showScreenAd(ad){
   btn.onclick=function(){
     closeScreenAd();
     if(ad.targetType==='vpn'){openScreen('vpn');}
-    else if(ad.targetType==='account'&&ad.targetId){openAccount(ad.targetId);}
+    else if(ad.targetType==='account'){ if(ad.targetId){openAccount(ad.targetId);} else {openScreen('marketplace');} }
     else if(ad.url){window.open(ad.url,'_blank');}
   };
   var cnt=document.getElementById('sa-count');cnt.textContent=secs;
@@ -3260,9 +3273,15 @@ async function confirmOrangeSent(amt){
     showToast('✅ Demande envoyée à l\'admin');
   }catch(e){showToast('❌ '+e.message);}
 }
-/* ─── CinetPay (Orange Money Mali automatique) — s\'active quand configuré ─── */
-const CINETPAY_SITE_ID='';   // ← votre Site ID CinetPay
-const CINETPAY_API_KEY='';   // ← votre API Key CinetPay (nécessaire à leur widget)
+/* ─── CinetPay (Orange Money Mali automatique) — configurable depuis l'admin ─── */
+/* Les clés sont désormais gérées depuis l'admin (config → payMethods).
+   cinetpaySiteId / cinetpayApiKey sont des identifiants PUBLICS du widget CinetPay. */
+let CINETPAY_SITE_ID='';   // rempli par loadConfig() depuis shopConfig.cinetpaySiteId
+let CINETPAY_API_KEY='';   // rempli par loadConfig() depuis shopConfig.cinetpayApiKey
+function syncCinetPayKeys(){
+  CINETPAY_SITE_ID=(shopConfig&&shopConfig.cinetpaySiteId)||CINETPAY_SITE_ID||'';
+  CINETPAY_API_KEY=(shopConfig&&shopConfig.cinetpayApiKey)||CINETPAY_API_KEY||'';
+}
 let _cpLoaded=false;
 function loadCinetPay(cb){
   if(_cpLoaded&&window.CinetPay){cb(true);return;}
@@ -4484,7 +4503,17 @@ function renderMarketplace(){
   }).join('');
 }
 function openAccount(id){
-  const a=allAccounts.find(x=>x.id===id);if(!a)return;
+  let a=allAccounts.find(x=>x.id===id);
+  if(!a){
+    // 📢 Annonce pas encore en mémoire (ex : ouverte depuis une publicité) → on la récupère dans Firestore
+    db.collection('accounts').doc(id).get().then(function(doc){
+      if(!doc.exists){if(typeof showToast==='function')showToast('Annonce introuvable ou retirée');return;}
+      var acc=Object.assign({id:doc.id},doc.data());
+      if(!allAccounts.find(function(x){return x.id===acc.id;}))allAccounts.push(acc);
+      openAccount(id);
+    }).catch(function(){if(typeof showToast==='function')showToast('Impossible d\'ouvrir cette annonce');});
+    return;
+  }
   const g=GAMES.find(x=>x.key===a.game);
   const mediaArr=(a.media||[]);
   regMedia('acc',mediaArr);
@@ -6243,7 +6272,7 @@ function notifyPhone(title,body){
   if(!pushEnabled())return;
   try{
     if(navigator.serviceWorker&&navigator.serviceWorker.ready){
-      navigator.serviceWorker.ready.then(reg=>reg.showNotification(title,{body,icon:'icon-192.png',badge:'icon-192.png',vibrate:[120,60,120],tag:'asg-msg',renotify:true})).catch(()=>{new Notification(title,{body});});
+      navigator.serviceWorker.ready.then(reg=>reg.showNotification(title,{body,icon:'notif-logo.png',badge:'notif-badge.png',vibrate:[120,60,120],tag:'asg-msg',renotify:true})).catch(()=>{new Notification(title,{body});});
     }else{new Notification(title,{body});}
   }catch(e){}
 }

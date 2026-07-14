@@ -1272,6 +1272,12 @@ body{font-family:'Exo 2',sans-serif;background:var(--bg);color:var(--text);
     <div style="padding:16px" id="pm-toggles">
       <p style="font-size:12px;color:var(--text2);margin-bottom:10px">Décochez pour masquer une méthode chez les clients.</p>
     </div>
+    <div style="padding:0 16px 16px;border-top:1px solid var(--border);margin-top:6px">
+      <p style="font-size:12px;color:var(--text2);margin:12px 0 8px"><b>🟠 CinetPay (Orange Money Mali)</b> — collez votre <b>Site ID</b> et votre <b>API Key</b> CinetPay. La méthode apparaît automatiquement chez les clients une fois les deux remplis. <span style="color:var(--orange)">Ce sont des identifiants publics du widget CinetPay — ne collez jamais ici une clé secrète serveur.</span></p>
+      <div class="form-grp"><label>CinetPay — Site ID</label><input class="inp" id="cp-site" placeholder="Ex : 105890XX"/></div>
+      <div class="form-grp"><label>CinetPay — API Key</label><input class="inp" id="cp-key" placeholder="Votre API Key CinetPay"/></div>
+      <button class="save-btn" onclick="saveCinetPayKeys()">💾 Enregistrer CinetPay</button>
+    </div>
     <div style="padding:0 16px 16px">
       <div class="form-grp"><label>🎁 Expiration du lien d'invitation (parrainage)</label><input class="inp" id="ref-expiry" type="date"/></div>
       <button class="save-btn" onclick="saveRefExpiry()">💾 Enregistrer l'expiration</button>
@@ -1534,6 +1540,36 @@ body{font-family:'Exo 2',sans-serif;background:var(--bg);color:var(--text);
   </div>
 </div>
 
+<!-- SHEET: POINTS CLIENT -->
+<div class="sh-bg" id="padj-bg" onclick="closePointsAdjust()"></div>
+<div class="sheet" id="padj-sh">
+  <div class="sh-bar"></div>
+  <div class="sh-head">
+    <h3>⭐ Points client</h3>
+    <button class="sh-x" onclick="closePointsAdjust()">
+      <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></svg>
+    </button>
+  </div>
+  <div class="sh-body">
+    <div style="text-align:center;margin-bottom:14px">
+      <div style="font-size:12px;color:var(--text3)">Points actuels</div>
+      <div id="padj-balance" style="font-family:'Orbitron',sans-serif;font-size:30px;font-weight:800;color:var(--gold)">0 pts</div>
+      <div id="padj-clientname" style="font-size:12px;color:var(--text2)">—</div>
+    </div>
+    <div class="form-grp"><label>Nombre de points</label><input class="inp" id="padj-amount" type="number" min="0" step="1" placeholder="Ex : 500" inputmode="numeric"/></div>
+    <div class="form-grp"><label>Note (facultatif)</label><input class="inp" id="padj-note" placeholder="Ex : cadeau fidélité"/></div>
+    <div id="padj-msg" style="font-size:12px;color:var(--red);margin-bottom:8px"></div>
+    <div style="display:flex;gap:8px">
+      <button class="btn-ok" style="flex:1" id="padj-add-btn" onclick="applyPointsAdjust(1)">➕ Ajouter</button>
+      <button class="btn-del" style="flex:1;width:auto" id="padj-sub-btn" onclick="applyPointsAdjust(-1)">➖ Retirer</button>
+    </div>
+    <div style="font-size:11px;color:var(--text3);margin-top:12px;line-height:1.4">Ces points sont ajoutés au solde dépensable du client. Le niveau de fidélité (Bronze→Diamant) est calculé à partir du total accumulé.</div>
+  </div>
+  <div class="sh-foot">
+    <button class="btn-ghost" onclick="closePointsAdjust()">Fermer</button>
+  </div>
+</div>
+
 <!-- SHEET: CONVERSATION CLIENT -->
 <div class="sh-bg" id="msg-bg" onclick="closeConv()"></div>
 <div class="sheet" id="msg-sh" style="display:flex;flex-direction:column;max-height:85vh">
@@ -1788,6 +1824,7 @@ function openClientDetail(id){
   const rows=[
     {l:'💰 Portefeuille',v:`<b style="color:var(--green)">${(+c.walletBalance||0).toFixed(2)} €</b>`},
     {l:'⭐ Points',v:`<b style="color:var(--gold)">${(+c.points||0)} pts</b>`},
+    {l:'Rôle',v:c.role==='vendeur'?'🛍️ <b style="color:var(--accent)">Vendeur</b>':'👤 Client'},
     {l:'Méthode',v:isGoogle?'🔵 Google':'✉️ Email / Mot de passe'},
     {l:'Inscrit le',v:formatDate(c.createdAt)},
     {l:'Dernière connexion',v:formatDate(c.lastLoginAt||c.createdAt)},
@@ -1806,6 +1843,8 @@ function openClientDetail(id){
   document.getElementById('cd-status-tag').innerHTML=`<span style="background:${stCol}22;color:${stCol};font-weight:700;font-size:12px;padding:4px 12px;border-radius:99px">${stTxt}</span>`;
   let acts='';
   acts+=`<button class="btn-ok" onclick="openWalletAdjust('${id}')">💰 Gérer le portefeuille</button>`;
+  acts+=`<button class="btn-ok" style="background:linear-gradient(135deg,#f7971e,#ffd200);color:#3a2a00" onclick="openPointsAdjust('${id}')">⭐ Gérer les points</button>`;
+  acts+=`<button class="btn-ghost" onclick="toggleSeller('${id}',${c.role==='vendeur'?'false':'true'})">${c.role==='vendeur'?'🛍️ Retirer le statut vendeur':'🛍️ Faire de ce client un vendeur'}</button>`;
   if(c.walletPinEnabled){
     acts+=`<button class="btn-ghost" onclick="resetClientPin('${id}','')">🔒 Réinitialiser le code PIN</button>`;
   }
@@ -1891,6 +1930,65 @@ async function applyWalletAdjust(sign){
     document.getElementById('wadj-amount').value='';document.getElementById('wadj-note').value='';
     toast(sign>0?'✓ Portefeuille crédité':'✓ Portefeuille débité');
     loadWalletHistory(id);renderClients();
+  }catch(e){msg.textContent='Erreur : '+(e.message||'opération impossible');}
+  finally{addBtn.disabled=false;subBtn.disabled=false;}
+}
+// 🛍️ Donner / retirer le statut vendeur à un client
+async function toggleSeller(id,make){
+  try{
+    const isSeller=(make===true||make==='true');
+    await db.collection('users').doc(id).set({role:isSeller?'vendeur':'client'},{merge:true});
+    const c=clients.find(x=>x.id===id);if(c)c.role=isSeller?'vendeur':'client';
+    toast(isSeller?'✓ Ce client est maintenant vendeur':'✓ Statut vendeur retiré');
+    closeClientDetail();renderClients();
+  }catch(e){toast('❌ '+e.message,true);}
+}
+// ⭐ Gérer les points d'un client : ajouter / retirer
+let _padjId=null;
+function openPointsAdjust(id){
+  const c=clients.find(x=>x.id===id);if(!c)return;
+  _padjId=id;
+  closeClientDetail();
+  const name=c.name&&c.name.trim()?c.name:(c.email?c.email.split('@')[0]:'Client');
+  document.getElementById('padj-clientname').textContent=name;
+  document.getElementById('padj-balance').textContent=(+c.points||0)+' pts';
+  document.getElementById('padj-amount').value='';
+  document.getElementById('padj-note').value='';
+  document.getElementById('padj-msg').textContent='';
+  document.getElementById('padj-sh').classList.add('on');
+  document.getElementById('padj-bg').classList.add('on');
+}
+function closePointsAdjust(){
+  document.getElementById('padj-sh').classList.remove('on');
+  document.getElementById('padj-bg').classList.remove('on');
+  _padjId=null;
+}
+async function applyPointsAdjust(sign){
+  const id=_padjId;if(!id)return;
+  const msg=document.getElementById('padj-msg');msg.textContent='';
+  const amt=Math.round(parseFloat((document.getElementById('padj-amount').value||'').replace(',','.')));
+  if(!amt||amt<=0){msg.textContent='Entrez un nombre de points valide.';return;}
+  const note=(document.getElementById('padj-note').value||'').trim();
+  const c=clients.find(x=>x.id===id);
+  const cur=c?(+c.points||0):0;
+  const delta=sign*amt;
+  if(sign<0&&cur<amt){msg.textContent='Le client n\'a pas assez de points pour en retirer autant.';return;}
+  const addBtn=document.getElementById('padj-add-btn'),subBtn=document.getElementById('padj-sub-btn');
+  addBtn.disabled=true;subBtn.disabled=true;
+  try{
+    const uref=db.collection('users').doc(id);
+    await uref.set({points:firebase.firestore.FieldValue.increment(delta)},{merge:true});
+    // Historique (facultatif) pour la traçabilité
+    try{await uref.collection('pointsHistory').add({
+      amount:delta,type:sign>0?'credit':'debit',
+      note:note||(sign>0?'Points ajoutés (admin)':'Points retirés (admin)'),
+      by:'admin',createdAt:firebase.firestore.FieldValue.serverTimestamp()
+    });}catch(_){}
+    if(c)c.points=cur+delta;
+    document.getElementById('padj-balance').textContent=(cur+delta)+' pts';
+    document.getElementById('padj-amount').value='';document.getElementById('padj-note').value='';
+    toast(sign>0?'✓ Points ajoutés':'✓ Points retirés');
+    renderClients();
   }catch(e){msg.textContent='Erreur : '+(e.message||'opération impossible');}
   finally{addBtn.disabled=false;subBtn.disabled=false;}
 }
@@ -3773,7 +3871,20 @@ async function loadPmToggles(){
         var on=pm[p[0]]!==false;
         return '<label style="display:flex;align-items:center;gap:10px;padding:8px 4px;font-size:13px;border-bottom:1px solid var(--border)"><input type="checkbox" '+(on?'checked':'')+' onchange="setPmToggle(\''+p[0]+'\',this.checked)"/> '+p[1]+'</label>';
       }).join('');
+    // 🔑 Pré-remplit les clés CinetPay existantes
+    var dd=(d.exists&&d.data())||{};
+    var cs=document.getElementById('cp-site'),ck=document.getElementById('cp-key');
+    if(cs)cs.value=dd.cinetpaySiteId||'';
+    if(ck)ck.value=dd.cinetpayApiKey||'';
   }catch(e){}
+}
+async function saveCinetPayKeys(){
+  var site=(document.getElementById('cp-site').value||'').trim();
+  var key=(document.getElementById('cp-key').value||'').trim();
+  try{
+    await db.collection('config').doc('shop').set({cinetpaySiteId:site,cinetpayApiKey:key},{merge:true});
+    toast((site&&key)?'✓ CinetPay activé chez les clients':'✓ CinetPay enregistré (clés incomplètes → masqué)');
+  }catch(e){toast('❌ '+e.message,true);}
 }
 async function saveRefExpiry(){
   var d=document.getElementById('ref-expiry').value;
