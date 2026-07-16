@@ -81,8 +81,12 @@ body{font-family:'Exo 2',sans-serif;background:var(--bg);color:var(--text);
 #logo-img img{width:100%;height:100%;object-fit:cover;border-radius:8px}
 #logo-text{font-family:'Orbitron',sans-serif;font-weight:700;font-size:16px;
   background:linear-gradient(90deg,var(--accent),var(--accent2));
-  -webkit-background-clip:text;-webkit-text-fill-color:transparent;white-space:nowrap}
-#search-wrap{flex:1;position:relative;min-width:0}
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;white-space:nowrap;
+  overflow:hidden;text-overflow:ellipsis;max-width:90px}
+#search-wrap{flex:1;position:relative;min-width:74px}
+/* 📱 Sur petit écran, on masque le nom pour laisser respirer la recherche */
+@media(max-width:430px){#logo-text{display:none}}
+@media(max-width:360px){#topbar{gap:6px;padding:0 8px}.topbar-btns{gap:4px}}
 #search-wrap input{
   width:100%;height:36px;background:var(--bg3);border:1px solid var(--border);
   border-radius:99px;padding:0 36px 0 14px;color:var(--text);
@@ -1081,6 +1085,7 @@ body.ios .pnotif .pn-ic{border-radius:11px}
 <!-- SIDEBAR -->
 <aside id="sidebar">
   <!-- User section in sidebar -->
+  <div class="sidebar-label" style="margin:6px 0 4px">Mon compte</div>
   <div class="sidebar-user" id="sidebar-user-section">
     <div id="sidebar-guest">
       <button class="btn-login-sidebar" onclick="openAuthModal();closeSidebar()">
@@ -1189,6 +1194,9 @@ body.ios .pnotif .pn-ic{border-radius:11px}
     </div>
     <div class="cat-item" onclick="openScreen('faq');closeSidebar()">
       <span class="c-ico"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></span> FAQ & Aide
+    </div>
+    <div class="cat-item" onclick="openScreen('guides');closeSidebar()">
+      <span class="c-ico"><svg viewBox="0 0 24 24"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg></span> Guides &amp; Tutoriels <span style="margin-left:auto;font-size:10px;background:linear-gradient(135deg,#00e676,#00b0ff);color:#052;font-weight:800;border-radius:99px;padding:2px 8px">NEW</span>
     </div>
     <div class="cat-item" onclick="openScreen('privacy');closeSidebar()">
       <span class="c-ico"><svg viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></span> Confidentialité
@@ -2026,9 +2034,16 @@ body.ios .pnotif .pn-ic{border-radius:11px}
       <p>Recharges de jeux (PUBG Mobile, Free Fire, Call of Duty Mobile), comptes & récompenses — pour le marché malien et au-delà.</p>
     </div>
     <div class="settings-group">
+      <div class="settings-group-label">Informations</div>
       <div class="set-row"><div class="set-ico"><svg viewBox="0 0 24 24"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg></div><div class="set-txt"><div class="set-name">Version de l'application</div><div class="set-desc" id="about-version">ASG Store v3</div></div></div>
+      <div class="set-row"><div class="set-ico"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div><div class="set-txt"><div class="set-name">Horaires du support</div><div class="set-desc">8h – 18h · Livraison 24h/24</div></div></div>
       <div class="set-row" onclick="checkForUpdates()"><div class="set-ico"><svg viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg></div><div class="set-txt"><div class="set-name">Vérifier les mises à jour</div><div class="set-desc">Rechercher une nouvelle version</div></div><span class="set-arrow">›</span></div>
       <div class="set-row" onclick="openChat()"><div class="set-ico"><svg viewBox="0 0 24 24"><path d="M4 4h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z"/><polyline points="22 6 12 13 2 6"/></svg></div><div class="set-txt"><div class="set-name">Contact</div><div class="set-desc">Asgmali821@gmail.com</div></div><span class="set-arrow">›</span></div>
+    </div>
+    <div class="settings-group">
+      <div class="settings-group-label">Aide & documents</div>
+      <div class="set-row" onclick="openScreen('guides')"><div class="set-ico"><svg viewBox="0 0 24 24"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg></div><div class="set-txt"><div class="set-name">Guides & Tutoriels</div><div class="set-desc">Apprendre à utiliser l'app</div></div><span class="set-arrow">›</span></div>
+      <div class="set-row" onclick="openScreen('faq')"><div class="set-ico"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></div><div class="set-txt"><div class="set-name">FAQ & Aide</div></div><span class="set-arrow">›</span></div>
       <div class="set-row" onclick="openScreen('privacy')"><div class="set-ico"><svg viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></div><div class="set-txt"><div class="set-name">Politique de confidentialité</div></div><span class="set-arrow">›</span></div>
       <div class="set-row" onclick="openScreen('terms')"><div class="set-ico"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></div><div class="set-txt"><div class="set-name">Conditions d'utilisation</div></div><span class="set-arrow">›</span></div>
     </div>
@@ -2177,6 +2192,7 @@ body.ios .pnotif .pn-ic{border-radius:11px}
       <div class="settings-group-label">Informations</div>
       <div class="set-row" onclick="openScreen('about')"><div class="set-ico"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg></div><div class="set-txt"><div class="set-name">À propos</div><div class="set-desc">Version, contact, mentions</div></div><span class="set-arrow">›</span></div>
       <div class="set-row" onclick="openScreen('faq')"><div class="set-ico"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></div><div class="set-txt"><div class="set-name">FAQ & Aide</div></div><span class="set-arrow">›</span></div>
+      <div class="set-row" onclick="openScreen('guides')"><div class="set-ico"><svg viewBox="0 0 24 24"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg></div><div class="set-txt"><div class="set-name">Guides & Tutoriels</div><div class="set-desc">Pas-à-pas pour tout comprendre</div></div><span class="set-arrow">›</span></div>
       <div class="set-row" onclick="openScreen('privacy')"><div class="set-ico"><svg viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></div><div class="set-txt"><div class="set-name">Politique de confidentialité</div></div><span class="set-arrow">›</span></div>
       <div class="set-row" onclick="openScreen('terms')"><div class="set-ico"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></div><div class="set-txt"><div class="set-name">Conditions d'utilisation</div></div><span class="set-arrow">›</span></div>
     </div>
@@ -2191,6 +2207,15 @@ body.ios .pnotif .pn-ic{border-radius:11px}
     <div class="screen-title">❓ FAQ & Aide</div>
   </div>
   <div class="screen-body" id="faq-body"></div>
+</div>
+
+<!-- ════ SCREEN: GUIDES & TUTORIELS ════ -->
+<div class="screen" id="screen-guides">
+  <div class="screen-head">
+    <div class="back-btn" onclick="goBack()"><svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path d="M19 12H5M12 19l-7-7 7-7"/></svg></div>
+    <div class="screen-title">📚 Guides & Tutoriels</div>
+  </div>
+  <div class="screen-body" id="guides-body"></div>
 </div>
 
 <!-- ════ SCREEN: PRIVACY ════ -->
@@ -2390,6 +2415,7 @@ async function loadConfig(){
       else{document.getElementById('logo-text').textContent='ASG';document.title='ASG Store';}
       if(d.bannerTitle)document.getElementById('banner-title').textContent=d.bannerTitle;
       if(d.bannerSub)document.getElementById('banner-sub').textContent=d.bannerSub;
+      var _bn=document.getElementById('banner');if(_bn)_bn.style.display=d.bannerHidden?'none':'flex'; // 🔥 affichage géré par l'admin
       renderArenaPacks(); // packs de points (si l'écran est ouvert)
       checkPlatformVersion();
       checkMissionReset&&checkMissionReset();
@@ -2510,7 +2536,7 @@ function loadMissions(){
     _adminMissions=snap.docs.map(function(d){return Object.assign({id:d.id},d.data());})
       .sort(function(a,b){return (a.order||0)-(b.order||0);});
     renderMissions();
-  },function(){ _adminMissions=[]; });
+  },function(){ _adminMissions=[]; _missionsLoaded=false; }); // en cas d'erreur, on autorise une nouvelle tentative
 }
 // Vérifie si l'admin a programmé une réinitialisation des missions
 async function checkMissionReset(){
@@ -2779,6 +2805,8 @@ async function requestPinReset(){
 function openPoints(){
   if(!currentUser){openAuthModal();return;}
   refreshRewardsUI();
+  loadMissions();      // 🎯 (ré)abonne en temps réel aux missions admin
+  renderMissions();    // affiche immédiatement les missions déjà connues
   // Packs Arène (gérés par l'admin depuis Firestore, repli sur les packs par défaut)
   renderArenaPacks();
   // 🛒 Boutique Points (produits achetables uniquement avec des points)
@@ -3829,10 +3857,8 @@ function getInitials(str){
 
 function onUserBtnClick(){
   if(currentUser){
-    // Already logged in → open sidebar
-    const open=sidebar.classList.toggle('open');
-    menuBtn.classList.toggle('open',open);
-    drawerOverlay.classList.toggle('open',open);
+    // Connecté → ouvrir directement le détail du profil
+    openProfile();
   } else {
     openAuthModal();
   }
@@ -4451,6 +4477,7 @@ function prepScreen(name){
   if(name==='about')renderAbout();
   if(name==='notifications')renderNotifs();
   if(name==='faq')renderFAQ();
+  if(name==='guides')renderGuides();
   if(name==='privacy')renderPrivacy();
   if(name==='terms')renderTerms();
   if(name==='settings')syncSettingsUI();
@@ -6282,36 +6309,67 @@ function notifyPhone(title,body){
 function renderFAQ(){
   const el=document.getElementById('faq-body');if(el.dataset.done)return;el.dataset.done=1;
   const faqs=[
-    ['Comment recharger mon compte PUBG / COD / Free Fire ?','Choisissez le jeu dans le catalogue, sélectionnez la recharge (UC, CP, Diamants), ajoutez au panier puis payez via Orange Money, Wave ou carte. La livraison est instantanée après confirmation.'],
-    ['Quels moyens de paiement acceptez-vous ?','Orange Money, Wave, cartes bancaires et autres méthodes locales. Le mode disponible s\'affiche au moment du paiement.'],
-    ['Combien de temps prend la livraison ?','La majorité des recharges sont livrées en quelques minutes. En cas de retard, contactez le support via Messages.'],
-    ['Comment vendre mon compte de jeu ?','Allez dans « Vendre un compte », remplissez les infos, ajoutez photos/vidéo, utilisez l\'estimation IA du prix, puis publiez. Un administrateur valide avant mise en ligne.'],
-    ['L\'achat d\'un compte est-il sécurisé ?','Contactez toujours le vendeur via le bouton officiel et privilégiez les paiements sécurisés. La plateforme met en relation mais ne se substitue pas à votre vigilance.'],
-    ['Comment contacter le support ?','Via « Messages / Support » dans le menu : un administrateur vous répond directement dans l\'application.'],
+    ['🎮 Comment recharger mon compte PUBG / COD / Free Fire ?','Choisissez le jeu dans le catalogue, sélectionnez la recharge (UC, CP, Diamants), entrez votre ID joueur, ajoutez au panier puis payez. La livraison est automatique dès la confirmation du paiement.'],
+    ['💳 Quels moyens de paiement acceptez-vous ?','Portefeuille ASG, Orange Money (Mali via CinetPay), Mobile Money (MTN · Moov · Wave via FedaPay), carte bancaire (Visa/Mastercard), Google Pay, Apple Pay et PayPal. Seules les méthodes activées s\'affichent au paiement.'],
+    ['⏱️ Combien de temps prend la livraison ?','La plupart des recharges arrivent en quelques minutes. En cas de retard, ouvrez « Messages / Support » : un administrateur suit votre commande.'],
+    ['💼 Comment recharger mon portefeuille ASG ?','Depuis « Portefeuille ASG », choisissez un montant et payez. Le solde est crédité automatiquement et sert ensuite pour vos achats en 1 clic, sans re-saisir le paiement.'],
+    ['⭐ Comment gagner des points et monter de niveau ?','Complétez les défis & missions (achats, avis, parrainage, roue de la chance…), et gagnez +10 points à chaque achat. Les points font monter votre niveau de fidélité (Bronze → Diamant) qui donne des réductions.'],
+    ['🎡 La roue de la chance, ça marche comment ?','Une rotation gratuite par jour depuis « Mes Points » ou le menu. Les points gagnés sont ajoutés immédiatement à votre solde.'],
+    ['🛍️ Comment vendre mon compte de jeu ?','Ouvrez « Vendre un compte », remplissez les infos, ajoutez photos/vidéo, utilisez l\'estimation de prix, puis publiez. Un administrateur valide l\'annonce avant sa mise en ligne.'],
+    ['🔒 L\'achat d\'un compte est-il sécurisé ?','Passez toujours par le bouton d\'achat officiel et le paiement sécurisé de l\'app. Évitez les paiements en dehors de la plateforme. En cas de doute, contactez le support avant de payer.'],
+    ['📲 Comment installer l\'application ?','Menu → « Télécharger l\'app ». Elle s\'ajoute à votre écran d\'accueil et fonctionne comme une vraie appli, avec les notifications.'],
+    ['💬 Comment contacter le support ?','Via « Messages / Support » dans le menu : un administrateur vous répond directement dans l\'application. Support 8h–18h, livraison 24h/24.'],
   ];
-  el.innerHTML=faqs.map(([q,a])=>`<div class="faq-item" onclick="this.classList.toggle('open')">
+  el.innerHTML=`<div style="background:linear-gradient(135deg,var(--accent),var(--accent2));border-radius:16px;padding:16px;margin-bottom:14px;color:#fff">
+      <div style="font-weight:800;font-size:15px;margin-bottom:4px">Besoin d'aide ?</div>
+      <div style="font-size:12px;opacity:.92;margin-bottom:10px">Trouvez une réponse ci-dessous, ou parlez à un administrateur.</div>
+      <button onclick="openChat()" style="background:#fff;color:#0a2540;border:none;border-radius:10px;padding:9px 14px;font-weight:800;font-size:13px;cursor:pointer">💬 Contacter le support</button>
+    </div>`+
+    faqs.map(([q,a])=>`<div class="faq-item" onclick="this.classList.toggle('open')">
     <div class="faq-q">${q}<span class="chev"><svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg></span></div>
     <div class="faq-a"><div class="faq-a-inner">${a}</div></div></div>`).join('');
+}
+function renderGuides(){
+  const el=document.getElementById('guides-body');if(el.dataset.done)return;el.dataset.done=1;
+  const guides=[
+    ['💳','Recharger un jeu (UC / Diamants)',['Ouvrez le <b>Catalogue de jeux</b> et choisissez votre jeu.','Sélectionnez le pack (ex : 325 UC) et entrez votre <b>ID joueur</b>.','Ajoutez au panier, choisissez le paiement, puis validez.','La recharge arrive automatiquement — vérifiez « Historique Paiements ».']],
+    ['💼','Utiliser le Portefeuille ASG',['Allez dans <b>Portefeuille ASG</b>.','Choisissez un montant et payez une seule fois.','Votre solde se recharge instantanément.','Payez ensuite vos achats en 1 clic avec le solde.']],
+    ['⭐','Gagner des points & récompenses',['Ouvrez <b>Mes Points</b>.','Complétez les <b>Défis & missions</b> (achats, avis, parrainage…).','Tournez la <b>roue de la chance</b> chaque jour.','Vos points font monter votre niveau de fidélité et débloquent des réductions.']],
+    ['🛍️','Vendre un compte en sécurité',['Menu → <b>Vendre un compte</b>.','Renseignez le jeu, le titre, le niveau et le prix.','Ajoutez des <b>photos/vidéo</b> claires du compte.','Publiez : un administrateur valide avant la mise en ligne.']],
+    ['🛒','Acheter un compte',['Ouvrez la <b>Marketplace comptes</b>.','Touchez une annonce pour voir tous les détails.','Utilisez le bouton d\'<b>achat sécurisé</b> de l\'app.','Ne payez jamais en dehors de la plateforme.']],
+    ['🔐','Protéger son compte',['Activez le <b>code PIN du portefeuille</b> dans Paramètres → Sécurité.','Activez les <b>notifications</b> pour suivre vos commandes.','Ne partagez jamais votre mot de passe.','En cas de souci, contactez le support immédiatement.']],
+    ['📲','Installer l\'application',['Menu → <b>Télécharger l\'app</b>.','Confirmez « Ajouter à l\'écran d\'accueil ».','Ouvrez ASG Store comme une vraie appli.','Autorisez les notifications pour ne rien rater.']],
+  ];
+  el.innerHTML=`<div class="install-hero" style="margin-bottom:14px"><div class="big">📚</div><h3>Guides & Tutoriels</h3><p>Des pas-à-pas simples pour bien utiliser ASG Store.</p></div>`+
+    guides.map(([ic,t,steps])=>`<div class="faq-item" onclick="this.classList.toggle('open')">
+      <div class="faq-q"><span style="margin-right:8px">${ic}</span>${t}<span class="chev"><svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg></span></div>
+      <div class="faq-a"><div class="faq-a-inner"><ol style="margin:0;padding-left:18px;line-height:1.9">${steps.map(s=>'<li>'+s+'</li>').join('')}</ol></div></div></div>`).join('')+
+    `<div style="text-align:center;margin-top:16px"><button onclick="openChat()" style="background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;border:none;border-radius:12px;padding:12px 18px;font-weight:800;font-size:13px;cursor:pointer">💬 Une question ? Contactez-nous</button></div>`;
 }
 function renderPrivacy(){
   const el=document.getElementById('privacy-body');if(el.dataset.done)return;el.dataset.done=1;
   el.innerHTML=`<p class="upd">Dernière mise à jour : 2026</p>
-  <h4>1. Données collectées</h4><p>Nous collectons votre nom, adresse e-mail et historique de commandes pour fournir nos services de recharge et de marketplace.</p>
-  <h4>2. Utilisation des données</h4><p>Vos données servent à traiter les commandes, gérer votre compte, vous envoyer des notifications et améliorer la plateforme. Elles ne sont jamais vendues à des tiers.</p>
-  <h4>3. Paiements</h4><p>Les paiements (Orange Money, Wave, carte) sont traités par des prestataires sécurisés. Nous ne stockons pas vos identifiants de paiement.</p>
-  <h4>4. Médias publiés</h4><p>Les photos et vidéos que vous publiez pour vendre un compte sont stockées de façon sécurisée et visibles publiquement une fois validées.</p>
-  <h4>5. Vos droits</h4><p>Vous pouvez demander l'accès, la modification ou la suppression de vos données en contactant le support.</p>
-  <h4>6. Contact</h4><p>Pour toute question : Asgmali821@gmail.com</p>`;
+  <p>Chez ASG Store, votre confiance compte. Cette politique explique simplement quelles données nous utilisons et pourquoi.</p>
+  <h4>1. Données que nous collectons</h4><p>Nom, adresse e-mail, numéro (facultatif), historique de commandes et de portefeuille, et les médias que vous publiez pour vendre un compte.</p>
+  <h4>2. Utilisation des données</h4><p>Traiter vos commandes et recharges, gérer votre portefeuille et vos points, vous envoyer des notifications utiles, et améliorer l'application. Vos données ne sont jamais vendues.</p>
+  <h4>3. Paiements</h4><p>Les paiements (Orange Money, Mobile Money, carte, PayPal…) sont traités par des prestataires sécurisés. Nous ne stockons pas vos numéros de carte ni vos identifiants bancaires.</p>
+  <h4>4. Médias publiés</h4><p>Les photos et vidéos d'une annonce sont stockées de façon sécurisée et deviennent visibles publiquement une fois l'annonce validée.</p>
+  <h4>5. Sécurité</h4><p>Vos accès sont protégés par Firebase Authentication. Le code PIN optionnel ajoute une protection à votre portefeuille.</p>
+  <h4>6. Vos droits</h4><p>Vous pouvez demander à consulter, corriger ou supprimer vos données à tout moment en contactant le support.</p>
+  <h4>7. Contact</h4><p>Pour toute question : <b>Asgmali821@gmail.com</b></p>`;
 }
 function renderTerms(){
   const el=document.getElementById('terms-body');if(el.dataset.done)return;el.dataset.done=1;
   el.innerHTML=`<p class="upd">Dernière mise à jour : 2026</p>
-  <h4>1. Objet</h4><p>La plateforme propose la vente de recharges de jeux (PUBG Mobile, Call of Duty Mobile, Free Fire) et la mise en relation pour la vente de comptes.</p>
-  <h4>2. Compte utilisateur</h4><p>Vous êtes responsable de l'exactitude de vos informations et de la confidentialité de votre mot de passe.</p>
-  <h4>3. Achats & livraison</h4><p>Les recharges sont livrées après confirmation du paiement. Aucun remboursement n'est possible après livraison d'un produit numérique.</p>
-  <h4>4. Vente de comptes</h4><ul><li>Les annonces sont vérifiées avant publication.</li><li>Toute annonce frauduleuse est supprimée.</li><li>La plateforme n'est pas responsable des transactions privées entre acheteurs et vendeurs.</li></ul>
-  <h4>5. Comportement interdit</h4><p>Fraude, contenu offensant, usurpation ou piratage entraînent la suspension du compte.</p>
-  <h4>6. Modifications</h4><p>Ces conditions peuvent évoluer. L'utilisation continue vaut acceptation.</p>`;
+  <p>En utilisant ASG Store, vous acceptez les conditions ci-dessous. Lisez-les attentivement.</p>
+  <h4>1. Objet</h4><p>ASG Store vend des recharges de jeux (PUBG Mobile, Call of Duty Mobile, Free Fire, etc.), des abonnements VPN, et met en relation acheteurs et vendeurs de comptes.</p>
+  <h4>2. Compte utilisateur</h4><p>Vous êtes responsable de l'exactitude de vos informations, de votre ID joueur et de la confidentialité de votre mot de passe et de votre code PIN.</p>
+  <h4>3. Achats & livraison</h4><p>Les recharges sont livrées après confirmation du paiement. S'agissant de produits numériques, aucun remboursement n'est possible une fois la livraison effectuée, sauf erreur de notre part.</p>
+  <h4>4. Portefeuille & points</h4><p>Le solde du portefeuille et les points fidélité n'ont pas de valeur monétaire hors de l'application et ne sont pas convertibles en espèces.</p>
+  <h4>5. Vente de comptes</h4><ul><li>Chaque annonce est vérifiée avant publication.</li><li>Toute annonce frauduleuse ou trompeuse est supprimée.</li><li>Effectuez vos paiements uniquement via la plateforme.</li></ul>
+  <h4>6. Comportement interdit</h4><p>Fraude, contenu offensant, usurpation d'identité, triche ou piratage entraînent la suspension immédiate du compte.</p>
+  <h4>7. Modifications</h4><p>Ces conditions peuvent évoluer. L'utilisation continue de l'application vaut acceptation des nouvelles conditions.</p>
+  <h4>8. Contact</h4><p>Support : <b>Asgmali821@gmail.com</b></p>`;
 }
 
 /* ─── INSTALLATION / TÉLÉCHARGER L'APP (PWA) ─── */

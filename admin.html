@@ -919,6 +919,17 @@ body{font-family:'Exo 2',sans-serif;background:var(--bg);color:var(--text);
       <button class="save-btn" onclick="saveConfig()">💾 Enregistrer</button>
     </div>
   </div>
+  <div class="panel">
+    <div class="panel-top"><span class="panel-title">👁️ Affichage de la bannière</span></div>
+    <div style="padding:16px">
+      <p style="font-size:12px;color:var(--text2);margin-bottom:10px">Masquez la bannière d'accueil chez les clients, ou réaffichez-la quand vous voulez.</p>
+      <label style="display:flex;align-items:center;gap:10px;font-size:13px;cursor:pointer">
+        <input type="checkbox" id="cfg-banner-show" checked onchange="setBannerVisible(this.checked)"/>
+        Afficher la bannière chez les clients
+      </label>
+      <div id="banner-vis-state" style="font-size:11px;color:var(--text3);margin-top:8px"></div>
+    </div>
+  </div>
 </div>
 
 <!-- PAGE: PHOTOS -->
@@ -2477,6 +2488,8 @@ async function loadConfig(){
     if(d.logoUrl){document.getElementById('cfg-logo').value=d.logoUrl;previewLogo();}
     if(d.bannerTitle){document.getElementById('cfg-bt').value=d.bannerTitle;document.getElementById('bp-t').textContent=d.bannerTitle;}
     if(d.bannerSub){document.getElementById('cfg-bs').value=d.bannerSub;document.getElementById('bp-s').textContent=d.bannerSub;}
+    var _bv=document.getElementById('cfg-banner-show');
+    if(_bv){_bv.checked=!d.bannerHidden;var _st=document.getElementById('banner-vis-state');if(_st)_st.textContent=d.bannerHidden?'❌ Bannière actuellement masquée':'✅ Bannière visible';}
     if(d.deliveryFeeType)document.getElementById('cfg-fee-type').value=d.deliveryFeeType;
     if(d.deliveryFeeValue!=null)document.getElementById('cfg-fee-value').value=d.deliveryFeeValue;
     toggleFeeHint();
@@ -3592,6 +3605,13 @@ async function loadLoyalty(){
   }catch(e){}
 }
 async function toggleLoyaltyOn(on){try{await db.collection('config').doc('shop').set({loyaltyEnabled:!!on},{merge:true});toast(on?'✓ Fidélité activée':'✓ Fidélité désactivée');}catch(e){toast('❌ '+e.message,true);}}
+async function setBannerVisible(on){
+  try{
+    await db.collection('config').doc('shop').set({bannerHidden:!on},{merge:true});
+    var st=document.getElementById('banner-vis-state');if(st)st.textContent=on?'✅ Bannière visible':'❌ Bannière actuellement masquée';
+    toast(on?'✓ Bannière affichée chez les clients':'✓ Bannière masquée');
+  }catch(e){toast('❌ '+e.message,true);}
+}
 async function saveLoyalty(){
   var g=function(id){return +document.getElementById(id).value||0;};
   try{
@@ -3645,26 +3665,39 @@ function iaMission(){
     {icon:"🛒",type:"firstBuy",title:"Faire son premier achat",goal:1,reward:100},
     {icon:"🔥",type:"buyWeek",title:"Acheter 3 fois cette semaine",goal:3,reward:200},
     {icon:"🔥",type:"buyWeek",title:"Acheter 5 fois cette semaine",goal:5,reward:400},
+    {icon:"💰",type:"spend",title:"Dépenser 20 € au total",goal:20,reward:200},
     {icon:"💰",type:"spend",title:"Dépenser 50 € au total",goal:50,reward:500},
     {icon:"💎",type:"spend",title:"Dépenser 100 € au total",goal:100,reward:1200},
+    {icon:"👑",type:"spend",title:"Dépenser 250 € au total",goal:250,reward:3000},
+    {icon:"🎮",type:"orders",title:"Passer 5 commandes au total",goal:5,reward:350},
     {icon:"🎮",type:"orders",title:"Passer 10 commandes au total",goal:10,reward:800},
     {icon:"🏆",type:"orders",title:"Passer 25 commandes au total",goal:25,reward:2500},
     {icon:"⭐",type:"review",title:"Laisser un avis sur la boutique",goal:1,reward:50},
     {icon:"🎁",type:"invite",title:"Inviter 1 ami",goal:1,reward:100},
+    {icon:"🎁",type:"invite",title:"Inviter 3 amis",goal:3,reward:350},
     {icon:"🎁",type:"invite",title:"Inviter 5 amis",goal:5,reward:600},
+    {icon:"🎁",type:"invite",title:"Inviter 10 amis",goal:10,reward:1500},
     {icon:"🎡",type:"wheel",title:"Tourner la roue aujourd'hui",goal:1,reward:30},
     {icon:"👤",type:"profile",title:"Compléter son profil (nom + numéro)",goal:1,reward:50},
     {icon:"🔔",type:"notif",title:"Activer les notifications",goal:1,reward:30},
     {icon:"📱",type:"install",title:"Installer l'application",goal:1,reward:50},
     {icon:"↗️",type:"share",title:"Partager la boutique sur WhatsApp",goal:1,reward:50},
     {icon:"🎮",type:"product",title:"Acheter le pack 325 UC",goal:1,reward:150,productName:"325 uc"},
-    {icon:"💠",type:"product",title:"Acheter une recharge de Diamants",goal:1,reward:150,productName:"diamants"}
+    {icon:"🎮",type:"product",title:"Acheter le pack 720 UC",goal:1,reward:250,productName:"720 uc"},
+    {icon:"💠",type:"product",title:"Acheter une recharge de Diamants",goal:1,reward:150,productName:"diamants"},
+    {icon:"🛡️",type:"product",title:"Acheter un abonnement VPN",goal:1,reward:200,productName:"vpn"}
   ];
   var used=(window._msExisting||[]).map(function(x){return (x||'').toLowerCase();});
-  // On privilégie une mission dont le titre n'existe pas encore
+  // On propose en priorité une mission encore jamais créée…
   var fresh=bank.filter(function(m){return used.indexOf(m.title.toLowerCase())<0;});
-  var pool=fresh.length?fresh:bank;
-  var m=pool[Math.floor(Math.random()*pool.length)];
+  var m;
+  if(fresh.length){
+    // …et on tourne dans l'ordre pour éviter de retomber sur la même à chaque clic
+    window._iaIdx=((window._iaIdx==null?-1:window._iaIdx)+1)%fresh.length;
+    m=fresh[window._iaIdx];
+  }else{
+    m=bank[Math.floor(Math.random()*bank.length)];
+  }
   document.getElementById('ms-title').value=m.title;
   document.getElementById('ms-icon').value=m.icon;
   var sel=document.getElementById('ms-type');if(sel)sel.value=m.type;
@@ -3672,7 +3705,8 @@ function iaMission(){
   document.getElementById('ms-prod').value=m.productName||'';
   document.getElementById('ms-goal').value=m.goal;
   document.getElementById('ms-reward').value=m.reward;
-  toast('🤖 Mission proposée — ajustez les points/objectif si besoin, puis « Créer la mission ».');
+  var left=fresh.length?(' · '+fresh.length+' idée'+(fresh.length>1?'s':'')+' restante'+(fresh.length>1?'s':'')):'';
+  toast('🤖 Mission proposée'+left+' — ajustez si besoin puis « Créer la mission ».');
 }
 async function addMission(){
   var title=(document.getElementById('ms-title').value||'').trim();
