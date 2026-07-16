@@ -1,0 +1,9 @@
+{
+  "name": "as-store-gaming",
+  "version": "1.0.0",
+  "private": true,
+  "description": "ASG Store — boutique gaming (PWA statique + fonctions serverless Vercel)",
+  "dependencies": {
+    "firebase-admin": "^12.7.0"
+  }
+}

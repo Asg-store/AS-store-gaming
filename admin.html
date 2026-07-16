@@ -1939,6 +1939,9 @@ async function applyWalletAdjust(sign){
     if(c)c.walletBalance=cur+delta;
     document.getElementById('wadj-balance').textContent=(cur+delta).toFixed(2)+' €';
     document.getElementById('wadj-amount').value='';document.getElementById('wadj-note').value='';
+    notifyUser(id,{icon:'💰',title:sign>0?'Portefeuille crédité':'Portefeuille ajusté',
+      body:(sign>0?'Vous avez reçu '+amt.toFixed(2)+' € sur votre portefeuille ASG.':amt.toFixed(2)+' € ont été retirés de votre portefeuille.')+(note?' ('+note+')':''),
+      type:'wallet',link:'wallet'});
     toast(sign>0?'✓ Portefeuille crédité':'✓ Portefeuille débité');
     loadWalletHistory(id);renderClients();
   }catch(e){msg.textContent='Erreur : '+(e.message||'opération impossible');}
@@ -1950,6 +1953,7 @@ async function toggleSeller(id,make){
     const isSeller=(make===true||make==='true');
     await db.collection('users').doc(id).set({role:isSeller?'vendeur':'client'},{merge:true});
     const c=clients.find(x=>x.id===id);if(c)c.role=isSeller?'vendeur':'client';
+    if(isSeller)notifyUser(id,{icon:'🛍️',title:'Vous êtes maintenant vendeur !',body:'Votre compte peut désormais publier des annonces sur la Marketplace ASG Store.',type:'info',link:'marketplace'});
     toast(isSeller?'✓ Ce client est maintenant vendeur':'✓ Statut vendeur retiré');
     closeClientDetail();renderClients();
   }catch(e){toast('❌ '+e.message,true);}
@@ -1998,6 +2002,9 @@ async function applyPointsAdjust(sign){
     if(c)c.points=cur+delta;
     document.getElementById('padj-balance').textContent=(cur+delta)+' pts';
     document.getElementById('padj-amount').value='';document.getElementById('padj-note').value='';
+    notifyUser(id,{icon:'⭐',title:sign>0?'Points reçus':'Points ajustés',
+      body:(sign>0?'Vous avez reçu '+amt+' points ⭐':amt+' points ont été retirés')+(note?' ('+note+')':''),
+      type:'points',link:'points'});
     toast(sign>0?'✓ Points ajoutés':'✓ Points retirés');
     renderClients();
   }catch(e){msg.textContent='Erreur : '+(e.message||'opération impossible');}
@@ -2637,7 +2644,7 @@ async function testPush(){
   const st=document.getElementById('push-status');
   st.style.color='var(--text2)';st.textContent='⏳ Envoi d\'une notification de test…';
   try{
-    const r=await fetch('/.netlify/functions/send-push',{
+    const r=await fetch('/api/send-push',{
       method:'POST',headers:{'Content-Type':'application/json'},
       body:JSON.stringify({title:'🔔 ASG Store',body:'Notification de test — tout fonctionne !',url:'/'})
     });
@@ -2660,7 +2667,7 @@ async function postAnnounce(){
     // 🔔 Notification système push à tous les appareils (arrière-plan / app fermée)
     try{
       const pushBody=promo?(body+' — Code promo : '+promo):body;
-      const r=await fetch('/.netlify/functions/send-push',{
+      const r=await fetch('/api/send-push',{
         method:'POST',headers:{'Content-Type':'application/json'},
         body:JSON.stringify({title:icon+' '+title,body:pushBody,url:'/'})
       });
@@ -2971,7 +2978,7 @@ async function sendReply(){
 // Envoie une notification push : userId fourni = ciblé ; sinon = diffusion à tous
 function pushNotif(title,body,userId){
   try{
-    fetch('/.netlify/functions/send-push',{
+    fetch('/api/send-push',{
       method:'POST',headers:{'Content-Type':'application/json'},
       body:JSON.stringify({title:title,body:body,url:'/',userId:userId||null})
     }).catch(function(){});
@@ -4019,7 +4026,7 @@ async function bumpPlatformVersion(){
     await db.collection('config').doc('shop').set({platformVersion:v},{merge:true});
     toast('✓ Mise à jour signalée (v'+v+')');loadVersionInfo();
     // 🔔 Notification système « mise à jour disponible » à tous les clients
-    fetch('/.netlify/functions/send-push',{method:'POST',headers:{'Content-Type':'application/json'},
+    fetch('/api/send-push',{method:'POST',headers:{'Content-Type':'application/json'},
       body:JSON.stringify({title:'🚀 Mise à jour disponible',body:'Une nouvelle version d\'ASG Store est disponible. Ouvrez l\'app pour mettre à jour.'})}).catch(()=>{});
   }catch(e){toast('❌ '+e.message,true);}
 }

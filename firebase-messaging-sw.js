@@ -1,7 +1,7 @@
 /* ════════════════════════════════════════════════════════════════
    ASG Store — Service Worker des notifications push (FCM)
    Ce fichier DOIT être à la racine du site (même niveau que index.html),
-   accessible à l'adresse : https://VOTRE-SITE.netlify.app/firebase-messaging-sw.js
+   accessible à l'adresse : https://as-store-gaming.vercel.app/firebase-messaging-sw.js
    C'est lui qui affiche la notification dans la barre du téléphone
    QUAND L'APP EST FERMÉE ou en arrière-plan (comme WhatsApp / Telegram / TikTok).
    ════════════════════════════════════════════════════════════════ */

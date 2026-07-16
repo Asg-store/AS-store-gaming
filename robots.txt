@@ -2,4 +2,4 @@ User-agent: *
 Allow: /
 Disallow: /admin.html
 
-Sitemap: https://asg-store-mali.netlify.app/sitemap.xml
+Sitemap: https://as-store-gaming.vercel.app/sitemap.xml
