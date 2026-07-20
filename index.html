@@ -3218,17 +3218,27 @@ function refreshProfileUI(){
   if($('pf-phone'))$('pf-phone').textContent=phone?('📞 '+phone):'';
   if($('pf-name-desc'))$('pf-name-desc').textContent=currentUser.displayName||'—';
   if($('pf-email-desc'))$('pf-email-desc').textContent=currentUser.email||'—';
-  if($('pf-phone-desc'))$('pf-phone-desc').textContent=phone||'Aucun numéro';
+  // ⚠️ applyLang() mémorise le texte d'origine dans data-fr et le réimpose ensuite.
+  // Pour les valeurs DYNAMIQUES on retire data-fr, sinon le numéro serait écrasé
+  // par « Aucun numéro » à chaque passage du moteur de traduction.
+  var setDyn=function(id,txt,isDynamic){
+    var el=$(id);if(!el)return;
+    if(isDynamic)el.removeAttribute('data-fr');
+    el.textContent=txt;
+  };
+  setDyn('pf-phone-desc',phone||'Aucun numéro',!!phone);
   try{
     if($('pf-wallet'))$('pf-wallet').textContent=fmtMoney((userData&&userData.walletBalance)||0);
     if($('pf-points'))$('pf-points').textContent=((userData&&userData.points)||0)+' pts';
-    if($('pf-pin-desc'))$('pf-pin-desc').textContent=walletPinActive()?'✅ Code PIN activé':'Protégez votre portefeuille avec un code';
+    var pinOn=walletPinActive();
+    setDyn('pf-pin-desc',pinOn?'✅ Code PIN activé':'Protégez votre portefeuille avec un code',pinOn);
   }catch(e){}
 }
 function openProfile(){
   if(!currentUser){openAuthModal();showToast('🔐 Connectez-vous');return;}
   refreshProfileUI();
   openScreen('profile');
+  setTimeout(refreshProfileUI,200);   // après le passage de reLang()
 }
 /* ─── Historique Paiements depuis le profil ───
    La feuille des paiements (z-index 600) passe SOUS l'écran profil (z-index 700).
