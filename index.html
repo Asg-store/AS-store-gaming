@@ -2102,12 +2102,12 @@ body.ios .pnotif .pn-ic{border-radius:11px}
     <!-- ═══ MON COMPTE (déplacé depuis le menu latéral) ═══ -->
     <div class="settings-group-label" style="margin:20px 0 6px">Mon compte</div>
     <div class="pf-stats">
-      <div class="pf-stat" onclick="openScreen('wallet')">
+      <div class="pf-stat" onclick="screenFromProfile('wallet')">
         <div class="pf-stat-ico">💳</div>
         <div class="pf-stat-v" id="pf-wallet">—</div>
         <div class="pf-stat-l">Portefeuille</div>
       </div>
-      <div class="pf-stat" onclick="openScreen('points')">
+      <div class="pf-stat" onclick="screenFromProfile('points')">
         <div class="pf-stat-ico">⭐</div>
         <div class="pf-stat-v" id="pf-points">—</div>
         <div class="pf-stat-l">Mes points</div>
@@ -3199,6 +3199,13 @@ function payHistoryFromProfile(){
   if(!currentUser){openAuthModal();showToast('🔐 Connectez-vous');return;}
   closeScreen('profile');
   setTimeout(function(){openPayHistory();},180);
+}
+/* ─── Ouvrir un autre écran depuis le profil ───
+   screen-wallet et screen-points sont AVANT screen-profile dans le HTML :
+   à z-index égal (700) le profil resterait au-dessus. On le ferme d'abord. */
+function screenFromProfile(name){
+  closeScreen('profile');
+  setTimeout(function(){openScreen(name);},180);
 }
 /* ─── Changer mon mot de passe (depuis le profil) : réutilise le flux code e-mail ─── */
 function changeMyPassword(){
