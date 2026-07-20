@@ -2113,7 +2113,7 @@ body.ios .pnotif .pn-ic{border-radius:11px}
         <div class="pf-stat-l">Mes points</div>
       </div>
     </div>
-    <div class="set-row" onclick="openPayHistory()">
+    <div class="set-row" onclick="payHistoryFromProfile()">
       <div class="set-ico"><svg viewBox="0 0 24 24"><path d="M4 2h12l4 4v16H4z"/><line x1="8" y1="10" x2="16" y2="10"/><line x1="8" y1="14" x2="16" y2="14"/><line x1="8" y1="18" x2="13" y2="18"/></svg></div>
       <div class="set-txt"><div class="set-name">Historique Paiements</div><div class="set-desc">Toutes vos commandes et recharges</div></div><span style="color:var(--text3)">›</span>
     </div>
@@ -3191,6 +3191,14 @@ function openProfile(){
     if(pd)pd.textContent=walletPinActive()?'✅ Code PIN activé':'Protégez votre portefeuille avec un code';
   }catch(e){}
   openScreen('profile');
+}
+/* ─── Historique Paiements depuis le profil ───
+   La feuille des paiements (z-index 600) passe SOUS l'écran profil (z-index 700).
+   On ferme donc l'écran avant d'ouvrir la feuille. */
+function payHistoryFromProfile(){
+  if(!currentUser){openAuthModal();showToast('🔐 Connectez-vous');return;}
+  closeScreen('profile');
+  setTimeout(function(){openPayHistory();},180);
 }
 /* ─── Changer mon mot de passe (depuis le profil) : réutilise le flux code e-mail ─── */
 function changeMyPassword(){
