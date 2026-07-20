@@ -544,10 +544,13 @@ footer{
 #recharge-overlay .auth-modal{background:var(--bg2);border:1px solid var(--border);border-radius:24px 24px 0 0;width:100%;max-width:480px;padding-bottom:calc(24px + env(safe-area-inset-bottom));transform:translateY(100%);transition:transform .35s cubic-bezier(.4,0,.2,1);box-shadow:0 -8px 40px rgba(0,0,0,.5);max-height:92vh;overflow-y:auto}
 #recharge-overlay.open .auth-modal{transform:translateY(0)}
 /* Modals code PIN (même style que recharge) */
-#pinset-overlay,#pinlock-overlay{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:952;opacity:0;pointer-events:none;transition:opacity .3s;display:flex;align-items:flex-end;justify-content:center}
-#pinset-overlay.open,#pinlock-overlay.open{opacity:1;pointer-events:all}
-#pinset-overlay .auth-modal,#pinlock-overlay .auth-modal{background:var(--bg2);border:1px solid var(--border);border-radius:24px 24px 0 0;width:100%;max-width:480px;padding-bottom:calc(24px + env(safe-area-inset-bottom));transform:translateY(100%);transition:transform .35s cubic-bezier(.4,0,.2,1);box-shadow:0 -8px 40px rgba(0,0,0,.5)}
-#pinset-overlay.open .auth-modal,#pinlock-overlay.open .auth-modal{transform:translateY(0)}
+#pinset-overlay,#pinlock-overlay,#phone-overlay{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:952;opacity:0;pointer-events:none;transition:opacity .3s;display:flex;align-items:flex-end;justify-content:center}
+#pinset-overlay.open,#pinlock-overlay.open,#phone-overlay.open{opacity:1;pointer-events:all}
+#pinset-overlay .auth-modal,#pinlock-overlay .auth-modal,#phone-overlay .auth-modal{background:var(--bg2);border:1px solid var(--border);border-radius:24px 24px 0 0;width:100%;max-width:480px;padding-bottom:calc(24px + env(safe-area-inset-bottom));transform:translateY(100%);transition:transform .35s cubic-bezier(.4,0,.2,1);box-shadow:0 -8px 40px rgba(0,0,0,.5)}
+#pinset-overlay.open .auth-modal,#pinlock-overlay.open .auth-modal,#phone-overlay.open .auth-modal{transform:translateY(0)}
+#phone-overlay .ph-row{display:flex;gap:8px}
+#phone-overlay #ph-cc{flex:0 0 40%;padding:13px 8px;border-radius:14px;border:1px solid var(--border);background:var(--bg3);color:var(--text);font-size:14px;font-weight:600}
+#phone-overlay #ph-num{flex:1;padding:13px;border-radius:14px;border:1px solid var(--border);background:var(--bg3);color:var(--text);font-size:15px;letter-spacing:.5px}
 .rc-quick{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
 .rc-quick button{flex:1;min-width:60px;padding:9px 0;border-radius:10px;border:1px solid var(--border);background:var(--bg3);color:var(--text);font-weight:700;font-size:13px;cursor:pointer}
 .rc-quick button:active{transform:scale(.97)}
@@ -1614,6 +1617,30 @@ body.ios .pnotif .pn-ic{border-radius:11px}
 </div>
 
 <!-- ════ MODAL : CRÉER / MODIFIER LE CODE PIN ════ -->
+<!-- ════ FEUILLE : MODIFIER MON NUMÉRO (indicatif + numéro) ════ -->
+<div id="phone-overlay" onclick="if(event.target===this)closePhoneSheet()">
+  <div class="auth-modal">
+    <div class="auth-handle"></div>
+    <div class="auth-head">
+      <h2>📞 Mon numéro</h2>
+      <button class="auth-close-btn" onclick="closePhoneSheet()"><svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
+    </div>
+    <div class="auth-form">
+      <div class="auth-error" id="ph-error"></div>
+      <p style="font-size:13px;color:var(--text2);margin-bottom:14px;line-height:1.5">Choisissez votre indicatif pays puis saisissez votre numéro.</p>
+      <div class="auth-field">
+        <label>Indicatif &amp; numéro</label>
+        <div class="ph-row">
+          <select id="ph-cc"></select>
+          <input id="ph-num" type="tel" inputmode="numeric" placeholder="82 13 14 18" autocomplete="tel-national"/>
+        </div>
+      </div>
+      <button class="btn-auth-submit" id="ph-save-btn" onclick="savePhoneNumber()">✅ Enregistrer mon numéro</button>
+      <div style="text-align:center;margin-top:10px"><a onclick="removePhoneNumber()" style="color:#ff4d6d;font-size:12.5px;font-weight:600;cursor:pointer">Supprimer mon numéro</a></div>
+    </div>
+  </div>
+</div>
+
 <div id="pinset-overlay" onclick="if(event.target===this)closePinSet()">
   <div class="auth-modal">
     <div class="auth-handle"></div>
@@ -2074,6 +2101,7 @@ body.ios .pnotif .pn-ic{border-radius:11px}
       <div id="pf-name" style="font-weight:800;font-size:18px"></div>
       <div id="pf-level" style="font-size:12px;margin-top:4px"></div>
       <div id="pf-email" style="font-size:12px;color:var(--text3);margin-top:3px"></div>
+      <div id="pf-phone" style="font-size:12px;color:var(--text3);margin-top:2px"></div>
     </div>
     <div class="set-row" onclick="editProfileName()">
       <div class="set-ico"><svg viewBox="0 0 24 24"><path d="M17 3a2.85 2.85 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5z"/></svg></div>
@@ -3172,24 +3200,34 @@ function selectRcMethod(m){
   rechargeErr('');
 }
 /* ─── MON PROFIL ─── */
+// Rafraîchit tous les champs de l'écran Profil (appelé à l'ouverture ET à chaque
+// mise à jour Firestore, pour que le numéro / solde / points restent à jour).
+function refreshProfileUI(){
+  if(!currentUser)return;
+  var $=function(id){return document.getElementById(id);};
+  var av=$('pf-avatar');
+  if(av){
+    if(currentUser.photoURL)av.innerHTML='<img src="'+currentUser.photoURL+'" style="width:100%;height:100%;object-fit:cover">';
+    else av.textContent=(currentUser.displayName||currentUser.email||'?').slice(0,2).toUpperCase();
+  }
+  var phone=(userData&&userData.phone)?String(userData.phone).trim():'';
+  if($('pf-name'))$('pf-name').textContent=currentUser.displayName||'Utilisateur';
+  var _pl=$('pf-level');
+  if(_pl){if(loyaltyOn()){var lv=currentLevel();_pl.style.display='block';_pl.innerHTML='<span style="background:'+lv.color+'22;color:'+lv.color+';border:1px solid '+lv.color+'55;border-radius:99px;padding:3px 10px;font-weight:700">'+lv.icon+' Niveau '+lv.name+(lv.discount>0?' · -'+lv.discount+'%':'')+'</span>';}else{_pl.style.display='none';}}
+  if($('pf-email'))$('pf-email').textContent=currentUser.email||'';
+  if($('pf-phone'))$('pf-phone').textContent=phone?('📞 '+phone):'';
+  if($('pf-name-desc'))$('pf-name-desc').textContent=currentUser.displayName||'—';
+  if($('pf-email-desc'))$('pf-email-desc').textContent=currentUser.email||'—';
+  if($('pf-phone-desc'))$('pf-phone-desc').textContent=phone||'Aucun numéro';
+  try{
+    if($('pf-wallet'))$('pf-wallet').textContent=fmtMoney((userData&&userData.walletBalance)||0);
+    if($('pf-points'))$('pf-points').textContent=((userData&&userData.points)||0)+' pts';
+    if($('pf-pin-desc'))$('pf-pin-desc').textContent=walletPinActive()?'✅ Code PIN activé':'Protégez votre portefeuille avec un code';
+  }catch(e){}
+}
 function openProfile(){
   if(!currentUser){openAuthModal();showToast('🔐 Connectez-vous');return;}
-  var av=document.getElementById('pf-avatar');
-  if(currentUser.photoURL)av.innerHTML='<img src="'+currentUser.photoURL+'" style="width:100%;height:100%;object-fit:cover">';
-  else av.textContent=(currentUser.displayName||currentUser.email||'?').slice(0,2).toUpperCase();
-  document.getElementById('pf-name').textContent=currentUser.displayName||'Utilisateur';
-  var _pl=document.getElementById('pf-level');if(loyaltyOn()){var lv=currentLevel();_pl.style.display='block';_pl.innerHTML='<span style="background:'+lv.color+'22;color:'+lv.color+';border:1px solid '+lv.color+'55;border-radius:99px;padding:3px 10px;font-weight:700">'+lv.icon+' Niveau '+lv.name+(lv.discount>0?' · -'+lv.discount+'%':'')+'</span>';}else{_pl.style.display='none';}
-  document.getElementById('pf-email').textContent=currentUser.email||'';
-  document.getElementById('pf-name-desc').textContent=currentUser.displayName||'—';
-  document.getElementById('pf-email-desc').textContent=currentUser.email||'—';
-  document.getElementById('pf-phone-desc').textContent=(userData&&userData.phone)||'Aucun numéro';
-  // ── Bloc « Mon compte » déplacé ici depuis le menu latéral ──
-  try{
-    var w=document.getElementById('pf-wallet');if(w)w.textContent=fmtMoney((userData&&userData.walletBalance)||0);
-    var p=document.getElementById('pf-points');if(p)p.textContent=((userData&&userData.points)||0)+' pts';
-    var pd=document.getElementById('pf-pin-desc');
-    if(pd)pd.textContent=walletPinActive()?'✅ Code PIN activé':'Protégez votre portefeuille avec un code';
-  }catch(e){}
+  refreshProfileUI();
   openScreen('profile');
 }
 /* ─── Historique Paiements depuis le profil ───
@@ -3216,14 +3254,83 @@ function changeMyPassword(){
   var em=currentUser.email||'';
   forgotPassword(em);
 }
-async function editProfilePhone(){
+/* ─── MODIFIER MON NUMÉRO : indicatif pays + numéro ─── */
+var COUNTRY_CODES=[
+  {c:'+223',n:'Mali',f:'🇲🇱'},        {c:'+221',n:'Sénégal',f:'🇸🇳'},
+  {c:'+225',n:"Côte d'Ivoire",f:'🇨🇮'},{c:'+226',n:'Burkina Faso',f:'🇧🇫'},
+  {c:'+227',n:'Niger',f:'🇳🇪'},       {c:'+228',n:'Togo',f:'🇹🇬'},
+  {c:'+229',n:'Bénin',f:'🇧🇯'},       {c:'+224',n:'Guinée',f:'🇬🇳'},
+  {c:'+222',n:'Mauritanie',f:'🇲🇷'},  {c:'+220',n:'Gambie',f:'🇬🇲'},
+  {c:'+233',n:'Ghana',f:'🇬🇭'},       {c:'+234',n:'Nigeria',f:'🇳🇬'},
+  {c:'+237',n:'Cameroun',f:'🇨🇲'},    {c:'+235',n:'Tchad',f:'🇹🇩'},
+  {c:'+212',n:'Maroc',f:'🇲🇦'},       {c:'+213',n:'Algérie',f:'🇩🇿'},
+  {c:'+216',n:'Tunisie',f:'🇹🇳'},     {c:'+20',n:'Égypte',f:'🇪🇬'},
+  {c:'+33',n:'France',f:'🇫🇷'},       {c:'+32',n:'Belgique',f:'🇧🇪'},
+  {c:'+34',n:'Espagne',f:'🇪🇸'},      {c:'+39',n:'Italie',f:'🇮🇹'},
+  {c:'+49',n:'Allemagne',f:'🇩🇪'},    {c:'+44',n:'Royaume-Uni',f:'🇬🇧'},
+  {c:'+1',n:'USA / Canada',f:'🇺🇸'},  {c:'+90',n:'Turquie',f:'🇹🇷'},
+  {c:'+971',n:'Émirats A. U.',f:'🇦🇪'},{c:'+966',n:'Arabie S.',f:'🇸🇦'},
+  {c:'+86',n:'Chine',f:'🇨🇳'},        {c:'+91',n:'Inde',f:'🇮🇳'}
+];
+function phErr(m){var e=document.getElementById('ph-error');if(!e)return;if(!m){e.classList.remove('show');return;}e.textContent=m;e.classList.add('show');}
+function splitPhone(full){
+  var v=String(full||'').replace(/[^0-9+]/g,'');
+  if(v.indexOf('+')!==0)return {cc:'+223',num:v};
+  var best=null;
+  COUNTRY_CODES.forEach(function(k){
+    if(v.indexOf(k.c)===0&&(!best||k.c.length>best.length))best=k.c;
+  });
+  if(!best)return {cc:'+223',num:v.replace(/^\+/,'')};
+  return {cc:best,num:v.slice(best.length)};
+}
+function editProfilePhone(){
+  if(!currentUser){openAuthModal();return;}
+  var sel=document.getElementById('ph-cc');
+  if(sel&&!sel.options.length){
+    sel.innerHTML=COUNTRY_CODES.map(function(k){
+      return '<option value="'+k.c+'">'+k.f+' '+k.c+' · '+k.n+'</option>';
+    }).join('');
+  }
+  var cur=(userData&&userData.phone)?String(userData.phone):'';
+  var p=splitPhone(cur);
+  if(sel)sel.value=p.cc;
+  var inp=document.getElementById('ph-num');
+  if(inp)inp.value=p.num;
+  phErr('');
+  document.getElementById('phone-overlay').classList.add('open');
+  setTimeout(function(){try{inp.focus();}catch(_){}} ,320);
+}
+function closePhoneSheet(){document.getElementById('phone-overlay').classList.remove('open');}
+async function savePhoneNumber(){
   if(!currentUser)return;
-  var cur=(userData&&userData.phone)||'';
-  var np=prompt('Votre numéro (avec indicatif, ex : +223 82 13 14 18) :',cur);
-  if(np==null)return;np=np.trim();
-  if(np&&!/^\+?[0-9 ]{8,16}$/.test(np)){showToast('❌ Numéro invalide');return;}
-  try{await db.collection('users').doc(currentUser.uid).set({phone:np},{merge:true});userData.phone=np;
-    document.getElementById('pf-phone-desc').textContent=np||'Aucun numéro';showToast('✅ Numéro enregistré');}catch(e){showToast('❌ '+e.message);}
+  phErr('');
+  var cc=(document.getElementById('ph-cc')||{}).value||'+223';
+  var num=((document.getElementById('ph-num')||{}).value||'').replace(/[^0-9]/g,'');
+  if(num.length<6||num.length>13){phErr('Numéro invalide (entre 6 et 13 chiffres).');return;}
+  var full=cc+' '+num;
+  var btn=document.getElementById('ph-save-btn');
+  if(btn){btn.disabled=true;btn.textContent='⏳ Enregistrement…';}
+  try{
+    await db.collection('users').doc(currentUser.uid).set({phone:full},{merge:true});
+    if(!userData)userData={};
+    userData.phone=full;
+    refreshProfileUI();
+    closePhoneSheet();
+    showToast('✅ Numéro enregistré : '+full);
+  }catch(e){phErr(e.message||'Échec de l\'enregistrement.');}
+  finally{if(btn){btn.disabled=false;btn.textContent='✅ Enregistrer mon numéro';}}
+}
+async function removePhoneNumber(){
+  if(!currentUser)return;
+  if(!confirm('Supprimer votre numéro ?'))return;
+  try{
+    await db.collection('users').doc(currentUser.uid).set({phone:''},{merge:true});
+    if(!userData)userData={};
+    userData.phone='';
+    refreshProfileUI();
+    closePhoneSheet();
+    showToast('✅ Numéro supprimé');
+  }catch(e){showToast('❌ '+e.message);}
 }
 async function editProfileEmail(){
   if(!currentUser)return;
@@ -4370,6 +4477,7 @@ function watchAccountStatus(uid){
     _userLoaded=true;                      // ✅ vraies données reçues
     checkMissionReset&&checkMissionReset(); // réinit missions honorée seulement maintenant
     refreshRewardsUI();                    // met à jour les soldes affichés
+    try{if(document.getElementById('screen-profile').classList.contains('open'))refreshProfileUI();}catch(_){}
     updatePinState();                      // 🔒 état du code PIN (peut être réinitialisé par l'admin)
     linkNativeTokenToUser();               // 📱 lie le jeton FCM natif au compte
     const st=data.accountStatus||'active';
@@ -4607,6 +4715,8 @@ function closeScreen(name){
 }
 function goBack(){history.back();}
 function closeTopOverlay(){
+  var _ph=document.getElementById('phone-overlay');
+  if(_ph&&_ph.classList.contains('open')){closePhoneSheet();return true;}
   if(document.getElementById('lightbox').classList.contains('open')){closeLightbox();return true;}
   if(openScreens.length){closeScreen(openScreens[openScreens.length-1]);return true;}
   if(document.getElementById('auth-overlay').classList.contains('open')){closeAuthModal();return true;}
