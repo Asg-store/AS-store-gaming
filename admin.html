@@ -1707,25 +1707,32 @@ document.getElementById('login-pwd').addEventListener('keydown',e=>{if(e.key==='
 document.getElementById('login-email').addEventListener('keydown',e=>{if(e.key==='Enter')document.getElementById('login-pwd').focus();});
 
 /* ══ CLIENTS ══ */
-let _clientsUnsub=null;
-function loadClients(){
-  if(_clientsUnsub)return; // déjà abonné en temps réel
-  // 🔴 Temps réel : les nouveaux clients apparaissent tout seuls, sans « Actualiser ».
-  // On NE filtre PAS par orderBy('createdAt') car Firestore exclurait les documents
-  // qui n'ont pas ce champ → on récupère tout et on trie côté client.
-  _clientsUnsub=db.collection('users').onSnapshot(function(snap){
+async function loadClients(){
+  try{
+    const snap=await db.collection('users').orderBy('createdAt','desc').get();
     clients=snap.docs.map(d=>({id:d.id,...d.data()})).filter(c=>c.accountStatus!=='deleted');
-    clients.sort(function(a,b){return _tms(b.createdAt)-_tms(a.createdAt);});
     renderClientStats();
     renderClients();
-  },function(e){
-    document.getElementById('client-list').innerHTML=`<div class="client-loading"><div class="ico">⚠️</div><p>Impossible de charger les clients.<br><small>${e.message}</small></p></div>`;
-  });
+  }catch(e){
+    // Fallback sans orderBy si index pas créé
+    try{
+      const snap=await db.collection('users').get();
+      clients=snap.docs.map(d=>({id:d.id,...d.data()})).filter(c=>c.accountStatus!=='deleted');
+      clients.sort((a,b)=>{
+        const ta=_tms(a.createdAt);
+        const tb=_tms(b.createdAt);
+        return tb-ta;
+      });
+      renderClientStats();
+      renderClients();
+    }catch(e2){
+      document.getElementById('client-list').innerHTML=`<div class="client-loading"><div class="ico">⚠️</div><p>Impossible de charger les clients.<br><small>${e2.message}</small></p></div>`;
+    }
+  }
 }
 
 function refreshClients(){
   document.getElementById('client-list').innerHTML=`<div class="client-loading"><div class="ico">⏳</div><p>Actualisation…</p></div>`;
-  if(_clientsUnsub){_clientsUnsub();_clientsUnsub=null;}
   loadClients();
 }
 

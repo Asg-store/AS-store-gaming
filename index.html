@@ -3,7 +3,6 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="google-site-verification" content="lXa7ZFv9KXP0jEtS1NMaa5Kj5X0EeYVj3iC_Yxt7t1c" />
-<meta name="google-site-verification" content="6uxLRUfXnpIJo_Dn43F3JMAEY4WDLHpLh4Eiu9cSaW0" />
 <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no"/>
 <meta name="mobile-web-app-capable" content="yes"/>
 <meta name="apple-mobile-web-app-capable" content="yes"/>
@@ -1095,18 +1094,18 @@ body.ios .pnotif .pn-ic{border-radius:11px}
       </button>
     </div>
     <div id="sidebar-logged" style="display:none">
+      <!-- ⚠️ Les options « Se déconnecter » et « Historique Paiements » ont été
+           DÉPLACÉES dans l'écran « 👤 Mon profil ». Ici on garde juste la carte. -->
       <div class="sidebar-user-logged" onclick="openProfile();closeSidebar()" style="cursor:pointer">
         <div class="sidebar-user-avatar" id="sidebar-avatar">?</div>
         <div class="sidebar-user-info">
           <div class="sidebar-user-name" id="sidebar-name">—</div>
           <div class="sidebar-user-email" id="sidebar-email">—</div>
         </div>
+        <span style="margin-left:auto;color:var(--text3);font-size:18px">›</span>
       </div>
-      <button class="btn-logout" onclick="doSignOut()">
-        <i class="fas fa-sign-out-alt"></i> Se déconnecter
-      </button>
-      <button class="btn-logout" style="margin-top:8px;background:rgba(0,212,255,.08);border-color:rgba(0,212,255,.3);color:var(--accent)" onclick="openPayHistory();closeSidebar()">
-        <i class="fas fa-receipt"></i> Historique Paiements
+      <button class="btn-logout" style="margin-top:8px;background:rgba(0,212,255,.08);border-color:rgba(0,212,255,.3);color:var(--accent)" onclick="openProfile();closeSidebar()">
+        <i class="fas fa-user-cog"></i> Gérer mon compte
       </button>
     </div>
   </div>
@@ -1451,22 +1450,28 @@ body.ios .pnotif .pn-ic{border-radius:11px}
         <p style="font-size:13px;color:var(--text2);margin-bottom:16px;text-align:center;line-height:1.5">Entrez votre adresse e-mail.<br>Nous vous enverrons un <b>code de vérification</b>.</p>
         <div class="auth-field"><label>Adresse e-mail</label><input type="email" id="reset-email" placeholder="exemple@email.com" autocomplete="email"/></div>
         <button class="btn-auth-submit" id="reset-send-btn" onclick="sendResetCode()">📨 Recevoir le code par e-mail</button>
+        <div style="text-align:center;margin-top:10px">
+          <a onclick="gotoCodeStep()" style="color:var(--accent);font-size:12.5px;font-weight:600;cursor:pointer">🔢 J'ai déjà un code de vérification</a>
+        </div>
       </div>
       <!-- Étape 2 : code de vérification (cases séparées, comme l'e-mail reçu) -->
       <div id="reset-step2" style="display:none">
         <div class="reset-hero">💌</div>
         <h3 style="text-align:center;font-size:18px;margin:0 0 8px">Code de vérification</h3>
-        <p style="font-size:13px;color:var(--text2);margin-bottom:18px;text-align:center;line-height:1.5">Vérifiez votre e-mail <b id="reset-dest" style="color:var(--accent)"></b> (pensez au dossier spam) et entrez le code que nous venons d'envoyer.</p>
+        <p style="font-size:13px;color:var(--text2);margin-bottom:18px;text-align:center;line-height:1.5">Entrez le <b>code à 4 chiffres</b> envoyé à <b id="reset-dest" style="color:var(--accent)"></b><br>(pensez à vérifier le dossier spam).</p>
         <div class="otp-wrap" id="otp-wrap">
           <input class="otp-box" type="tel" inputmode="numeric" maxlength="1" autocomplete="one-time-code"/>
           <input class="otp-box" type="tel" inputmode="numeric" maxlength="1"/>
           <input class="otp-box" type="tel" inputmode="numeric" maxlength="1"/>
           <input class="otp-box" type="tel" inputmode="numeric" maxlength="1"/>
-          <input class="otp-box" type="tel" inputmode="numeric" maxlength="1"/>
-          <input class="otp-box" type="tel" inputmode="numeric" maxlength="1"/>
         </div>
         <button class="btn-auth-submit" id="reset-verify-btn" onclick="verifyResetCode()" style="margin-top:20px">✅ Confirmer le code</button>
-        <div style="text-align:center;margin-top:8px"><a onclick="sendResetCode()" style="color:var(--accent);font-size:12px;font-weight:600;cursor:pointer">Renvoyer le code</a></div>
+        <div style="text-align:center;margin-top:10px">
+          <a id="reset-resend" onclick="resendResetCode()" style="color:var(--accent);font-size:12.5px;font-weight:600;cursor:pointer">Renvoyer le code</a>
+        </div>
+        <div style="text-align:center;margin-top:6px">
+          <a onclick="backToResetEmail()" style="color:var(--text3);font-size:12px;cursor:pointer">← Changer d'adresse e-mail</a>
+        </div>
       </div>
       <!-- Étape 3 : nouveau mot de passe (récupération du compte) -->
       <div id="reset-step3" style="display:none">
@@ -2082,8 +2087,57 @@ body.ios .pnotif .pn-ic{border-radius:11px}
       <div class="set-ico"><svg viewBox="0 0 24 24"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg></div>
       <div class="set-txt"><div class="set-name">Changer mon email</div><div class="set-desc" id="pf-email-desc">—</div></div><span style="color:var(--text3)">›</span>
     </div>
+
+    <!-- ═══ SÉCURITÉ ═══ -->
+    <div class="settings-group-label" style="margin:20px 0 6px">Sécurité</div>
+    <div class="set-row" onclick="openPinSettings()">
+      <div class="set-ico"><svg viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></div>
+      <div class="set-txt"><div class="set-name">Code PIN du portefeuille</div><div class="set-desc" id="pf-pin-desc">Protégez votre portefeuille avec un code</div></div><span style="color:var(--text3)">›</span>
+    </div>
+    <div class="set-row" onclick="changeMyPassword()">
+      <div class="set-ico"><svg viewBox="0 0 24 24"><path d="M21 2l-2 2m-7.6 7.6a5 5 0 1 1-7.1 7.1 5 5 0 0 1 7.1-7.1zM15 7l4 4"/></svg></div>
+      <div class="set-txt"><div class="set-name">Changer mon mot de passe</div><div class="set-desc">Recevoir un code de vérification par e-mail</div></div><span style="color:var(--text3)">›</span>
+    </div>
+
+    <!-- ═══ MON COMPTE (déplacé depuis le menu latéral) ═══ -->
+    <div class="settings-group-label" style="margin:20px 0 6px">Mon compte</div>
+    <div class="pf-stats">
+      <div class="pf-stat" onclick="openScreen('wallet')">
+        <div class="pf-stat-ico">💳</div>
+        <div class="pf-stat-v" id="pf-wallet">—</div>
+        <div class="pf-stat-l">Portefeuille</div>
+      </div>
+      <div class="pf-stat" onclick="openScreen('points')">
+        <div class="pf-stat-ico">⭐</div>
+        <div class="pf-stat-v" id="pf-points">—</div>
+        <div class="pf-stat-l">Mes points</div>
+      </div>
+    </div>
+    <div class="set-row" onclick="openPayHistory()">
+      <div class="set-ico"><svg viewBox="0 0 24 24"><path d="M4 2h12l4 4v16H4z"/><line x1="8" y1="10" x2="16" y2="10"/><line x1="8" y1="14" x2="16" y2="14"/><line x1="8" y1="18" x2="13" y2="18"/></svg></div>
+      <div class="set-txt"><div class="set-name">Historique Paiements</div><div class="set-desc">Toutes vos commandes et recharges</div></div><span style="color:var(--text3)">›</span>
+    </div>
+    <div class="set-row" onclick="openScreen('settings')">
+      <div class="set-ico"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06A1.65 1.65 0 0 0 15 19.4a1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.6 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6 1.65 1.65 0 0 0 10 3.09V3a2 2 0 1 1 4 0v.09A1.65 1.65 0 0 0 15 4.6a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9c.14.6.66 1.03 1.51 1H21a2 2 0 1 1 0 4h-.09c-.85 0-1.37.43-1.51 1z"/></svg></div>
+      <div class="set-txt"><div class="set-name">Paramètres</div><div class="set-desc">Langue, thème, devise, notifications</div></div><span style="color:var(--text3)">›</span>
+    </div>
+    <button class="pf-logout" onclick="doSignOut()">
+      <i class="fas fa-sign-out-alt"></i> Se déconnecter
+    </button>
+    <div style="height:26px"></div>
   </div>
 </div>
+<style>
+.pf-stats{display:flex;gap:10px;margin-bottom:10px}
+.pf-stat{flex:1;background:var(--bg3,rgba(255,255,255,.04));border:1px solid var(--border);border-radius:16px;padding:12px 8px;text-align:center;cursor:pointer;transition:.15s}
+.pf-stat:active{transform:scale(.97)}
+.pf-stat-ico{font-size:18px}
+.pf-stat-v{font-weight:800;font-size:15px;margin-top:3px;color:var(--accent)}
+.pf-stat-l{font-size:11px;color:var(--text3);margin-top:2px}
+.pf-logout{width:100%;margin-top:14px;padding:14px;border-radius:14px;font-weight:800;font-size:14px;cursor:pointer;
+  background:rgba(255,59,92,.09);border:1px solid rgba(255,59,92,.35);color:#ff4d6d}
+.pf-logout:active{transform:scale(.98)}
+</style>
 
 <div class="screen" id="screen-settings">
   <div class="screen-head">
@@ -3129,7 +3183,23 @@ function openProfile(){
   document.getElementById('pf-name-desc').textContent=currentUser.displayName||'—';
   document.getElementById('pf-email-desc').textContent=currentUser.email||'—';
   document.getElementById('pf-phone-desc').textContent=(userData&&userData.phone)||'Aucun numéro';
+  // ── Bloc « Mon compte » déplacé ici depuis le menu latéral ──
+  try{
+    var w=document.getElementById('pf-wallet');if(w)w.textContent=fmtMoney((userData&&userData.walletBalance)||0);
+    var p=document.getElementById('pf-points');if(p)p.textContent=((userData&&userData.points)||0)+' pts';
+    var pd=document.getElementById('pf-pin-desc');
+    if(pd)pd.textContent=walletPinActive()?'✅ Code PIN activé':'Protégez votre portefeuille avec un code';
+  }catch(e){}
   openScreen('profile');
+}
+/* ─── Changer mon mot de passe (depuis le profil) : réutilise le flux code e-mail ─── */
+function changeMyPassword(){
+  if(!currentUser){openAuthModal();return;}
+  if((currentUser.providerData||[]).some(function(p){return p.providerId==='google.com';})){
+    showToast('ℹ️ Compte Google : gérez le mot de passe depuis Google');return;
+  }
+  var em=currentUser.email||'';
+  forgotPassword(em);
 }
 async function editProfilePhone(){
   if(!currentUser)return;
@@ -3967,9 +4037,11 @@ async function saveUserToFirestore(user){
 }
 
 
-// Mot de passe oublié — ouvre le modal (étape 1 : e-mail)
-function forgotPassword(){
-  const pre=(document.getElementById('auth-email').value||'').trim();
+// Mot de passe oublié — ouvre le modal.
+// Si une adresse e-mail est déjà connue → le code de vérification est envoyé
+// AUTOMATIQUEMENT et on affiche directement l'étape « code à 4 chiffres ».
+function forgotPassword(preset){
+  const pre=(preset||(document.getElementById('auth-email')||{}).value||'').trim();
   closeAuthModal();
   const ov=document.getElementById('reset-overlay');
   document.getElementById('reset-step1').style.display='block';
@@ -3981,6 +4053,48 @@ function forgotPassword(){
   const np2=document.getElementById('reset-newpass2');if(np2)np2.value='';
   setupOtpBoxes();clearOtp();
   ov.classList.add('open');
+  // ⚡ Envoi automatique du code si l'e-mail est déjà valide
+  if(pre&&/^\S+@\S+\.\S+$/.test(pre)){setTimeout(function(){sendResetCode(true);},250);}
+  else{try{document.getElementById('reset-email').focus();}catch(_){}}
+}
+// Aller directement à l'étape « code » (client qui a déjà reçu son code)
+function gotoCodeStep(){
+  const email=(document.getElementById('reset-email').value||'').trim();
+  if(!email||!/^\S+@\S+\.\S+$/.test(email)){resetErr('Entrez d\'abord votre adresse e-mail.');return;}
+  _resetEmail=email;
+  const dest=document.getElementById('reset-dest');if(dest)dest.textContent=email;
+  resetErr('');
+  document.getElementById('reset-step1').style.display='none';
+  document.getElementById('reset-step2').style.display='block';
+  document.getElementById('reset-step3').style.display='none';
+  setupOtpBoxes();clearOtp();
+  try{otpBoxes()[0].focus();}catch(_){}
+}
+function backToResetEmail(){
+  resetErr('');
+  document.getElementById('reset-step2').style.display='none';
+  document.getElementById('reset-step3').style.display='none';
+  document.getElementById('reset-step1').style.display='block';
+  clearOtp();
+}
+function resendResetCode(){
+  const a=document.getElementById('reset-resend');
+  if(a&&a.getAttribute('data-wait')==='1')return;
+  sendResetCode(true);
+}
+// Compte à rebours avant de pouvoir renvoyer un code
+let _resendTimer=null;
+function startResendCountdown(sec){
+  const a=document.getElementById('reset-resend');if(!a)return;
+  let n=sec||45;
+  a.setAttribute('data-wait','1');a.style.opacity='.55';
+  if(_resendTimer)clearInterval(_resendTimer);
+  a.textContent='Renvoyer le code ('+n+'s)';
+  _resendTimer=setInterval(function(){
+    n--;
+    if(n<=0){clearInterval(_resendTimer);_resendTimer=null;a.removeAttribute('data-wait');a.style.opacity='1';a.textContent='Renvoyer le code';return;}
+    a.textContent='Renvoyer le code ('+n+'s)';
+  },1000);
 }
 function closeReset(){document.getElementById('reset-overlay').classList.remove('open');}
 function resetErr(m){const e=document.getElementById('reset-error');if(!m){e.classList.remove('show');return;}e.textContent=m;e.classList.add('show');}
@@ -4015,24 +4129,40 @@ function setupOtpBoxes(){
 }
 
 let _resetEmail='',_resetCode='';
-// Étape 1 : envoyer le code de vérification par e-mail puis afficher l'étape 2 (cases)
-async function sendResetCode(){
+const RESET_API='/api/reset-password'; // fonction serverless Vercel
+
+// Appel générique vers la fonction de réinitialisation
+async function resetApi(payload){
+  const res=await fetch(RESET_API,{
+    method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify(payload)
+  });
+  let data={};try{data=await res.json();}catch(_){}
+  if(!res.ok||(data&&data.error))throw new Error((data&&data.error)||'Service indisponible.');
+  return data;
+}
+
+// Étape 1 : envoyer le CODE À 4 CHIFFRES par e-mail puis afficher l'étape 2
+async function sendResetCode(auto){
   resetErr('');
   const btn=document.getElementById('reset-send-btn');
   const email=(document.getElementById('reset-email').value||'').trim();
-  if(!email||email.indexOf('@')<0){resetErr('Entrez une adresse e-mail valide.');return;}
-  btn.disabled=true;btn.textContent='⏳ Envoi du code…';
-  let advance=false;
+  if(!email||!/^\S+@\S+\.\S+$/.test(email)){resetErr('Entrez une adresse e-mail valide.');return;}
+  if(btn){btn.disabled=true;btn.textContent='⏳ Envoi du code…';}
+  if(auto){showToast('⏳ Envoi du code de vérification…');}
+  let advance=false,fallback=false;
   try{
-    const res=await fetch('/.netlify/functions/reset-request',{
-      method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({email:email})
-    });
-    const data=await res.json().catch(function(){return {};});
-    if(res.ok && !(data&&data.error)){advance=true;}
-    else if(data&&data.error){resetErr(data.error);btn.disabled=false;btn.textContent='📨 Recevoir le code par e-mail';return;}
+    await resetApi({action:'send',email:email});
+    advance=true;
   }catch(e){
-    try{ await auth.sendPasswordResetEmail(email); }catch(_){}
+    const msg=e.message||'';
+    if(/introuvable|aucun compte/i.test(msg)){
+      resetErr(msg);
+      if(btn){btn.disabled=false;btn.textContent='📨 Recevoir le code par e-mail';}
+      return;
+    }
+    // Secours : lien de réinitialisation Firebase si la fonction n'est pas dispo
+    try{ await auth.sendPasswordResetEmail(email); fallback=true; }catch(_){}
     advance=true;
   }
   if(advance){
@@ -4043,18 +4173,34 @@ async function sendResetCode(){
     document.getElementById('reset-step3').style.display='none';
     setupOtpBoxes();clearOtp();
     try{otpBoxes()[0].focus();}catch(_){}
-    showToast('📧 Code de vérification envoyé à '+email);
+    startResendCountdown(45);
+    showToast(fallback?'📧 E-mail de récupération envoyé à '+email:'📧 Code à 4 chiffres envoyé à '+email);
   }
-  btn.disabled=false;btn.textContent='📨 Recevoir le code par e-mail';
+  if(btn){btn.disabled=false;btn.textContent='📨 Recevoir le code par e-mail';}
 }
 
-// Étape 2 : confirmer le code saisi (cases) → passe à l'étape du nouveau mot de passe
-function verifyResetCode(){
+// Étape 2 : CONFIRMER LE CODE saisi par le client (vérification côté serveur)
+async function verifyResetCode(){
   resetErr('');
   const code=getOtpCode();
   const need=otpBoxes().length;
   if(code.length!==need){resetErr('Entrez les '+need+' chiffres du code reçu par e-mail.');return;}
+  const btn=document.getElementById('reset-verify-btn');
+  if(btn){btn.disabled=true;btn.textContent='⏳ Vérification…';}
+  try{
+    await resetApi({action:'verify',email:_resetEmail,code:code});
+  }catch(e){
+    const msg=e.message||'';
+    // Si le service est indisponible, on laisse passer : le code sera revalidé à l'étape 3
+    if(/invalide|expir|incorrect|tentative/i.test(msg)){
+      resetErr(msg);clearOtp();try{otpBoxes()[0].focus();}catch(_){}
+      if(btn){btn.disabled=false;btn.textContent='✅ Confirmer le code';}
+      return;
+    }
+  }
+  if(btn){btn.disabled=false;btn.textContent='✅ Confirmer le code';}
   _resetCode=code;
+  showToast('✅ Code vérifié');
   document.getElementById('reset-step2').style.display='none';
   document.getElementById('reset-step3').style.display='block';
   const np=document.getElementById('reset-newpass');np.value='';document.getElementById('reset-newpass2').value='';
@@ -4070,12 +4216,7 @@ async function confirmResetCode(){
   if(np!==np2){resetErr('Les deux mots de passe ne correspondent pas.');return;}
   const btn=document.getElementById('reset-confirm-btn');btn.disabled=true;btn.textContent='⏳…';
   try{
-    const res=await fetch('/.netlify/functions/reset-confirm',{
-      method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({email:_resetEmail,code:_resetCode,newPassword:np})
-    });
-    const data=await res.json().catch(function(){return {};});
-    if(!res.ok||(data&&data.error))throw new Error((data&&data.error)||'Code invalide ou expiré.');
+    await resetApi({action:'confirm',email:_resetEmail,code:_resetCode,newPassword:np});
     closeReset();
     showToast('✅ Mot de passe réinitialisé ! Connectez-vous.');
     openAuthModal();switchAuthTab('login');
@@ -5948,7 +6089,7 @@ var AI_INTENTS=[
    r:function(){return"🔒 Vous pouvez protéger votre portefeuille avec un code PIN à 4 chiffres (écran Portefeuille → Sécurité). Si vous l'oubliez, un administrateur peut le réinitialiser — écrivez-nous ici.";}},
 
   {k:['mot de passe','oublie','oublier','reset','reinitialiser','connexion','connecter','se connecter','login'],
-   r:function(){return"🔑 Mot de passe oublié ? Sur l'écran de connexion, cliquez « Mot de passe oublié » : vous recevrez un code à 6 chiffres par e-mail pour en définir un nouveau. Vérifiez aussi vos spams.";}},
+   r:function(){return"🔑 Mot de passe oublié ? Sur l'écran de connexion, cliquez « Mot de passe oublié » : vous recevrez un code à 4 chiffres par e-mail pour en définir un nouveau. Vérifiez aussi vos spams.";}},
 
   {k:['promo','code promo','reduction','remise','coupon','solde promo','offre'],
    r:function(){return"🏷️ Les codes promo s'appliquent au moment du paiement (champ « Code promo »). Surveillez aussi les Offres Flash sur l'accueil : elles sont limitées dans le temps !";}},
