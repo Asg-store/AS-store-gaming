@@ -1010,6 +1010,38 @@ body{font-family:'Exo 2',sans-serif;background:var(--bg);color:var(--text);
     <div class="osumm"><div class="osumm-n n-green" id="ac-approved">0</div><div class="osumm-l">Validés</div></div>
     <div class="osumm"><div class="osumm-n" style="color:var(--red)" id="ac-rejected">0</div><div class="osumm-l">Refusés</div></div>
   </div>
+  <!-- ══ PUBLIER UN COMPTE OFFICIEL ASG (vendeur = la boutique) ══ -->
+  <div class="panel" style="margin-bottom:14px">
+    <div class="panel-top"><span class="panel-title">🏪 Publier un compte ASG officiel</span></div>
+    <div class="upload-tip">💡 Les annonces publiées ici sont <b>validées automatiquement</b> et affichées immédiatement dans la Marketplace avec le badge « ASG Officiel ».</div>
+    <div class="form-row">
+      <div class="form-group"><label>Jeu *</label><select id="ao-game"></select></div>
+      <div class="form-group"><label>Prix (€) *</label><input type="number" id="ao-price" step="0.01" min="0" placeholder="25.00"/></div>
+    </div>
+    <div class="form-group"><label>Titre de l'annonce *</label><input type="text" id="ao-title" placeholder="Compte PUBG Conqueror · 120 skins"/></div>
+    <div class="form-row">
+      <div class="form-group"><label>Niveau</label><input type="number" id="ao-level" placeholder="70"/></div>
+      <div class="form-group"><label>Rang</label><input type="text" id="ao-rank" placeholder="Conqueror"/></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label>Nb. de skins</label><input type="number" id="ao-skins" placeholder="120"/></div>
+      <div class="form-group"><label>UC / Diamants</label><input type="number" id="ao-uc" placeholder="5000"/></div>
+    </div>
+    <div class="form-group"><label>Description</label><textarea id="ao-desc" rows="3" placeholder="Détails du compte, contenu, garanties…"></textarea></div>
+    <div class="form-group"><label>Images (URLs, une par ligne)</label><textarea id="ao-media" rows="3" placeholder="https://…/photo1.jpg&#10;https://…/photo2.jpg"></textarea></div>
+    <div class="form-group">
+      <label><input type="checkbox" id="ao-instant" onchange="aoToggleInstant(this.checked)"/> ⚡ Livraison instantanée (identifiants remis automatiquement)</label>
+    </div>
+    <div id="ao-instant-fields" style="display:none">
+      <div class="form-row">
+        <div class="form-group"><label>Identifiant</label><input type="text" id="ao-login" placeholder="email ou pseudo"/></div>
+        <div class="form-group"><label>Mot de passe</label><input type="text" id="ao-pass" placeholder="mot de passe"/></div>
+      </div>
+      <div class="form-group"><label>Notes de livraison</label><input type="text" id="ao-notes" placeholder="Changez le mot de passe après réception"/></div>
+    </div>
+    <button class="save-btn" onclick="publishOfficialAccount()">🏪 Publier dans la Marketplace</button>
+  </div>
+
   <div class="panel">
     <div class="order-filters">
       <div class="filter-pill active" data-acf="pending" onclick="filterAcc('pending')">⏳ En attente</div>
@@ -1709,8 +1741,17 @@ document.getElementById('login-email').addEventListener('keydown',e=>{if(e.key==
 /* ══ CLIENTS ══ */
 async function loadClients(){
   try{
-    const snap=await db.collection('users').orderBy('createdAt','desc').get();
+    /* ⚠️ PAS de orderBy('createdAt') : Firestore EXCLUT les documents qui n'ont
+       pas ce champ → les nouveaux clients disparaissaient de la liste.
+       On récupère tout, on trie côté navigateur. */
+    const snap=await db.collection('users').get();
     clients=snap.docs.map(d=>({id:d.id,...d.data()})).filter(c=>c.accountStatus!=='deleted');
+    clients.sort(function(a,b){
+      var ta=_tms(a.createdAt),tb=_tms(b.createdAt);
+      if(!ta&&!tb)return (a.name||a.email||'').localeCompare(b.name||b.email||'');
+      if(!ta)return 1; if(!tb)return -1;
+      return tb-ta;
+    });
     renderClientStats();
     renderClients();
   }catch(e){
@@ -2330,7 +2371,7 @@ function goTab(id){
   if(id==='orders')loadOrders();
   if(id==='payments')loadPayments();
   if(id==='announce'){loadAnnounce();loadPromos();}
-  if(id==='accounts')loadAccounts();
+  if(id==='accounts'){loadAccounts();aoFillGames();}
   if(id==='messages')loadConversations();
   if(id==='games')loadGamesAdmin();
   if(id==='rewards')loadRewards();
@@ -2766,6 +2807,81 @@ async function delPromo(id){
 
 /* ══ COMPTES À VENDRE (MARKETPLACE) ══ */
 let allAccounts=[],accFilter='pending';
+
+/* ══════════ PUBLIER UN COMPTE OFFICIEL ASG (marketplace) ══════════
+   L'admin publie ses propres comptes à vendre. Contrairement aux annonces
+   clients (status:'pending'), elles sont publiées en 'approved' → visibles
+   immédiatement, avec le drapeau isOfficial pour le badge « ASG Officiel ». */
+function aoToggleInstant(on){
+  var el=document.getElementById('ao-instant-fields');
+  if(el)el.style.display=on?'block':'none';
+}
+async function aoFillGames(){
+  var sel=document.getElementById('ao-game');if(!sel||sel.options.length)return;
+  var list=[];
+  try{
+    var snap=await db.collection('games').get();
+    snap.docs.forEach(function(d){
+      var g=d.data()||{};
+      list.push({key:d.id,name:g.name||g.title||d.id});
+    });
+  }catch(e){}
+  if(!list.length){
+    list=[{key:'pubg',name:'PUBG Mobile'},{key:'freefire',name:'Free Fire'},
+          {key:'codm',name:'Call of Duty Mobile'},{key:'autre',name:'Autre'}];
+  }
+  sel.innerHTML=list.map(function(g){
+    return '<option value="'+g.key+'">'+aEsc(g.name)+'</option>';
+  }).join('');
+}
+async function publishOfficialAccount(){
+  var v=function(id){var e=document.getElementById(id);return e?(e.value||'').trim():'';};
+  var title=v('ao-title'),price=parseFloat(v('ao-price'));
+  if(!title){toast('❌ Titre requis',true);return;}
+  if(isNaN(price)||price<=0){toast('❌ Prix invalide',true);return;}
+  var instant=(document.getElementById('ao-instant')||{}).checked;
+  var login=v('ao-login'),pass=v('ao-pass');
+  if(instant&&(!login||!pass)){toast('❌ Identifiants requis pour la livraison instantanée',true);return;}
+  var media=v('ao-media').split(/\r?\n/)
+    .map(function(u){return u.trim();})
+    .filter(function(u){return /^https?:\/\//.test(u);})
+    .map(function(u){return {type:'image',url:u};});
+  var data={
+    userId:'asg-official',
+    userName:'ASG Store',
+    userEmail:'',
+    isOfficial:true,                 // → badge « ASG Officiel » côté client
+    game:v('ao-game')||'autre',
+    title:title,
+    price:price,
+    level:+v('ao-level')||null,
+    rank:v('ao-rank')||'',
+    skins:+v('ao-skins')||null,
+    uc:+v('ao-uc')||null,
+    desc:v('ao-desc')||'',
+    contact:'',
+    media:media,
+    instantDelivery:!!instant,
+    status:'approved',               // publié directement, sans validation
+    createdAt:firebase.firestore.FieldValue.serverTimestamp()
+  };
+  try{
+    var ref=await db.collection('accounts').add(data);
+    if(instant){
+      // Les identifiants restent dans la sous-collection privée, jamais en public
+      await db.collection('accounts').doc(ref.id).collection('private').doc('credentials').set({
+        login:login,password:pass,notes:v('ao-notes')||'',
+        createdAt:firebase.firestore.FieldValue.serverTimestamp()
+      },{merge:true});
+    }
+    ['ao-title','ao-price','ao-level','ao-rank','ao-skins','ao-uc','ao-desc','ao-media','ao-login','ao-pass','ao-notes']
+      .forEach(function(id){var e=document.getElementById(id);if(e)e.value='';});
+    var ck=document.getElementById('ao-instant');if(ck){ck.checked=false;aoToggleInstant(false);}
+    toast('🏪 Compte publié dans la Marketplace !');
+    loadAccounts&&loadAccounts();
+  }catch(e){toast('❌ '+e.message,true);}
+}
+
 async function loadAccounts(){
   const el=document.getElementById('accounts-list');
   try{

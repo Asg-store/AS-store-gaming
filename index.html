@@ -1215,6 +1215,8 @@ body.ios .pnotif .pn-ic{border-radius:11px}
 
 <!-- MAIN -->
 <main id="main">
+  <!-- ⚡ Bannière offre flash — ACCUEIL (l'autre est dans l'écran Catalogue) -->
+  <div id="flash-banner-home" style="display:none"></div>
   <div id="banner">
     <div id="banner-text">
       <h2 id="banner-title">🔥 Deals Gaming — -70%</h2>
@@ -5327,24 +5329,35 @@ function loadFlash(){
     _flashAd=list[0]||null;renderFlash();
   },function(){});
 }
+// Toutes les zones où la bannière flash peut apparaître (accueil + catalogue)
+function flashSlots(){
+  return ['flash-banner-home','flash-banner']
+    .map(function(id){return document.getElementById(id);})
+    .filter(Boolean);
+}
 function renderFlash(){
-  var el=document.getElementById('flash-banner');if(!el)return;
+  var els=flashSlots();if(!els.length)return;
   if(_flashTimer){clearInterval(_flashTimer);_flashTimer=null;}
-  if(!_flashAd){el.style.display='none';el.innerHTML='';return;}
-  el.style.display='block';
-  el.style.cssText='display:block;background:linear-gradient(135deg,#ff416c,#ff4b2b);border-radius:16px;padding:14px 16px;margin-bottom:14px;color:#fff;box-shadow:0 6px 18px rgba(255,75,43,.35)';
+  if(!_flashAd){els.forEach(function(el){el.style.display='none';el.innerHTML='';});return;}
+  var css='display:block;background:linear-gradient(135deg,#ff416c,#ff4b2b);border-radius:16px;padding:14px 16px;margin-bottom:14px;color:#fff;box-shadow:0 6px 18px rgba(255,75,43,.35)';
   var tick=function(){
     var end=(_flashAd.endsAt&&_flashAd.endsAt.toMillis)?_flashAd.endsAt.toMillis():0;
     var s=Math.max(0,Math.floor((end-Date.now())/1000));
-    if(s<=0){el.style.display='none';if(_flashTimer)clearInterval(_flashTimer);loadFlash&&(_flashLoaded=false)&&loadFlash();return;}
+    if(s<=0){
+      els.forEach(function(el){el.style.display='none';el.innerHTML='';});
+      if(_flashTimer){clearInterval(_flashTimer);_flashTimer=null;}
+      _flashAd=null;
+      return;
+    }
     var h=Math.floor(s/3600),m=Math.floor((s%3600)/60),ss=s%60;
     var cd=(h>0?h+'h ':'')+String(m).padStart(2,'0')+'m '+String(ss).padStart(2,'0')+'s';
-    el.innerHTML='<div style="display:flex;align-items:center;gap:12px">'
+    var html='<div style="display:flex;align-items:center;gap:12px">'
       +'<div style="font-size:30px">⚡</div>'
       +'<div style="flex:1;min-width:0"><div style="font-weight:800;font-size:15px">'+((_flashAd.title||'Offre Flash')).replace(/</g,'&lt;')+'</div>'
       +'<div style="font-size:12px;opacity:.95">'+((_flashAd.body||'')).replace(/</g,'&lt;')+'</div>'
       +'<div style="font-family:Orbitron,monospace;font-weight:800;font-size:16px;margin-top:4px">⏳ '+cd+'</div></div>'
       +(_flashAd.discount?'<div style="background:#fff;color:#ff2d55;font-weight:900;border-radius:12px;padding:8px 12px;font-size:18px">-'+_flashAd.discount+'%</div>':'')+'</div>';
+    els.forEach(function(el){el.style.cssText=css;el.innerHTML=html;});
   };
   tick();_flashTimer=setInterval(tick,1000);
 }
