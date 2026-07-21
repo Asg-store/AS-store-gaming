@@ -1013,33 +1013,43 @@ body{font-family:'Exo 2',sans-serif;background:var(--bg);color:var(--text);
   <!-- ══ PUBLIER UN COMPTE OFFICIEL ASG (vendeur = la boutique) ══ -->
   <div class="panel" style="margin-bottom:14px">
     <div class="panel-top"><span class="panel-title">🏪 Publier un compte ASG officiel</span></div>
-    <div class="upload-tip">💡 Les annonces publiées ici sont <b>validées automatiquement</b> et affichées immédiatement dans la Marketplace avec le badge « ASG Officiel ».</div>
-    <div class="form-row">
-      <div class="form-group"><label>Jeu *</label><select id="ao-game"></select></div>
-      <div class="form-group"><label>Prix (€) *</label><input type="number" id="ao-price" step="0.01" min="0" placeholder="25.00"/></div>
-    </div>
-    <div class="form-group"><label>Titre de l'annonce *</label><input type="text" id="ao-title" placeholder="Compte PUBG Conqueror · 120 skins"/></div>
-    <div class="form-row">
-      <div class="form-group"><label>Niveau</label><input type="number" id="ao-level" placeholder="70"/></div>
-      <div class="form-group"><label>Rang</label><input type="text" id="ao-rank" placeholder="Conqueror"/></div>
-    </div>
-    <div class="form-row">
-      <div class="form-group"><label>Nb. de skins</label><input type="number" id="ao-skins" placeholder="120"/></div>
-      <div class="form-group"><label>UC / Diamants</label><input type="number" id="ao-uc" placeholder="5000"/></div>
-    </div>
-    <div class="form-group"><label>Description</label><textarea id="ao-desc" rows="3" placeholder="Détails du compte, contenu, garanties…"></textarea></div>
-    <div class="form-group"><label>Images (URLs, une par ligne)</label><textarea id="ao-media" rows="3" placeholder="https://…/photo1.jpg&#10;https://…/photo2.jpg"></textarea></div>
-    <div class="form-group">
-      <label><input type="checkbox" id="ao-instant" onchange="aoToggleInstant(this.checked)"/> ⚡ Livraison instantanée (identifiants remis automatiquement)</label>
-    </div>
-    <div id="ao-instant-fields" style="display:none">
-      <div class="form-row">
-        <div class="form-group"><label>Identifiant</label><input type="text" id="ao-login" placeholder="email ou pseudo"/></div>
-        <div class="form-group"><label>Mot de passe</label><input type="text" id="ao-pass" placeholder="mot de passe"/></div>
+    <div style="padding:16px">
+      <div class="upload-tip" style="margin-bottom:14px">💡 Les annonces publiées ici sont <b>validées automatiquement</b> et affichées tout de suite dans la Marketplace avec le badge « ASG Officiel ».</div>
+      <div class="f-row">
+        <div class="form-grp"><label>Jeu *</label><select class="inp" id="ao-game"></select></div>
+        <div class="form-grp"><label>Prix (€) *</label><input class="inp" type="number" id="ao-price" step="0.01" min="0" placeholder="25.00"/></div>
       </div>
-      <div class="form-group"><label>Notes de livraison</label><input type="text" id="ao-notes" placeholder="Changez le mot de passe après réception"/></div>
+      <div class="form-grp"><label>Titre de l'annonce *</label><input class="inp" type="text" id="ao-title" placeholder="Compte PUBG Conqueror · 120 skins"/></div>
+      <div class="f-row">
+        <div class="form-grp"><label>Niveau</label><input class="inp" type="number" id="ao-level" placeholder="70"/></div>
+        <div class="form-grp"><label>Rang</label><input class="inp" type="text" id="ao-rank" placeholder="Conqueror"/></div>
+      </div>
+      <div class="f-row">
+        <div class="form-grp"><label>Nb. de skins</label><input class="inp" type="number" id="ao-skins" placeholder="120"/></div>
+        <div class="form-grp"><label>UC / Diamants</label><input class="inp" type="number" id="ao-uc" placeholder="5000"/></div>
+      </div>
+      <div class="form-grp"><label>Description</label><textarea class="inp" id="ao-desc" rows="3" placeholder="Détails du compte, contenu, garanties…"></textarea></div>
+
+      <div class="form-grp">
+        <label>Photos du compte</label>
+        <input type="file" id="ao-file" accept="image/*" multiple style="display:none" onchange="aoUploadPhotos(event)"/>
+        <button class="save-btn" style="background:linear-gradient(135deg,#00b0ff,#7c3aed)" onclick="document.getElementById('ao-file').click()">📷 Choisir depuis la galerie</button>
+        <div id="ao-thumbs" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px"></div>
+        <span class="hint">Vous pouvez sélectionner plusieurs photos. Max 4 Mo par image.</span>
+      </div>
+
+      <div class="form-grp">
+        <label><input type="checkbox" id="ao-instant" onchange="aoToggleInstant(this.checked)"/> ⚡ Livraison instantanée (identifiants remis automatiquement)</label>
+      </div>
+      <div id="ao-instant-fields" style="display:none">
+        <div class="f-row">
+          <div class="form-grp"><label>Identifiant</label><input class="inp" type="text" id="ao-login" placeholder="email ou pseudo"/></div>
+          <div class="form-grp"><label>Mot de passe</label><input class="inp" type="text" id="ao-pass" placeholder="mot de passe"/></div>
+        </div>
+        <div class="form-grp"><label>Notes de livraison</label><input class="inp" type="text" id="ao-notes" placeholder="Changez le mot de passe après réception"/></div>
+      </div>
+      <button class="save-btn" style="margin-top:12px" onclick="publishOfficialAccount()">🏪 Publier dans la Marketplace</button>
     </div>
-    <button class="save-btn" onclick="publishOfficialAccount()">🏪 Publier dans la Marketplace</button>
   </div>
 
   <div class="panel">
@@ -2812,6 +2822,37 @@ let allAccounts=[],accFilter='pending';
    L'admin publie ses propres comptes à vendre. Contrairement aux annonces
    clients (status:'pending'), elles sont publiées en 'approved' → visibles
    immédiatement, avec le drapeau isOfficial pour le badge « ASG Officiel ». */
+
+/* Photos du compte : import depuis la galerie du téléphone → Firebase Storage */
+var aoMedia=[];
+async function aoUploadPhotos(e){
+  var files=Array.prototype.slice.call(e.target.files||[]);
+  e.target.value='';
+  if(!files.length)return;
+  if(!storage){toast('⚠️ Stockage Firebase indisponible',true);return;}
+  toast('⏳ Envoi de '+files.length+' photo(s)…');
+  for(var i=0;i<files.length;i++){
+    var f=files[i];
+    if(f.size>4000000){toast('⚠️ '+f.name+' trop lourde (max 4 Mo)',true);continue;}
+    try{
+      var ref=storage.ref('accounts/official_'+Date.now()+'_'+f.name.replace(/[^\w.]/g,'_'));
+      var url=await ref.put(f).then(function(sn){return sn.ref.getDownloadURL();});
+      aoMedia.push({type:'image',url:url});
+    }catch(err){toast('❌ Envoi impossible : '+f.name,true);}
+  }
+  aoRenderThumbs();
+  toast('✅ '+aoMedia.length+' photo(s) prête(s)');
+}
+function aoRenderThumbs(){
+  var el=document.getElementById('ao-thumbs');if(!el)return;
+  el.innerHTML=aoMedia.map(function(m,i){
+    return '<div style="position:relative;width:70px;height:70px;border-radius:10px;overflow:hidden;border:1px solid var(--border)">'
+      +'<img src="'+m.url+'" style="width:100%;height:100%;object-fit:cover"/>'
+      +'<button onclick="aoDelPhoto('+i+')" style="position:absolute;top:2px;right:2px;background:rgba(0,0,0,.65);color:#fff;border:0;border-radius:6px;width:20px;height:20px;cursor:pointer;font-size:12px">×</button></div>';
+  }).join('');
+}
+function aoDelPhoto(i){aoMedia.splice(i,1);aoRenderThumbs();}
+
 function aoToggleInstant(on){
   var el=document.getElementById('ao-instant-fields');
   if(el)el.style.display=on?'block':'none';
@@ -2842,10 +2883,7 @@ async function publishOfficialAccount(){
   var instant=(document.getElementById('ao-instant')||{}).checked;
   var login=v('ao-login'),pass=v('ao-pass');
   if(instant&&(!login||!pass)){toast('❌ Identifiants requis pour la livraison instantanée',true);return;}
-  var media=v('ao-media').split(/\r?\n/)
-    .map(function(u){return u.trim();})
-    .filter(function(u){return /^https?:\/\//.test(u);})
-    .map(function(u){return {type:'image',url:u};});
+  var media=aoMedia.slice();
   var data={
     userId:'asg-official',
     userName:'ASG Store',
@@ -2874,8 +2912,9 @@ async function publishOfficialAccount(){
         createdAt:firebase.firestore.FieldValue.serverTimestamp()
       },{merge:true});
     }
-    ['ao-title','ao-price','ao-level','ao-rank','ao-skins','ao-uc','ao-desc','ao-media','ao-login','ao-pass','ao-notes']
+    ['ao-title','ao-price','ao-level','ao-rank','ao-skins','ao-uc','ao-desc','ao-login','ao-pass','ao-notes']
       .forEach(function(id){var e=document.getElementById(id);if(e)e.value='';});
+    aoMedia=[];aoRenderThumbs();
     var ck=document.getElementById('ao-instant');if(ck){ck.checked=false;aoToggleInstant(false);}
     toast('🏪 Compte publié dans la Marketplace !');
     loadAccounts&&loadAccounts();
