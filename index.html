@@ -4847,8 +4847,12 @@ function openAccount(id){
   }else if(sold){
     actionHtml=`<button class="btn-primary" disabled style="opacity:.5">✅ Déjà vendu</button>`;
   }else{
-    actionHtml=`<button class="btn-primary" onclick="openAccountCheckout('${a.id}')" style="margin-bottom:10px">💳 Acheter en sécurité (Adyen)</button>
-    ${wa?`<a class="btn-ghost-link" style="display:block;text-align:center;text-decoration:none;line-height:1.3" href="https://wa.me/${wa}?text=${encodeURIComponent('Bonjour, je suis intéressé par votre annonce: '+(a.title||''))}" target="_blank">💬 Contacter le vendeur</a>`:`<button class="btn-ghost-link" onclick="openChat()">💬 Contacter via le support</button>`}`;
+    const _bal=(userData&&userData.walletBalance)||0, _pts=(userData&&userData.points)||0;
+    const _price=+a.price||0, _pcost=+a.pointsCost||0;
+    actionHtml=`<button class="btn-primary" onclick="openAccountCheckout('${a.id}')" style="margin-bottom:8px">💳 Acheter par carte (Adyen)</button>
+    <button class="btn-primary" style="margin-bottom:8px;background:linear-gradient(135deg,#00b0ff,#0072ff)" onclick="buyAccountWith('wallet','${a.id}')">💰 Payer avec mon portefeuille · ${fmtMoney(_price)}${_bal<_price?' (solde insuffisant)':''}</button>
+    ${_pcost>0?`<button class="btn-primary" style="margin-bottom:8px;background:linear-gradient(135deg,#f7971e,#ffd200);color:#3a2a00" onclick="buyAccountWith('points','${a.id}')">⭐ Payer avec mes points · ${_pcost} pts${_pts<_pcost?' (insuffisant)':''}</button>`:''}
+    ${wa?`<a class="btn-ghost-link" style="display:block;text-align:center;text-decoration:none;line-height:1.3" href="https://wa.me/${wa}?text=${encodeURIComponent('Bonjour, je suis intéressé par votre annonce: '+(a.title||''))}" target="_blank">💬 Contacter le vendeur</a>`:`<button class="btn-ghost-link" onclick="contactSupportAbout('${a.id}')">💬 Contacter via le support</button>`}`;
   }
   document.getElementById('account-detail').innerHTML=`
     <div class="detail-gallery">${media}</div>
@@ -5993,6 +5997,114 @@ function dismissAnnounce(){document.getElementById('announce-banner').classList.
 
 /* ─── CHAT ADMIN <-> CLIENT ─── */
 let chatUnsub=null,_chatMsgCount=0,_adminJoined=false;
+
+/* ═══════════ ACHAT D'UN COMPTE : PORTEFEUILLE / POINTS ═══════════ */
+async function buyAccountWith(method,id){
+  if(!currentUser){openAuthModal();showToast('🔐 Connectez-vous pour acheter');return;}
+  var a=(allAccounts||[]).find(function(x){return x.id===id;});
+  if(!a){showToast('❌ Annonce introuvable');return;}
+  if(a.userId===currentUser.uid){showToast('⚠️ C\'est votre propre annonce');return;}
+  if(a.status==='sold'){showToast('⚠️ Ce compte est déjà vendu');return;}
+  var price=+a.price||0, pts=+a.pointsCost||0;
+  var uref=db.collection('users').doc(currentUser.uid);
+  try{
+    if(method==='points'){
+      if(!pts){showToast('❌ Paiement en points non disponible pour ce compte');return;}
+      if((userData.points||0)<pts){showToast('❌ Points insuffisants');return;}
+      if(!confirm('Acheter « '+(a.title||'ce compte')+' » pour '+pts+' points ?'))return;
+      await db.runTransaction(async function(tx){
+        var us=await tx.get(uref);var p=((us.data()||{}).points)||0;
+        if(p<pts)throw new Error('Points insuffisants');
+        tx.set(uref,{points:p-pts},{merge:true});
+      });
+    }else{
+      if((userData.walletBalance||0)<price){showToast('❌ Solde insuffisant. Rechargez votre portefeuille.');return;}
+      if(!confirm('Acheter « '+(a.title||'ce compte')+' » pour '+fmtMoney(price)+' ?'))return;
+      await db.runTransaction(async function(tx){
+        var us=await tx.get(uref);var bal=((us.data()||{}).walletBalance)||0;
+        if(bal<price)throw new Error('Solde insuffisant');
+        tx.set(uref,{walletBalance:bal-price},{merge:true});
+      });
+    }
+    // Trace de l'achat
+    var pid=currentUser.uid+'_'+a.id;
+    await db.collection('accountPurchases').doc(pid).set({
+      userId:currentUser.uid,
+      userName:currentUser.displayName||(currentUser.email||'').split('@')[0],
+      userEmail:currentUser.email||'',
+      accountId:a.id,title:a.title||'',game:a.game||'',
+      method:method,price:price,pointsCost:pts,
+      status:'paid',
+      createdAt:firebase.firestore.FieldValue.serverTimestamp()
+    },{merge:true});
+    // Le compte n'est plus disponible
+    try{
+      await db.collection('accounts').doc(a.id).set({
+        status:'sold',soldTo:currentUser.uid,
+        soldAt:firebase.firestore.FieldValue.serverTimestamp()
+      },{merge:true});
+    }catch(_){}
+    // Livraison : on tente de lire les identifiants (si les règles l'autorisent)
+    var cred=null;
+    try{
+      var cs=await db.collection('accounts').doc(a.id).collection('private').doc('credentials').get();
+      if(cs.exists)cred=cs.data();
+    }catch(_){}
+    // On prévient toujours le support avec l'ID de l'annonce
+    var msg='🛒 ACHAT COMPTE\nAnnonce : '+(a.title||'')+'\nID : '+a.id
+      +'\nPaiement : '+(method==='points'?(pts+' points'):fmtMoney(price))
+      +'\nMerci de me livrer les identifiants.';
+    try{ await pushSupportMessage(msg); }catch(_){}
+    if(cred&&cred.login){
+      alert('✅ Achat confirmé !\n\nIdentifiant : '+cred.login+'\nMot de passe : '+(cred.password||'')
+        +(cred.notes?('\n\nNote : '+cred.notes):'')
+        +'\n\n⚠️ Changez le mot de passe immédiatement.');
+      showToast('✅ Compte livré !');
+    }else{
+      showToast('✅ Achat confirmé — identifiants envoyés dans le support');
+      openChat();
+    }
+    refreshRewardsUI&&refreshRewardsUI();
+    loadAccounts&&loadAccounts();
+  }catch(e){showToast('❌ '+(e.message||'Achat impossible'));}
+}
+
+/* Envoie un message dans la conversation support (utilisé par l'achat et le bouton contact) */
+async function pushSupportMessage(text){
+  if(!currentUser)return;
+  var cref=db.collection('chats').doc(currentUser.uid);
+  await cref.set({
+    userId:currentUser.uid,
+    userName:currentUser.displayName||(currentUser.email||'').split('@')[0],
+    userEmail:currentUser.email||'',
+    lastMessage:text.slice(0,120),
+    lastAt:firebase.firestore.FieldValue.serverTimestamp(),
+    unreadAdmin:firebase.firestore.FieldValue.increment(1)
+  },{merge:true});
+  await cref.collection('messages').add({
+    from:'user',text:text,
+    createdAt:firebase.firestore.FieldValue.serverTimestamp()
+  });
+}
+
+/* Contacter le support AU SUJET d'une annonce : message pré-rempli avec l'ID */
+function contactSupportAbout(id){
+  if(!currentUser){openAuthModal();showToast('🔐 Connectez-vous pour discuter');return;}
+  var a=(allAccounts||[]).find(function(x){return x.id===id;})||{};
+  openChat();
+  setTimeout(function(){
+    var inp=document.getElementById('chat-input');
+    if(!inp)return;
+    inp.value='Bonjour, je suis intéressé par ce compte :\n'
+      +'• Annonce : '+(a.title||'—')+'\n'
+      +'• Jeu : '+(a.game||'—')+'\n'
+      +'• Prix : '+fmtMoney(+a.price||0)+'\n'
+      +'• ID annonce : '+id+'\n'
+      +'Pouvez-vous m\'en dire plus ?';
+    try{inp.focus();}catch(_){}
+    showToast('✍️ Message pré-rempli — appuyez sur Envoyer');
+  },420);
+}
 function openChat(){
   if(!currentUser){openAuthModal();showToast('🔐 Connectez-vous pour discuter');return;}
   openScreen('chat');subscribeChat();loadChatAds();

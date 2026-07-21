@@ -1019,6 +1019,7 @@ body{font-family:'Exo 2',sans-serif;background:var(--bg);color:var(--text);
         <div class="form-grp"><label>Jeu *</label><select class="inp" id="ao-game"></select></div>
         <div class="form-grp"><label>Prix (€) *</label><input class="inp" type="number" id="ao-price" step="0.01" min="0" placeholder="25.00"/></div>
       </div>
+      <div class="form-grp"><label>Prix en points (optionnel)</label><input class="inp" type="number" id="ao-points" min="0" placeholder="Ex : 5000 — laissez vide pour désactiver le paiement en points"/></div>
       <div class="form-grp"><label>Titre de l'annonce *</label><input class="inp" type="text" id="ao-title" placeholder="Compte PUBG Conqueror · 120 skins"/></div>
       <div class="f-row">
         <div class="form-grp"><label>Niveau</label><input class="inp" type="number" id="ao-level" placeholder="70"/></div>
@@ -2838,7 +2839,7 @@ async function aoUploadPhotos(e){
       var ref=storage.ref('accounts/official_'+Date.now()+'_'+f.name.replace(/[^\w.]/g,'_'));
       var url=await ref.put(f).then(function(sn){return sn.ref.getDownloadURL();});
       aoMedia.push({type:'image',url:url});
-    }catch(err){toast('❌ Envoi impossible : '+f.name,true);}
+    }catch(err){toast('❌ '+f.name+' : '+(err.message||'envoi impossible'),true);console.error('upload',err);}
   }
   aoRenderThumbs();
   toast('✅ '+aoMedia.length+' photo(s) prête(s)');
@@ -2896,6 +2897,7 @@ async function publishOfficialAccount(){
     game:v('ao-game')||'autre',
     title:title,
     price:price,
+    pointsCost:+v('ao-points')||0,   // 0 = paiement en points désactivé
     level:+v('ao-level')||null,
     rank:v('ao-rank')||'',
     skins:+v('ao-skins')||null,
