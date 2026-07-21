@@ -2884,8 +2884,12 @@ async function publishOfficialAccount(){
   var login=v('ao-login'),pass=v('ao-pass');
   if(instant&&(!login||!pass)){toast('❌ Identifiants requis pour la livraison instantanée',true);return;}
   var media=aoMedia.slice();
+  // ⚠️ Les règles Firestore exigent userId == uid de l'utilisateur connecté.
+  // On utilise donc le VRAI uid de l'admin, et isOfficial distingue l'annonce.
+  var me=(firebase.auth().currentUser||{}).uid||'';
+  if(!me){toast('❌ Reconnectez-vous',true);return;}
   var data={
-    userId:'asg-official',
+    userId:me,
     userName:'ASG Store',
     userEmail:'',
     isOfficial:true,                 // → badge « ASG Officiel » côté client
