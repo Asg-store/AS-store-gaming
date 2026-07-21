@@ -1034,6 +1034,11 @@ body{font-family:'Exo 2',sans-serif;background:var(--bg);color:var(--text);
       <div class="form-grp">
         <label>Photos &amp; Vidéo</label>
         <input type="file" id="ao-file" accept="image/*" multiple style="display:none" onchange="aoUploadPhotos(event)"/>
+        <div id="ao-key-box" style="margin:10px 0">
+          <input class="inp" type="text" id="ao-imgbb" placeholder="Clé API ImgBB (gratuite sur imgbb.com)"/>
+          <button class="save-btn" style="margin-top:8px;background:linear-gradient(135deg,#00b0ff,#7c3aed)" onclick="saveImgbbKey()">🔑 Enregistrer ma clé ImgBB</button>
+          <span class="hint">Firebase Storage exige un forfait payant : les photos passent par ImgBB (gratuit). Clé à récupérer sur imgbb.com/api.</span>
+        </div>
         <button class="save-btn" style="background:linear-gradient(135deg,#00b0ff,#7c3aed)" onclick="document.getElementById('ao-file').click()">📷 Choisir depuis la galerie</button>
         <div id="ao-thumbs" style="display:flex;gap:10px;flex-wrap:wrap;margin:10px 0"></div>
         <span class="hint">Vous pouvez sélectionner plusieurs photos. Max 4 Mo par image.</span>
@@ -2382,7 +2387,7 @@ function goTab(id){
   if(id==='orders')loadOrders();
   if(id==='payments')loadPayments();
   if(id==='announce'){loadAnnounce();loadPromos();}
-  if(id==='accounts'){loadAccounts();aoFillGames();aoRenderThumbs();}
+  if(id==='accounts'){loadAccounts();aoFillGames();aoRenderThumbs();loadImgbbKey();}
   if(id==='messages')loadConversations();
   if(id==='games')loadGamesAdmin();
   if(id==='rewards')loadRewards();
@@ -2824,80 +2829,92 @@ let allAccounts=[],accFilter='pending';
    clients (status:'pending'), elles sont publiées en 'approved' → visibles
    immédiatement, avec le drapeau isOfficial pour le badge « ASG Officiel ». */
 
-/* Photos du compte : import depuis la galerie du téléphone → Firebase Storage */
+/* ══ Photos du compte : upload vers ImgBB ══
+   Firebase Storage exige le forfait Blaze (carte bancaire) : indisponible ici.
+   ImgBB est gratuit, illimité et ne demande qu'une clé API. */
 var aoMedia=[];
+var IMGBB_KEY='';
+function loadImgbbKey(){
+  IMGBB_KEY=localStorage.getItem('asg-imgbb')||'';
+  db.collection('config').doc('shop').get().then(function(d){
+    var k=(d.exists&&(d.data()||{}).imgbbKey)||'';
+    if(k){IMGBB_KEY=k;localStorage.setItem('asg-imgbb',k);}
+    aoToggleKeyBox();
+  }).catch(function(){aoToggleKeyBox();});
+}
+function aoToggleKeyBox(){
+  var b=document.getElementById('ao-key-box');if(!b)return;
+  if(IMGBB_KEY){
+    b.innerHTML='<div style="font-size:12px;color:var(--green,#00c853);display:flex;align-items:center;gap:8px">'
+      +'<span>✅ Clé ImgBB configurée</span>'
+      +'<a onclick="aoEditKey()" style="color:var(--accent);cursor:pointer;font-weight:600">Modifier</a></div>';
+  }else{
+    var i=document.getElementById('ao-imgbb');
+    if(!i)aoEditKey();
+  }
+}
+function aoEditKey(){
+  var b=document.getElementById('ao-key-box');if(!b)return;
+  b.innerHTML='<input class="inp" type="text" id="ao-imgbb" placeholder="Clé API ImgBB (gratuite sur imgbb.com/api)"/>'
+    +'<button class="save-btn" style="margin-top:8px;background:linear-gradient(135deg,#00b0ff,#7c3aed)" onclick="saveImgbbKey()">🔑 Enregistrer ma clé ImgBB</button>'
+    +'<span class="hint">Firebase Storage exige un forfait payant : les photos passent par ImgBB (gratuit).</span>';
+  var i=document.getElementById('ao-imgbb');if(i&&IMGBB_KEY)i.value=IMGBB_KEY;
+}
+async function saveImgbbKey(){
+  var k=((document.getElementById('ao-imgbb')||{}).value||'').trim();
+  if(k.length<10){toast('❌ Clé invalide',true);return;}
+  try{
+    await db.collection('config').doc('shop').set({imgbbKey:k},{merge:true});
+    IMGBB_KEY=k;localStorage.setItem('asg-imgbb',k);
+    aoToggleKeyBox();
+    toast('✅ Clé ImgBB enregistrée');
+  }catch(e){toast('❌ '+e.message,true);}
+}
 async function aoUploadPhotos(e){
   var files=Array.prototype.slice.call(e.target.files||[]);
   e.target.value='';
   if(!files.length)return;
-  if(!storage){toast('⚠️ Stockage Firebase indisponible',true);return;}
+  if(!IMGBB_KEY){
+    toast('⚠️ Ajoutez d\'abord votre clé ImgBB',true);
+    aoToggleKeyBox();
+    return;
+  }
   for(var i=0;i<files.length;i++){
     var f=files[i];
-    if(f.size>4000000){toast('⚠️ '+f.name+' trop lourde (max 4 Mo)',true);continue;}
+    if(f.size>30000000){toast('⚠️ '+f.name+' trop lourde (max 30 Mo)',true);continue;}
+    toast('⏳ Envoi photo '+(i+1)+'/'+files.length+'…');
     try{
-      var url=await aoUploadOne(f,i+1,files.length);
+      var url=await imgbbUpload(f);
       aoMedia.push({type:'image',url:url});
       aoRenderThumbs();
     }catch(err){
-      var m=(err&&(err.code||err.message))||'erreur inconnue';
-      toast('❌ '+f.name+' : '+m,true);
-      console.error('[upload]',err);
-      alert('Échec de l\'envoi de la photo.\n\nDétail : '+m
-        +'\n\nCauses fréquentes :\n'
-        +'• Règles Storage non publiées (Console Firebase → Storage → Rules)\n'
-        +'• Firebase Storage jamais activé sur le projet\n'
-        +'• Connexion interrompue');
+      toast('❌ '+f.name+' : '+(err.message||'envoi impossible'),true);
+      console.error('[imgbb]',err);
     }
   }
   aoRenderThumbs();
   if(aoMedia.length)toast('✅ '+aoMedia.length+' photo(s) prête(s)');
 }
-/* Upload d'UNE photo avec progression + expiration (évite les blocages muets) */
-function aoUploadOne(file,idx,total){
+function imgbbUpload(file){
   return new Promise(function(resolve,reject){
-    var name='accounts/official_'+Date.now()+'_'+file.name.replace(/[^\w.]/g,'_');
-    var task=storage.ref(name).put(file);
-    var done=false;
-    // Si rien ne bouge pendant 45 s, on abandonne avec un message clair
-    var killer=setTimeout(function(){
-      if(done)return;
-      done=true;
-      try{task.cancel();}catch(_){}
-      reject(new Error('Délai dépassé (45 s). Storage ne répond pas — vérifiez que Firebase Storage est activé et que les règles sont publiées.'));
-    },45000);
-    task.on('state_changed',
-      function(sn){
-        var pct=Math.round((sn.bytesTransferred/(sn.totalBytes||1))*100);
-        toast('⏳ Photo '+idx+'/'+total+' — '+pct+'%');
-      },
-      function(err){
-        if(done)return;done=true;clearTimeout(killer);reject(err);
-      },
-      function(){
-        if(done)return;done=true;clearTimeout(killer);
-        task.snapshot.ref.getDownloadURL().then(resolve).catch(reject);
-      }
-    );
+    var fr=new FileReader();
+    fr.onerror=function(){reject(new Error('Lecture du fichier impossible'));};
+    fr.onload=function(){
+      var b64=String(fr.result||'').split(',')[1];
+      if(!b64){reject(new Error('Fichier vide'));return;}
+      var fd=new FormData();
+      fd.append('image',b64);
+      fetch('https://api.imgbb.com/1/upload?key='+encodeURIComponent(IMGBB_KEY),{method:'POST',body:fd})
+        .then(function(r){return r.json();})
+        .then(function(d){
+          if(d&&d.success&&d.data&&d.data.url)resolve(d.data.url);
+          else reject(new Error((d&&d.error&&d.error.message)||'ImgBB a refusé l\'image'));
+        })
+        .catch(function(err){reject(err);});
+    };
+    fr.readAsDataURL(file);
   });
 }
-function aoRenderThumbs(){
-  var el=document.getElementById('ao-thumbs');if(!el)return;
-  var th=aoMedia.map(function(m,i){
-    return '<div style="position:relative;width:96px;height:96px;border-radius:14px;overflow:hidden;border:1px solid var(--border);background:var(--bg3)">'
-      +'<img src="'+m.url+'" style="width:100%;height:100%;object-fit:cover"/>'
-      +'<button onclick="aoDelPhoto('+i+')" title="Retirer" style="position:absolute;top:5px;right:5px;background:rgba(0,0,0,.72);color:#fff;border:0;border-radius:50%;width:24px;height:24px;line-height:24px;cursor:pointer;font-size:14px;padding:0">×</button>'
-      +'<span style="position:absolute;bottom:5px;left:6px;background:rgba(0,0,0,.6);color:#fff;font-size:10px;border-radius:6px;padding:1px 6px">'+(i+1)+'</span>'
-      +'</div>';
-  }).join('');
-  // Case « + » en pointillés pour ajouter d'autres photos
-  th+='<div onclick="document.getElementById(\'ao-file\').click()" '
-    +'style="width:96px;height:96px;border-radius:14px;border:2px dashed var(--border);display:flex;'
-    +'align-items:center;justify-content:center;cursor:pointer;color:var(--text3);font-size:30px;'
-    +'background:var(--bg3);user-select:none">+</div>';
-  el.innerHTML=th;
-}
-function aoDelPhoto(i){aoMedia.splice(i,1);aoRenderThumbs();}
-
 function aoToggleInstant(on){
   var el=document.getElementById('ao-instant-fields');
   if(el)el.style.display=on?'block':'none';
@@ -3400,6 +3417,7 @@ function loadRewards(){
   loadPmToggles();
   loadMissionsAdmin();
   loadAccounts(); // charge les comptes (pour la liste de la pub)
+  try{loadImgbbKey();}catch(e){}
   loadScheduledNotifs();
   loadPointsProducts();
   loadSocialAdmin();
