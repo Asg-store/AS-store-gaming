@@ -6446,9 +6446,9 @@ function aiPayList(){
 var AI_INTENTS=[
   // 🛍️ Achat d'un compte de la marketplace (message envoyé par « Contacter via le support »)
   {k:['id annonce','annonce','compte a vendre','acheter compte','marketplace','interesse par ce compte','achat compte'],
-   a:"Bonjour 👋 Merci pour votre intérêt !\n\nJ'ai bien reçu l'ID de l'annonce, un conseiller vérifie la disponibilité du compte.\n\n💳 Vous pouvez payer directement depuis la fiche du compte : carte bancaire, Google Pay, Apple Pay, Mobile Money (FedaPay) ou Orange Money Mali (CinetPay).\n💰 Pour les comptes officiels ASG, le portefeuille et les points sont aussi acceptés.\n\nAprès paiement, les identifiants vous sont remis ici même. Avez-vous une question sur le contenu du compte ?"},
+   r:function(){return "Bonjour 👋 Merci pour votre intérêt !\n\nJ'ai bien reçu l'ID de l'annonce, un conseiller vérifie la disponibilité du compte.\n\n💳 Vous pouvez payer directement depuis la fiche du compte : carte bancaire, Google Pay, Apple Pay, Mobile Money (FedaPay) ou Orange Money Mali (CinetPay).\n💰 Pour les comptes officiels ASG, le portefeuille et les points sont aussi acceptés.\n\nAprès paiement, les identifiants vous sont remis ici même. Avez-vous une question sur le contenu du compte ?";}},
   {k:['identifiants','mot de passe compte','login compte','livraison compte','recu mon compte'],
-   a:"Après validation du paiement, les identifiants du compte vous sont envoyés directement dans cette conversation ⚡\n\nPensez à changer le mot de passe et l'e-mail de récupération dès la réception, pour sécuriser votre achat. Si vous avez déjà payé, indiquez-moi l'ID de l'annonce et je vérifie tout de suite."},
+   r:function(){return "Après validation du paiement, les identifiants du compte vous sont envoyés directement dans cette conversation ⚡\n\nPensez à changer le mot de passe et l'e-mail de récupération dès la réception, pour sécuriser votre achat. Si vous avez déjà payé, indiquez-moi l'ID de l'annonce et je vérifie tout de suite.";}},
   {k:['bonjour','salut','bonsoir','hello','coucou','cava','ca va','slm','salam','bjr'],
    r:function(){return"Bonjour 👋 Bienvenue sur ASG Store ! Je suis l'assistant automatique. Posez votre question (prix, paiement, livraison, VPN, points, compte…) — un administrateur prendra ensuite le relais.";}},
 
