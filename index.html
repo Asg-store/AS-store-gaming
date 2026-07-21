@@ -6011,8 +6011,40 @@ let chatUnsub=null,_chatMsgCount=0,_adminJoined=false;
 
 
 
-/* Affiche les identifiants livrés, avec boutons « Copier » */
+/* Écran de préparation 30 s, PUIS révélation des identifiants */
+var _accDeliverTimer=null;
 function showAccountDelivery(a,cred){
+  var box=document.getElementById('accpay-body');
+  var ov=document.getElementById('accpay-overlay');
+  if(!box||!ov){revealAccountDelivery(a,cred);return;}
+  ov.classList.add('open');
+  var total=30,left=total;
+  var draw=function(){
+    var pct=Math.round(((total-left)/total)*100);
+    box.innerHTML='<div style="text-align:center;padding:10px 0 4px">'
+      +'<div style="font-size:40px;margin-bottom:6px">🔐</div>'
+      +'<div style="font-weight:800;font-size:16px">Préparation de votre compte…</div>'
+      +'<div style="font-size:12.5px;color:var(--text3);margin-top:4px">'+String(a.title||'').replace(/</g,'&lt;')+'</div>'
+      +'<div style="font-family:Orbitron,monospace;font-weight:800;font-size:34px;color:var(--accent);margin:18px 0 10px">'+left+'s</div>'
+      +'<div style="height:10px;background:var(--bg3);border-radius:99px;overflow:hidden;margin-bottom:14px">'
+      +'<div style="height:100%;width:'+pct+'%;background:linear-gradient(90deg,#00d4ff,#7c3aed);transition:width .4s"></div></div>'
+      +'<div style="font-size:12.5px;color:var(--text2);line-height:1.6">Nous sécurisons la remise de vos identifiants.<br>Merci de patienter, ne fermez pas cette fenêtre.</div>'
+      +'</div>';
+  };
+  draw();
+  if(_accDeliverTimer)clearInterval(_accDeliverTimer);
+  _accDeliverTimer=setInterval(function(){
+    left--;
+    if(left<=0){
+      clearInterval(_accDeliverTimer);_accDeliverTimer=null;
+      revealAccountDelivery(a,cred);
+      return;
+    }
+    draw();
+  },1000);
+}
+/* Affiche les identifiants livrés, avec boutons « Copier » */
+function revealAccountDelivery(a,cred){
   var esc=function(x){return String(x||'').replace(/</g,'&lt;');};
   var line=function(label,val,id){
     return '<div style="margin-bottom:12px">'
