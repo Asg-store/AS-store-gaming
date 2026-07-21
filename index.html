@@ -544,10 +544,11 @@ footer{
 #recharge-overlay .auth-modal{background:var(--bg2);border:1px solid var(--border);border-radius:24px 24px 0 0;width:100%;max-width:480px;padding-bottom:calc(24px + env(safe-area-inset-bottom));transform:translateY(100%);transition:transform .35s cubic-bezier(.4,0,.2,1);box-shadow:0 -8px 40px rgba(0,0,0,.5);max-height:92vh;overflow-y:auto}
 #recharge-overlay.open .auth-modal{transform:translateY(0)}
 /* Modals code PIN (même style que recharge) */
-#pinset-overlay,#pinlock-overlay,#phone-overlay{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:952;opacity:0;pointer-events:none;transition:opacity .3s;display:flex;align-items:flex-end;justify-content:center}
-#pinset-overlay.open,#pinlock-overlay.open,#phone-overlay.open{opacity:1;pointer-events:all}
-#pinset-overlay .auth-modal,#pinlock-overlay .auth-modal,#phone-overlay .auth-modal{background:var(--bg2);border:1px solid var(--border);border-radius:24px 24px 0 0;width:100%;max-width:480px;padding-bottom:calc(24px + env(safe-area-inset-bottom));transform:translateY(100%);transition:transform .35s cubic-bezier(.4,0,.2,1);box-shadow:0 -8px 40px rgba(0,0,0,.5)}
-#pinset-overlay.open .auth-modal,#pinlock-overlay.open .auth-modal,#phone-overlay.open .auth-modal{transform:translateY(0)}
+#pinset-overlay,#pinlock-overlay,#phone-overlay,#accpay-overlay{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:952;opacity:0;pointer-events:none;transition:opacity .3s;display:flex;align-items:flex-end;justify-content:center}
+#pinset-overlay.open,#pinlock-overlay.open,#phone-overlay.open,#accpay-overlay.open{opacity:1;pointer-events:all}
+#pinset-overlay .auth-modal,#pinlock-overlay .auth-modal,#phone-overlay .auth-modal,#accpay-overlay .auth-modal{background:var(--bg2);border:1px solid var(--border);border-radius:24px 24px 0 0;width:100%;max-width:480px;padding-bottom:calc(24px + env(safe-area-inset-bottom));transform:translateY(100%);transition:transform .35s cubic-bezier(.4,0,.2,1);box-shadow:0 -8px 40px rgba(0,0,0,.5)}
+#pinset-overlay.open .auth-modal,#pinlock-overlay.open .auth-modal,#phone-overlay.open .auth-modal,#accpay-overlay.open .auth-modal{transform:translateY(0)}
+#accpay-overlay .auth-modal{max-height:88vh;overflow-y:auto}
 #phone-overlay .ph-row{display:flex;gap:8px}
 #phone-overlay #ph-cc{flex:0 0 40%;padding:13px 8px;border-radius:14px;border:1px solid var(--border);background:var(--bg3);color:var(--text);font-size:14px;font-weight:600}
 #phone-overlay #ph-num{flex:1;padding:13px;border-radius:14px;border:1px solid var(--border);background:var(--bg3);color:var(--text);font-size:15px;letter-spacing:.5px}
@@ -1619,6 +1620,18 @@ body.ios .pnotif .pn-ic{border-radius:11px}
 </div>
 
 <!-- ════ MODAL : CRÉER / MODIFIER LE CODE PIN ════ -->
+<!-- ════ FEUILLE : MODE DE PAIEMENT D'UN COMPTE ════ -->
+<div id="accpay-overlay" onclick="if(event.target===this)closeAccountPay()">
+  <div class="auth-modal">
+    <div class="auth-handle"></div>
+    <div class="auth-head">
+      <h2>🛒 Mode de paiement</h2>
+      <button class="auth-close-btn" onclick="closeAccountPay()"><svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
+    </div>
+    <div class="auth-form" id="accpay-body"></div>
+  </div>
+</div>
+
 <!-- ════ FEUILLE : MODIFIER MON NUMÉRO (indicatif + numéro) ════ -->
 <div id="phone-overlay" onclick="if(event.target===this)closePhoneSheet()">
   <div class="auth-modal">
@@ -4727,6 +4740,8 @@ function closeScreen(name){
 }
 function goBack(){history.back();}
 function closeTopOverlay(){
+  var _ap=document.getElementById('accpay-overlay');
+  if(_ap&&_ap.classList.contains('open')){closeAccountPay();return true;}
   var _ph=document.getElementById('phone-overlay');
   if(_ph&&_ph.classList.contains('open')){closePhoneSheet();return true;}
   if(document.getElementById('lightbox').classList.contains('open')){closeLightbox();return true;}
@@ -4847,12 +4862,8 @@ function openAccount(id){
   }else if(sold){
     actionHtml=`<button class="btn-primary" disabled style="opacity:.5">✅ Déjà vendu</button>`;
   }else{
-    const _bal=(userData&&userData.walletBalance)||0, _pts=(userData&&userData.points)||0;
-    const _price=+a.price||0, _pcost=+a.pointsCost||0;
-    actionHtml=`<button class="btn-primary" onclick="openAccountCheckout('${a.id}')" style="margin-bottom:8px">💳 Acheter par carte (Adyen)</button>
-    <button class="btn-primary" style="margin-bottom:8px;background:linear-gradient(135deg,#00b0ff,#0072ff)" onclick="buyAccountWith('wallet','${a.id}')">💰 Payer avec mon portefeuille · ${fmtMoney(_price)}${_bal<_price?' (solde insuffisant)':''}</button>
-    ${_pcost>0?`<button class="btn-primary" style="margin-bottom:8px;background:linear-gradient(135deg,#f7971e,#ffd200);color:#3a2a00" onclick="buyAccountWith('points','${a.id}')">⭐ Payer avec mes points · ${_pcost} pts${_pts<_pcost?' (insuffisant)':''}</button>`:''}
-    ${wa?`<a class="btn-ghost-link" style="display:block;text-align:center;text-decoration:none;line-height:1.3" href="https://wa.me/${wa}?text=${encodeURIComponent('Bonjour, je suis intéressé par votre annonce: '+(a.title||''))}" target="_blank">💬 Contacter le vendeur</a>`:`<button class="btn-ghost-link" onclick="contactSupportAbout('${a.id}')">💬 Contacter via le support</button>`}`;
+    actionHtml=`<button class="btn-primary" onclick="openAccountPay('${a.id}')" style="margin-bottom:10px">🛒 Acheter ce compte · ${fmtMoney(+a.price||0)}</button>
+    <button class="btn-ghost-link" onclick="contactSupportAbout('${a.id}')">💬 Contacter via le support</button>`;
   }
   document.getElementById('account-detail').innerHTML=`
     <div class="detail-gallery">${media}</div>
@@ -5998,6 +6009,64 @@ function dismissAnnounce(){document.getElementById('announce-banner').classList.
 /* ─── CHAT ADMIN <-> CLIENT ─── */
 let chatUnsub=null,_chatMsgCount=0,_adminJoined=false;
 
+
+/* ═══════════ CHOIX DU MODE DE PAIEMENT D'UN COMPTE ═══════════
+   Portefeuille et Points sont RÉSERVÉS aux annonces officielles ASG
+   (isOfficial === true). Les annonces des clients passent par les
+   paiements externes uniquement. */
+function openAccountPay(id){
+  if(!currentUser){openAuthModal();showToast('🔐 Connectez-vous pour acheter');return;}
+  var a=(allAccounts||[]).find(function(x){return x.id===id;});
+  if(!a){showToast('❌ Annonce introuvable');return;}
+  if(a.userId===currentUser.uid){showToast('⚠️ C\'est votre propre annonce');return;}
+  if(a.status==='sold'){showToast('⚠️ Ce compte est déjà vendu');return;}
+
+  var official=a.isOfficial===true;
+  var price=+a.price||0, pcost=+a.pointsCost||0;
+  var bal=(userData&&userData.walletBalance)||0, pts=(userData&&userData.points)||0;
+  var pm=(shopConfig&&shopConfig.payMethods)||{};
+  var row=function(icon,name,desc,fn,disabled){
+    return '<div class="rc-method" style="'+(disabled?'opacity:.45;pointer-events:none':'cursor:pointer')+'" onclick="'+fn+'">'
+      +'<span class="rc-ic" style="font-size:20px">'+icon+'</span>'
+      +'<div class="rc-tx"><div class="rc-n">'+name+'</div><div class="rc-d">'+desc+'</div></div></div>';
+  };
+  var html='';
+  if(official){
+    html+=row('💰','Mon portefeuille',(bal>=price?'Solde : '+fmtMoney(bal):'Solde insuffisant ('+fmtMoney(bal)+')'),
+              "closeAccountPay();buyAccountWith('wallet','"+id+"')", bal<price);
+    if(pcost>0){
+      html+=row('⭐','Mes points',(pts>=pcost?pcost+' points requis · vous avez '+pts:'Points insuffisants ('+pts+'/'+pcost+')'),
+              "closeAccountPay();buyAccountWith('points','"+id+"')", pts<pcost);
+    }
+    html+='<div style="height:8px"></div>';
+  }
+  html+=row('💳','Carte bancaire','Visa · Mastercard — paiement sécurisé',"closeAccountPay();openAccountCheckout('"+id+"')");
+  if(pm.gpay!==false)html+=row('🅶','Google Pay','Paiement rapide Google',"closeAccountPay();openAccountCheckout('"+id+"')");
+  if(pm.applepay!==false)html+=row('','Apple Pay','Paiement rapide Apple',"closeAccountPay();openAccountCheckout('"+id+"')");
+  if(pm.fedapay!==false)html+=row('📱','Mobile Money (FedaPay)','MTN · Moov · Wave',"closeAccountPay();payAccountViaTopup('"+id+"')");
+  if(pm.cinetpay!==false)html+=row('🟠','Orange Money Mali (CinetPay)','Orange · Moov Mali',"closeAccountPay();payAccountViaTopup('"+id+"')");
+
+  var box=document.getElementById('accpay-body');
+  if(box)box.innerHTML='<div style="font-size:13px;color:var(--text2);margin-bottom:12px">'
+    +'<b>'+String(a.title||'Compte').replace(/</g,'&lt;')+'</b> · '+fmtMoney(price)
+    +(official?'':'<br><span style="font-size:11.5px;color:var(--text3)">Annonce d\'un vendeur — portefeuille et points non disponibles.</span>')
+    +'</div>'+html;
+  var ov=document.getElementById('accpay-overlay');if(ov)ov.classList.add('open');
+}
+function closeAccountPay(){var ov=document.getElementById('accpay-overlay');if(ov)ov.classList.remove('open');}
+/* Mobile Money : on recharge le portefeuille du montant, puis l'achat se fait au solde */
+function payAccountViaTopup(id){
+  var a=(allAccounts||[]).find(function(x){return x.id===id;})||{};
+  _pendingAccountId=id;
+  showToast('💡 Rechargez '+fmtMoney(+a.price||0)+' puis revenez payer avec le portefeuille');
+  openRecharge();
+  setTimeout(function(){
+    var amt=document.getElementById('rc-amount');
+    if(amt){amt.value=(+a.price||0);try{amt.dispatchEvent(new Event('input'));}catch(_){}}
+  },350);
+}
+var _pendingAccountId=null;
+
 /* ═══════════ ACHAT D'UN COMPTE : PORTEFEUILLE / POINTS ═══════════ */
 async function buyAccountWith(method,id){
   if(!currentUser){openAuthModal();showToast('🔐 Connectez-vous pour acheter');return;}
@@ -6005,6 +6074,7 @@ async function buyAccountWith(method,id){
   if(!a){showToast('❌ Annonce introuvable');return;}
   if(a.userId===currentUser.uid){showToast('⚠️ C\'est votre propre annonce');return;}
   if(a.status==='sold'){showToast('⚠️ Ce compte est déjà vendu');return;}
+  if(a.isOfficial!==true){showToast('⚠️ Portefeuille et points réservés aux comptes officiels ASG');return;}
   var price=+a.price||0, pts=+a.pointsCost||0;
   var uref=db.collection('users').doc(currentUser.uid);
   try{
@@ -6077,8 +6147,8 @@ async function pushSupportMessage(text){
     userId:currentUser.uid,
     userName:currentUser.displayName||(currentUser.email||'').split('@')[0],
     userEmail:currentUser.email||'',
-    lastMessage:text.slice(0,120),
-    lastAt:firebase.firestore.FieldValue.serverTimestamp(),
+    lastMsg:text.slice(0,120),
+    updatedAt:firebase.firestore.FieldValue.serverTimestamp(),
     unreadAdmin:firebase.firestore.FieldValue.increment(1)
   },{merge:true});
   await cref.collection('messages').add({
@@ -6091,19 +6161,18 @@ async function pushSupportMessage(text){
 function contactSupportAbout(id){
   if(!currentUser){openAuthModal();showToast('🔐 Connectez-vous pour discuter');return;}
   var a=(allAccounts||[]).find(function(x){return x.id===id;})||{};
-  openChat();
+  openChat();                                  // ouverture automatique du support
   setTimeout(function(){
     var inp=document.getElementById('chat-input');
     if(!inp)return;
-    inp.value='Bonjour, je suis intéressé par ce compte :\n'
+    inp.value='Bonjour, je suis intéressé par ce compte 👇\n'
       +'• Annonce : '+(a.title||'—')+'\n'
       +'• Jeu : '+(a.game||'—')+'\n'
       +'• Prix : '+fmtMoney(+a.price||0)+'\n'
       +'• ID annonce : '+id+'\n'
-      +'Pouvez-vous m\'en dire plus ?';
-    try{inp.focus();}catch(_){}
-    showToast('✍️ Message pré-rempli — appuyez sur Envoyer');
-  },420);
+      +'Pouvez-vous me donner plus d\'informations ?';
+    sendChat();                                // envoi auto → l'IA répond aussitôt
+  },450);
 }
 function openChat(){
   if(!currentUser){openAuthModal();showToast('🔐 Connectez-vous pour discuter');return;}
@@ -6303,6 +6372,11 @@ function aiPayList(){
   return o.length?o.join(', '):'Orange Money, Wave et votre portefeuille ASG';
 }
 var AI_INTENTS=[
+  // 🛍️ Achat d'un compte de la marketplace (message envoyé par « Contacter via le support »)
+  {k:['id annonce','annonce','compte a vendre','acheter compte','marketplace','interesse par ce compte','achat compte'],
+   a:"Bonjour 👋 Merci pour votre intérêt !\n\nJ'ai bien reçu l'ID de l'annonce, un conseiller vérifie la disponibilité du compte.\n\n💳 Vous pouvez payer directement depuis la fiche du compte : carte bancaire, Google Pay, Apple Pay, Mobile Money (FedaPay) ou Orange Money Mali (CinetPay).\n💰 Pour les comptes officiels ASG, le portefeuille et les points sont aussi acceptés.\n\nAprès paiement, les identifiants vous sont remis ici même. Avez-vous une question sur le contenu du compte ?"},
+  {k:['identifiants','mot de passe compte','login compte','livraison compte','recu mon compte'],
+   a:"Après validation du paiement, les identifiants du compte vous sont envoyés directement dans cette conversation ⚡\n\nPensez à changer le mot de passe et l'e-mail de récupération dès la réception, pour sécuriser votre achat. Si vous avez déjà payé, indiquez-moi l'ID de l'annonce et je vérifie tout de suite."},
   {k:['bonjour','salut','bonsoir','hello','coucou','cava','ca va','slm','salam','bjr'],
    r:function(){return"Bonjour 👋 Bienvenue sur ASG Store ! Je suis l'assistant automatique. Posez votre question (prix, paiement, livraison, VPN, points, compte…) — un administrateur prendra ensuite le relais.";}},
 
