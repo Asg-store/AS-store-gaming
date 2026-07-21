@@ -6010,6 +6010,44 @@ function dismissAnnounce(){document.getElementById('announce-banner').classList.
 let chatUnsub=null,_chatMsgCount=0,_adminJoined=false;
 
 
+
+/* Affiche les identifiants livrés, avec boutons « Copier » */
+function showAccountDelivery(a,cred){
+  var esc=function(x){return String(x||'').replace(/</g,'&lt;');};
+  var line=function(label,val,id){
+    return '<div style="margin-bottom:12px">'
+      +'<div style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--text3);margin-bottom:5px">'+label+'</div>'
+      +'<div style="display:flex;gap:8px;align-items:center">'
+      +'<div id="'+id+'" style="flex:1;background:var(--bg3);border:1px solid var(--border);border-radius:12px;padding:12px;font-family:monospace;font-size:14px;word-break:break-all">'+esc(val)+'</div>'
+      +'<button onclick="copyDeliv(\''+id+'\')" style="background:var(--accent);color:#001;border:0;border-radius:12px;padding:12px 14px;font-weight:800;cursor:pointer">📋</button>'
+      +'</div></div>';
+  };
+  var box=document.getElementById('accpay-body');
+  if(box)box.innerHTML='<div style="text-align:center;margin-bottom:16px">'
+    +'<div style="font-size:38px">✅</div>'
+    +'<div style="font-weight:800;font-size:16px;margin-top:4px">Compte livré !</div>'
+    +'<div style="font-size:12.5px;color:var(--text3);margin-top:3px">'+esc(a.title||'')+'</div></div>'
+    +line('Identifiant / e-mail',cred.login,'dlv-login')
+    +line('Mot de passe',cred.password,'dlv-pass')
+    +(cred.notes?'<div style="font-size:12.5px;color:var(--text2);background:rgba(255,152,0,.12);border:1px solid rgba(255,152,0,.35);border-radius:12px;padding:10px;margin-bottom:12px">📝 '+esc(cred.notes)+'</div>':'')
+    +'<div style="font-size:12px;color:#ff9800;line-height:1.5;margin-bottom:14px">⚠️ Changez le mot de passe et l\'e-mail de récupération dès maintenant pour sécuriser votre achat.</div>'
+    +'<button class="btn-primary" onclick="closeAccountPay()">Terminé</button>';
+  var ov=document.getElementById('accpay-overlay');if(ov)ov.classList.add('open');
+  showToast('✅ Compte livré !');
+}
+function copyDeliv(id){
+  var el=document.getElementById(id);if(!el)return;
+  var t=el.textContent||'';
+  try{
+    navigator.clipboard.writeText(t);
+    showToast('📋 Copié !');
+  }catch(e){
+    var ta=document.createElement('textarea');ta.value=t;document.body.appendChild(ta);
+    ta.select();try{document.execCommand('copy');showToast('📋 Copié !');}catch(_){}
+    document.body.removeChild(ta);
+  }
+}
+
 /* ═══════════ CHOIX DU MODE DE PAIEMENT D'UN COMPTE ═══════════
    Portefeuille et Points sont RÉSERVÉS aux annonces officielles ASG
    (isOfficial === true). Les annonces des clients passent par les
@@ -6114,11 +6152,16 @@ async function buyAccountWith(method,id){
         soldAt:firebase.firestore.FieldValue.serverTimestamp()
       },{merge:true});
     }catch(_){}
-    // Livraison : on tente de lire les identifiants (si les règles l'autorisent)
+    // Livraison : le CLIENT n'a pas le droit de lire private/credentials
+    // (règles Firestore) → on demande au serveur, qui lui a tous les droits.
     var cred=null;
     try{
-      var cs=await db.collection('accounts').doc(a.id).collection('private').doc('credentials').get();
-      if(cs.exists)cred=cs.data();
+      var r=await fetch('/api/deliver-account',{
+        method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({accountId:a.id,userId:currentUser.uid})
+      });
+      var d=await r.json().catch(function(){return {};});
+      if(r.ok&&d&&d.ok)cred={login:d.login,password:d.password,notes:d.notes};
     }catch(_){}
     // On prévient toujours le support avec l'ID de l'annonce
     var msg='🛒 ACHAT COMPTE\nAnnonce : '+(a.title||'')+'\nID : '+a.id
@@ -6126,10 +6169,7 @@ async function buyAccountWith(method,id){
       +'\nMerci de me livrer les identifiants.';
     try{ await pushSupportMessage(msg); }catch(_){}
     if(cred&&cred.login){
-      alert('✅ Achat confirmé !\n\nIdentifiant : '+cred.login+'\nMot de passe : '+(cred.password||'')
-        +(cred.notes?('\n\nNote : '+cred.notes):'')
-        +'\n\n⚠️ Changez le mot de passe immédiatement.');
-      showToast('✅ Compte livré !');
+      showAccountDelivery(a,cred);
     }else{
       showToast('✅ Achat confirmé — identifiants envoyés dans le support');
       openChat();
