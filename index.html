@@ -4820,12 +4820,17 @@ function armBack(){history.pushState({app:1},'');}
 var _screenZ=700;
 function openScreen(name){
   const el=document.getElementById('screen-'+name);if(!el)return;
+  // Si l'écran est DÉJÀ ouvert, on le remet juste au premier plan (pas de doublon
+  // dans la pile → un seul appui « retour » suffit toujours pour revenir).
+  var wasOpen=openScreens.indexOf(name)>=0;
   prepScreen(name);
   el.style.zIndex=(++_screenZ);
   el.classList.add('open');
-  openScreens.push(name);
-  armBack();
-  if(typeof reLang==='function')setTimeout(reLang,80); // 🌐 traduit le contenu fraîchement rendu
+  if(!wasOpen){
+    openScreens.push(name);
+    armBack();   // une entrée d'historique = un cran de « retour »
+  }
+  if(typeof reLang==='function')setTimeout(reLang,80); // 🌐 traduit le contenu
 }
 function closeScreen(name){
   const el=document.getElementById('screen-'+name);

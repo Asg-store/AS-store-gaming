@@ -4497,5 +4497,56 @@ function startAdminBadges(){
 })();
 </script>
 
+
+/* ═══════════ NAVIGATION RETOUR ÉTAPE PAR ÉTAPE (ADMIN) ═══════════
+   Avant : le bouton « retour » du téléphone quittait l'admin même si un
+   formulaire ou une feuille était ouvert. Désormais, chaque ouverture ajoute
+   une entrée d'historique ; « retour » ferme d'abord la couche du dessus
+   (feuille → tiroir menu), et ne quitte l'app qu'une fois tout fermé. */
+(function(){
+  function armBack(){ try{history.pushState({adm:1},'');}catch(e){} }
+
+  // Ferme la couche visible la plus haute. Renvoie true si quelque chose a été fermé.
+  function closeTopAdmin(){
+    // 1) N'importe quelle feuille ouverte (formulaire, détail, suppression…)
+    var sheets=document.querySelectorAll('.sheet.on');
+    if(sheets.length){
+      var top=sheets[sheets.length-1];
+      var id=top.id||'';
+      // Utilise la vraie fonction de fermeture si elle existe (pour nettoyer)
+      var map={
+        'form-sh':'closeForm','del-sh':(window.closeDel||null),
+        'cl-detail-sh':'closeClientDetail','cdel-sh':(window.closeClientDel||null),
+        'wadj-sh':'closeWalletAdjust','padj-sh':(window.closePointsAdjust||null),
+        'acc-sh':'closeAcc','msg-sh':(window.closeMsg||null)
+      };
+      var fnName=map[id];
+      if(typeof window[fnName]==='function'){ window[fnName](); return true; }
+      // Repli générique : on retire les classes .on de la feuille + son fond
+      top.classList.remove('on');
+      var bg=document.getElementById(id.replace('-sh','-bg'));
+      if(bg)bg.classList.remove('on');
+      return true;
+    }
+    // 2) Le tiroir menu latéral
+    var dr=document.getElementById('drawer');
+    if(dr&&dr.classList.contains('on')){ closeDrawer(); return true; }
+    return false;
+  }
+
+  // On arme le retour à chaque ouverture de feuille / tiroir
+  ['openForm','openAcc','openClientDetail','openWalletAdjust','openPointsAdjust',
+   'openMsg','openDrawer','editProduct'].forEach(function(fn){
+    if(typeof window[fn]==='function'){
+      var orig=window[fn];
+      window[fn]=function(){ var r=orig.apply(this,arguments); armBack(); return r; };
+    }
+  });
+
+  window.addEventListener('popstate',function(){
+    if(closeTopAdmin()) armBack();   // on ré-arme pour rester dans l'app
+  });
+})();
+
 </body>
 </html>
