@@ -2444,8 +2444,37 @@ document.getElementById('p-cat').onchange=renderList;
 
 /* ══ FORM PRODUIT ══ */
 function openForm(){
+  fillGameSelect();   // 🎮 recharge la liste des jeux/catalogues (dont les nouveaux)
   document.getElementById('form-sh').classList.add('on');
   document.getElementById('form-bg').classList.add('on');
+}
+/* Remplit le menu déroulant « Jeu » du formulaire produit à partir de la
+   collection Firestore « games » : tout nouveau catalogue créé par l'admin
+   (ex : Blood Strike) apparaît AUTOMATIQUEMENT dans « Auto (selon catégorie) ». */
+var GAME_EMOJI={pubg:'🎮',cod:'🔫',ff:'🔥',bloodstrike:'🩸',other:'🎯'};
+async function fillGameSelect(){
+  var sel=document.getElementById('f-game');if(!sel)return;
+  var current=sel.value;
+  var base=[
+    {k:'',   n:'Auto (selon catégorie)'},
+    {k:'pubg',n:'🎮 PUBG Mobile'},
+    {k:'cod', n:'🔫 Call of Duty Mobile'},
+    {k:'ff',  n:'🔥 Free Fire'}
+  ];
+  var seen={'':1,pubg:1,cod:1,ff:1};
+  try{
+    var snap=await db.collection('games').get();
+    snap.docs.forEach(function(d){
+      var k=d.id; if(seen[k])return; seen[k]=1;
+      var g=d.data()||{};
+      var ico=g.emoji||GAME_EMOJI[k]||'🎮';
+      base.push({k:k,n:ico+' '+(g.name||g.title||k)});
+    });
+  }catch(e){}
+  base.push({k:'other',n:'Autre'});
+  sel.innerHTML=base.map(function(o){return '<option value="'+o.k+'">'+o.n+'</option>';}).join('');
+  // On restaure la sélection en cours si elle existe toujours
+  if(seen[current]||current==='other')sel.value=current;
 }
 function closeForm(){
   document.getElementById('form-sh').classList.remove('on');
