@@ -3034,9 +3034,11 @@ async function submitReview(){
    logo, couleur de marque et sous-titre adaptés. */
 var SOCIAL_BRANDS=[
   {m:['whatsapp','wa.me','chat.whatsapp'], n:'WhatsApp',  i:'💬', c:'#25D366', d:'Commandez et discutez avec nous'},
+  {m:['tiktok.com/@','/live'],              n:'TikTok Live',i:'🔴', c:'#EE1D52', d:'🔴 En direct sur TikTok'},
   {m:['tiktok'],                            n:'TikTok',    i:'🎵', c:'#000000', d:'Nos vidéos et nouveautés'},
   {m:['facebook','fb.com','fb.me'],         n:'Facebook',  i:'📘', c:'#1877F2', d:'Notre page officielle'},
   {m:['instagram','instagr.am'],            n:'Instagram', i:'📸', c:'#E1306C', d:'Photos, stories et promos'},
+  {m:['youtube.com/live','/live'],          n:'YouTube Live',i:'🔴', c:'#FF0000', d:'🔴 En direct sur YouTube'},
   {m:['youtube','youtu.be'],                n:'YouTube',   i:'▶️', c:'#FF0000', d:'Tutoriels et démonstrations'},
   {m:['t.me','telegram'],                   n:'Telegram',  i:'✈️', c:'#229ED9', d:'Notre canal d\'annonces'},
   {m:['twitter','x.com'],                   n:'X',         i:'✖️', c:'#111111', d:'Actus en direct'},
@@ -3046,9 +3048,21 @@ var SOCIAL_BRANDS=[
 ];
 function socialBrand(url){
   var u=String(url||'').toLowerCase();
+  var isLive=u.indexOf('/live')>=0||u.indexOf('live=')>=0||u.indexOf('is_live')>=0;
+  // 1) Détection Live prioritaire
+  if(isLive){
+    if(u.indexOf('tiktok')>=0)return {n:'TikTok Live',i:'🔴',c:'#EE1D52',d:'🔴 En direct sur TikTok'};
+    if(u.indexOf('youtu')>=0) return {n:'YouTube Live',i:'🔴',c:'#FF0000',d:'🔴 En direct sur YouTube'};
+    if(u.indexOf('facebook')>=0||u.indexOf('fb.')>=0)return {n:'Facebook Live',i:'🔴',c:'#1877F2',d:'🔴 En direct sur Facebook'};
+    if(u.indexOf('instagram')>=0)return {n:'Instagram Live',i:'🔴',c:'#E1306C',d:'🔴 En direct sur Instagram'};
+  }
+  // 2) Détection classique
   for(var i=0;i<SOCIAL_BRANDS.length;i++){
     var b=SOCIAL_BRANDS[i];
-    for(var j=0;j<b.m.length;j++) if(u.indexOf(b.m[j])>=0) return b;
+    for(var j=0;j<b.m.length;j++){
+      if(b.m[j]==='/live')continue;   // géré ci-dessus
+      if(u.indexOf(b.m[j])>=0) return b;
+    }
   }
   return {n:'',i:'🌐',c:'#7c3aed',d:'Visiter le lien'};
 }
