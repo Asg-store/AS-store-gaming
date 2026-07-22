@@ -1375,6 +1375,7 @@ body{font-family:'Exo 2',sans-serif;background:var(--bg);color:var(--text);
         <div class="form-grp"><label>Nom</label><input class="inp" id="soc-name" placeholder="WhatsApp"/></div>
       </div>
       <div class="form-grp"><label>Lien (URL)</label><input class="inp" id="soc-url" type="url" placeholder="https://…"/></div>
+      <div class="form-grp"><label>Image / logo (URL, optionnel)</label><input class="inp" id="soc-img" type="url" placeholder="https://…/logo.png — remplace l'icône"/></div>
       <button class="save-btn" onclick="addSocialLink()">➕ Ajouter le réseau</button>
       <div id="social-admin-list" style="margin-top:12px"></div>
     </div>
@@ -4312,12 +4313,14 @@ async function addSocialLink(){
   const icon=(document.getElementById('soc-icon').value||'🌐').trim();
   const name=document.getElementById('soc-name').value.trim();
   const url=document.getElementById('soc-url').value.trim();
+  const img=(document.getElementById('soc-img').value||'').trim();
   if(!name||!url){toast('❌ Nom et lien requis',true);return;}
   try{
     const links=(window._socialCache||[]).slice();
-    links.push({icon,name,url});
+    links.push({icon,name,url,img});
     await db.collection('config').doc('shop').set({socialLinks:links},{merge:true});
     document.getElementById('soc-name').value='';document.getElementById('soc-url').value='';document.getElementById('soc-icon').value='';
+    var _si=document.getElementById('soc-img');if(_si)_si.value='';
     toast('✓ Réseau ajouté');loadSocialAdmin();
   }catch(e){toast('❌ '+e.message,true);}
 }
@@ -4328,10 +4331,17 @@ async function loadSocialAdmin(){
     const links=(d.exists&&d.data().socialLinks)||[];
     window._socialCache=links;
     if(!links.length){el.innerHTML='<p style="font-size:12px;color:var(--text3)">Aucun réseau ajouté.</p>';return;}
-    el.innerHTML=links.map((l,i)=>`<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)">
-      <div style="flex:1">${l.icon||'🌐'} <b>${aEsc(l.name)}</b><br><span style="font-size:11px;color:var(--text3)">${aEsc(l.url)}</span></div>
-      <button class="ic-btn red" onclick="delSocialLink(${i})"><svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/></svg></button>
-    </div>`).join('');
+    el.innerHTML=links.map(function(l,i){
+      var thumb=l.img
+        ? '<img src="'+l.img+'" style="width:34px;height:34px;border-radius:9px;object-fit:cover;flex:0 0 auto">'
+        : '<span style="font-size:22px;flex:0 0 auto">'+(l.icon||'🌐')+'</span>';
+      return '<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)">'
+        +thumb
+        +'<div style="flex:1;min-width:0"><b>'+aEsc(l.name)+'</b>'
+        +'<div style="font-size:11px;color:var(--text3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+aEsc(l.url)+'</div></div>'
+        +'<button onclick="delSocialLink('+i+')" style="flex:0 0 auto;background:rgba(255,59,92,.12);color:#ff3b5c;border:0;border-radius:8px;padding:7px 11px;cursor:pointer;font-size:15px">🗑️</button>'
+        +'</div>';
+    }).join('');
   }catch(e){el.innerHTML='<p style="font-size:12px;color:var(--red)">'+aEsc(e.message)+'</p>';}
 }
 async function delSocialLink(i){
