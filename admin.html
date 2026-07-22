@@ -1381,6 +1381,17 @@ body{font-family:'Exo 2',sans-serif;background:var(--bg);color:var(--text);
   </div>
 
   <div class="panel">
+    <div class="panel-top"><span class="panel-title">📺 Daily Hot Videos (YouTube)</span></div>
+    <div style="padding:16px">
+      <div class="upload-tip" style="margin-bottom:12px">💡 Collez le lien YouTube d'une vidéo ou d'un live gaming. Elle s'affichera dans l'écran « Daily Hot Videos » de l'app cliente.</div>
+      <div class="form-grp"><label>Lien YouTube</label><input class="inp" id="yt-url" type="url" placeholder="https://youtube.com/watch?v=… ou https://youtu.be/…"/></div>
+      <div class="form-grp"><label>Titre (optionnel)</label><input class="inp" id="yt-title" placeholder="Ex : Live Free Fire — Group Stage"/></div>
+      <button class="save-btn" onclick="addHotVideo()">➕ Ajouter la vidéo</button>
+      <div id="yt-admin-list" style="margin-top:12px"></div>
+    </div>
+  </div>
+
+  <div class="panel">
     <div class="panel-top"><span class="panel-title">🚀 Mise à jour de la plateforme</span></div>
     <div style="padding:16px">
       <span class="hint">Quand vous publiez une nouvelle version des fichiers, cliquez ici pour demander à tous les clients de recharger l'application (bannière « Mettre à jour »).</span>
@@ -2386,7 +2397,7 @@ function goTab(id){
   if(id==='dashboard')loadDashboard();
   if(id==='orders')loadOrders();
   if(id==='payments')loadPayments();
-  if(id==='announce'){loadAnnounce();loadPromos();}
+  if(id==='announce'){loadAnnounce();loadPromos();loadHotVideosAdmin();}
   if(id==='accounts'){loadAccounts();aoFillGames();aoRenderThumbs();loadImgbbKey();}
   if(id==='messages')loadConversations();
   if(id==='games')loadGamesAdmin();
@@ -4245,6 +4256,57 @@ function loadScheduledNotifs(){
 }
 async function delSchedNotif(id){try{await db.collection('scheduledNotifs').doc(id).delete();toast('✓ Annulée');}catch(e){toast('❌ '+e.message,true);}}
 
+// ── Daily Hot Videos (YouTube) ──
+function ytIdA(u){
+  var x=String(u||'').trim();
+  var m=x.match(/(?:v=|youtu\.be\/|embed\/|shorts\/)([\w-]{11})/);
+  if(m)return m[1];
+  if(/^[\w-]{11}$/.test(x))return x;
+  return '';
+}
+async function addHotVideo(){
+  var url=(document.getElementById('yt-url').value||'').trim();
+  var title=(document.getElementById('yt-title').value||'').trim();
+  if(!ytIdA(url)){toast('❌ Lien YouTube invalide',true);return;}
+  try{
+    var d=await db.collection('config').doc('shop').get();
+    var vids=(d.exists&&(d.data()||{}).hotVideos)||[];
+    vids.unshift({url:url,title:title});     // la plus récente en premier
+    await db.collection('config').doc('shop').set({hotVideos:vids},{merge:true});
+    document.getElementById('yt-url').value='';
+    document.getElementById('yt-title').value='';
+    toast('✅ Vidéo ajoutée');
+    loadHotVideosAdmin();
+  }catch(e){toast('❌ '+e.message,true);}
+}
+async function delHotVideo(i){
+  try{
+    var d=await db.collection('config').doc('shop').get();
+    var vids=(d.exists&&(d.data()||{}).hotVideos)||[];
+    vids.splice(i,1);
+    await db.collection('config').doc('shop').set({hotVideos:vids},{merge:true});
+    toast('✓ Vidéo retirée');
+    loadHotVideosAdmin();
+  }catch(e){toast('❌ '+e.message,true);}
+}
+async function loadHotVideosAdmin(){
+  var el=document.getElementById('yt-admin-list');if(!el)return;
+  try{
+    var d=await db.collection('config').doc('shop').get();
+    var vids=(d.exists&&(d.data()||{}).hotVideos)||[];
+    if(!vids.length){el.innerHTML='<span class="hint">Aucune vidéo pour le moment.</span>';return;}
+    el.innerHTML=vids.map(function(v,i){
+      var id=ytIdA(typeof v==='string'?v:(v.url||v.id||''));
+      var t=(typeof v==='object'&&v.title)?v.title:('Vidéo '+(i+1));
+      var thumb=id?'https://img.youtube.com/vi/'+id+'/mqdefault.jpg':'';
+      return '<div style="display:flex;gap:10px;align-items:center;padding:8px 0;border-bottom:1px solid var(--border)">'
+        +(thumb?'<img src="'+thumb+'" style="width:64px;height:40px;border-radius:6px;object-fit:cover">':'')
+        +'<div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+aEsc(t)+'</div>'
+        +'<div style="font-size:10px;color:var(--text3)">'+id+'</div></div>'
+        +'<button onclick="delHotVideo('+i+')" style="background:rgba(255,59,92,.12);color:#ff3b5c;border:0;border-radius:8px;padding:6px 10px;cursor:pointer">🗑️</button></div>';
+    }).join('');
+  }catch(e){el.innerHTML='<span class="hint">Erreur : '+e.message+'</span>';}
+}
 // ── Réseaux sociaux ──
 async function addSocialLink(){
   const icon=(document.getElementById('soc-icon').value||'🌐').trim();
