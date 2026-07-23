@@ -5065,34 +5065,29 @@ function doExitApp(){
   var ov=document.getElementById('exit-overlay');
   if(ov)ov.classList.remove('open');
 
-  // 1) Application Android native (WebView) : on ferme via le pont si présent
+  _allowExit=true;   // plus aucune garde : on sort pour de bon
+
+  // 1) Application Android native (WebView) : fermeture immédiate via le pont
   try{
     if(window.AndroidBridge&&typeof AndroidBridge.closeApp==='function'){AndroidBridge.closeApp();return;}
     if(window.Android&&typeof window.Android.closeApp==='function'){window.Android.closeApp();return;}
+    if(window.AndroidBridge&&typeof AndroidBridge.exit==='function'){AndroidBridge.exit();return;}
   }catch(e){}
 
-  // 2) Web / PWA : on recule de TOUTES les entrées que nous avons ajoutées
-  _allowExit=true;
+  // 2) Fermeture directe de la fenêtre / PWA
+  try{window.close();}catch(e){}
+
+  // 3) Sortie par l'historique : on recule de TOUT ce que l'app a empilé
   var back=_histDepth+1;
   _histDepth=0;
   try{history.go(-back);}catch(e){}
 
-  // 3) Dernier recours : fermer l'onglet, sinon écran d'au revoir
+  // 4) Dernier recours : quitter la page (l'app disparaît de l'écran)
   setTimeout(function(){
+    if(document.hidden)return;          // déjà sorti
     try{window.close();}catch(e){}
-    if(!document.hidden){
-      _allowExit=false;                     // la sortie a échoué → on reste utilisable
-      document.body.innerHTML='<div style="min-height:100vh;display:flex;flex-direction:column;'
-        +'align-items:center;justify-content:center;text-align:center;padding:30px;'
-        +'font-family:inherit;background:var(--bg);color:var(--text)">'
-        +'<div style="font-size:56px">👋</div>'
-        +'<h2 style="margin:14px 0 6px">À bientôt sur ASG Store</h2>'
-        +'<p style="color:var(--text3);font-size:13.5px;margin-bottom:22px">Vous pouvez fermer cet onglet.</p>'
-        +'<button onclick="location.reload()" style="padding:13px 26px;border-radius:14px;border:0;'
-        +'background:linear-gradient(135deg,#00d4ff,#7c3aed);color:#fff;font-weight:800;font-size:14px;cursor:pointer">'
-        +'↻ Revenir à la boutique</button></div>';
-    }
-  },350);
+    try{location.replace('about:blank');}catch(e){}
+  },260);
 }
 // armer le retour pour les overlays existants
 ['openCart','openFilterSheet','openAuthModal','openPayHistory'].forEach(fn=>{
