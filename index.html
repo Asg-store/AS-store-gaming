@@ -1170,7 +1170,7 @@ body.ios .pnotif .pn-ic{border-radius:11px}
       <span class="c-ico"><svg viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg></span> Mes Points
     </div>
     <div class="cat-item" onclick="openWheel();closeSidebar()">
-      <span class="c-ico"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="2" x2="12" y2="22"/><line x1="2" y1="12" x2="22" y2="12"/><line x1="5" y1="5" x2="19" y2="19"/><line x1="19" y1="5" x2="5" y2="19"/></svg></span> 🎡 Roue de la chance
+      <span class="c-ico"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="2" x2="12" y2="22"/><line x1="2" y1="12" x2="22" y2="12"/><line x1="5" y1="5" x2="19" y2="19"/><line x1="19" y1="5" x2="5" y2="19"/></svg></span> Roue de la chance
     </div>
     <div class="cat-item" onclick="openProfile();closeSidebar()">
       <span class="c-ico"><svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></span> 👤 Mon profil
@@ -5666,11 +5666,37 @@ function openWheel(){
   var w=document.getElementById('wh-wheel');w.style.transition='none';w.style.transform='rotate(0deg)';
   var spun=(userData&&userData.lastWheelDay===todayKey())||localStorage.getItem('asg-wheel')===todayKey();
   var btn=document.getElementById('wh-spin');
-  if(spun){btn.disabled=true;btn.textContent='⏳ Revenez demain !';}
-  else{btn.disabled=false;btn.textContent='TOURNER';}
+  if(spun){startWheelCountdown();}
+  else{stopWheelCountdown();btn.disabled=false;btn.textContent='TOURNER';}
   document.getElementById('wheel-overlay').classList.add('open');
 }
-function closeWheel(){if(!_wheelSpinning)document.getElementById('wheel-overlay').classList.remove('open');}
+/* ⏳ Compte à rebours jusqu'au prochain tour (minuit) — format HH:MM:SS */
+var _wheelTimer=null;
+function stopWheelCountdown(){if(_wheelTimer){clearInterval(_wheelTimer);_wheelTimer=null;}}
+function startWheelCountdown(){
+  var btn=document.getElementById('wh-spin');if(!btn)return;
+  stopWheelCountdown();
+  btn.disabled=true;
+  var tick=function(){
+    var now=new Date();
+    var next=new Date(now.getFullYear(),now.getMonth(),now.getDate()+1,0,0,0,0);
+    var ms=next-now;
+    if(ms<=0){                       // minuit passé : la roue redevient jouable
+      stopWheelCountdown();
+      btn.disabled=false;
+      btn.textContent='TOURNER';
+      try{localStorage.removeItem('asg-wheel');}catch(e){}
+      return;
+    }
+    var t=Math.floor(ms/1000);
+    var h=Math.floor(t/3600), m=Math.floor((t%3600)/60), sec=t%60;
+    var p=function(n){return (n<10?'0':'')+n;};
+    btn.textContent='⏳ '+p(h)+':'+p(m)+':'+p(sec);
+  };
+  tick();
+  _wheelTimer=setInterval(tick,1000);
+}
+function closeWheel(){if(!_wheelSpinning){stopWheelCountdown();document.getElementById('wheel-overlay').classList.remove('open');}}
 async function spinWheel(){
   if(_wheelSpinning)return;
   var spun=(userData&&userData.lastWheelDay===todayKey())||localStorage.getItem('asg-wheel')===todayKey();
@@ -5692,7 +5718,7 @@ async function spinWheel(){
     }catch(e){}
     if(prize>0){showToast('🎉 Bravo ! Vous gagnez +'+prize+' points !');}
     else{showToast('😅 Rejoue demain, pas de chance cette fois !');}
-    btn.textContent='⏳ Revenez demain !';
+    startWheelCountdown();
   },4700);
 }
 
