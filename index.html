@@ -5064,30 +5064,44 @@ function doExitApp(){
   _exitAsked=false;
   var ov=document.getElementById('exit-overlay');
   if(ov)ov.classList.remove('open');
+  _allowExit=true;
 
-  _allowExit=true;   // plus aucune garde : on sort pour de bon
+  // ── 1) APK / WebView Android : on essaie TOUS les ponts natifs connus ──
+  var bridges=[
+    ['AndroidBridge','closeApp'],['AndroidBridge','exit'],['AndroidBridge','finish'],
+    ['Android','closeApp'],['Android','exit'],['Android','finish'],
+    ['ASGBridge','closeApp'],['JSBridge','closeApp'],['AppInterface','closeApp']
+  ];
+  for(var i=0;i<bridges.length;i++){
+    try{
+      var o=window[bridges[i][0]];
+      if(o&&typeof o[bridges[i][1]]==='function'){o[bridges[i][1]]();return;}
+    }catch(e){}
+  }
+  // Cordova / Capacitor
+  try{if(navigator.app&&typeof navigator.app.exitApp==='function'){navigator.app.exitApp();return;}}catch(e){}
+  try{if(window.Capacitor&&Capacitor.Plugins&&Capacitor.Plugins.App){Capacitor.Plugins.App.exitApp();return;}}catch(e){}
 
-  // 1) Application Android native (WebView) : fermeture immédiate via le pont
-  try{
-    if(window.AndroidBridge&&typeof AndroidBridge.closeApp==='function'){AndroidBridge.closeApp();return;}
-    if(window.Android&&typeof window.Android.closeApp==='function'){window.Android.closeApp();return;}
-    if(window.AndroidBridge&&typeof AndroidBridge.exit==='function'){AndroidBridge.exit();return;}
-  }catch(e){}
-
-  // 2) Fermeture directe de la fenêtre / PWA
+  // ── 2) PWA installée : window.close() ferme réellement l'application ──
   try{window.close();}catch(e){}
 
-  // 3) Sortie par l'historique : on recule de TOUT ce que l'app a empilé
-  var back=_histDepth+1;
-  _histDepth=0;
-  try{history.go(-back);}catch(e){}
+  // ── 3) Navigateur : on sort de TOUTE la session (retour au site précédent) ──
+  try{
+    var n=Math.max(_histDepth+1,(history.length||1)-1);
+    _histDepth=0;
+    history.go(-n);
+  }catch(e){}
 
-  // 4) Dernier recours : quitter la page (l'app disparaît de l'écran)
+  // ── 4) Toujours là après 300 ms → l'app est dans un onglet Chrome classique.
+  //      Le navigateur INTERDIT de fermer un onglet non ouvert par script.
+  //      On le dit clairement au lieu de laisser une page blanche. ──
   setTimeout(function(){
-    if(document.hidden)return;          // déjà sorti
-    try{window.close();}catch(e){}
-    try{location.replace('about:blank');}catch(e){}
-  },260);
+    if(document.hidden)return;
+    _allowExit=false;
+    _exitAsked=false;
+    armBack();
+    showToast('ℹ️ Fermez l\'onglet pour quitter — ou installez l\'app pour une vraie sortie');
+  },320);
 }
 // armer le retour pour les overlays existants
 ['openCart','openFilterSheet','openAuthModal','openPayHistory'].forEach(fn=>{
