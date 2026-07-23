@@ -1232,6 +1232,8 @@ body.ios .pnotif .pn-ic{border-radius:11px}
     <div class="cat-item" onclick="openScreen('about');closeSidebar()">
       <span class="c-ico"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg></span> À propos
     </div>
+    <!-- Numéro de version publié par l'admin -->
+    <div id="sb-version" style="text-align:center;font-size:11px;color:var(--text3);padding:14px 0 6px;opacity:.85"></div>
   </div>
 </aside>
 
@@ -2148,7 +2150,7 @@ body.ios .pnotif .pn-ic{border-radius:11px}
 
 <!-- Bannière mise à jour disponible -->
 <div id="update-banner">
-  <b>🚀 Une nouvelle version est disponible !</b>
+  <b id="ub-text">🚀 Une nouvelle version est disponible !</b>
   <button onclick="location.reload(true)">Mettre à jour</button>
   <button class="ub-later" onclick="dismissUpdate()">Plus tard</button>
 </div>
@@ -3238,7 +3240,11 @@ function shareShop(){
 // ℹ️ Écran À propos
 function renderAbout(){
   const v=document.getElementById('about-version');
-  if(v)v.textContent='ASG Store v'+APP_VERSION+(shopConfig.platformVersion?' · serveur v'+shopConfig.platformVersion:'');
+  if(!v)return;
+  var lbl=shopConfig.versionLabel||('v'+(shopConfig.platformVersion||APP_VERSION));
+  if(String(lbl).charAt(0)!=='v')lbl='v'+lbl;
+  v.innerHTML='ASG Store <b style="color:var(--accent)">'+lbl+'</b>'
+    +(shopConfig.versionNotes?'<br><span style="font-size:12px;color:var(--text3)">🆕 '+String(shopConfig.versionNotes).replace(/</g,'&lt;')+'</span>':'');
 }
 
 // Arène : acheter des points avec le solde du portefeuille
@@ -3995,13 +4001,32 @@ async function awardPurchasePoints(orderId,amountSpent,items){
 }
 
 // Vérifie la version de la plateforme → bannière de mise à jour
+/* Affiche la version courante dans le menu latéral */
+function renderVersionTag(){
+  var el=document.getElementById('sb-version');if(!el)return;
+  var lbl=shopConfig.versionLabel||('v'+(shopConfig.platformVersion||APP_VERSION));
+  if(String(lbl).charAt(0)!=='v')lbl='v'+lbl;
+  el.textContent='ASG Store · '+lbl;
+}
 function checkPlatformVersion(){
+  renderVersionTag();
   const v=+shopConfig.platformVersion||0;
   if(v>APP_VERSION){
     // Si le client a déjà choisi « Plus tard » pour CETTE version, on ne réaffiche pas
     if(localStorage.getItem('nex-update-later')==String(v))return;
-    const b=document.getElementById('update-banner');if(b)b.classList.add('show');
+    showUpdateBanner();
   }
+}
+/* Affiche la bannière en indiquant le NUMÉRO de la nouvelle version */
+function showUpdateBanner(){
+  var t=document.getElementById('ub-text');
+  if(t){
+    var lbl=shopConfig.versionLabel||('v'+(shopConfig.platformVersion||''));
+    if(lbl&&String(lbl).charAt(0)!=='v')lbl='v'+lbl;
+    t.innerHTML='🚀 Nouvelle version <b>'+lbl+'</b> disponible !'
+      +(shopConfig.versionNotes?'<br><span style="font-weight:400;font-size:12px;opacity:.9">'+String(shopConfig.versionNotes).replace(/</g,'&lt;')+'</span>':'');
+  }
+  var b=document.getElementById('update-banner');if(b)b.classList.add('show');
 }
 // « Plus tard » : masque la bannière jusqu'à la prochaine version publiée par l'admin
 function dismissUpdate(){
@@ -4018,7 +4043,11 @@ async function checkForUpdates(){
     const v=+((d.exists&&d.data().platformVersion)||0);
     if(v>APP_VERSION){
       localStorage.removeItem('nex-update-later'); // on réaffiche même si « plus tard » avait été choisi
-      const b=document.getElementById('update-banner');if(b)b.classList.add('show');
+      var dd=(d.exists&&d.data())||{};
+      shopConfig.versionLabel=dd.versionLabel||shopConfig.versionLabel;
+      shopConfig.versionNotes=dd.versionNotes||shopConfig.versionNotes;
+      shopConfig.platformVersion=v;
+      showUpdateBanner();
       showToast('🚀 Nouvelle version disponible !');
     }else{
       showToast('✅ Vous avez déjà la dernière version');
@@ -4954,7 +4983,7 @@ function openMediaFromReg(key,idx){const m=_mediaRegistry[key];if(m&&m.length)op
 
 /* ─── GESTION ÉCRANS + BOUTON RETOUR TÉLÉPHONE ─── */
 let openScreens=[];
-function armBack(){history.pushState({app:1},'');}
+function armBack(){_histDepth++;try{history.pushState({app:1},'');}catch(e){}}
 /* ⚠️ Tous les .screen partagent z-index:700 : à égalité, c'est l'ORDRE DANS LE HTML
    qui décide lequel s'affiche au-dessus. Un écran déclaré tôt (chat, portefeuille,
    points…) restait donc caché derrière un écran déclaré plus bas (FAQ, guides,
@@ -4995,45 +5024,76 @@ function closeTopOverlay(){
   if(sidebar.classList.contains('open')){closeSidebar();return true;}
   return false;
 }
-window.addEventListener('popstate',function(){
-  if(closeTopOverlay()){armBack();return;}
-  // ⚠️ Plus rien à fermer → l'utilisateur s'apprête à QUITTER l'application.
-  // On affiche une confirmation au lieu de sortir brutalement.
-  askExitApp();
-});
-/* ═══════════ CONFIRMATION AVANT DE QUITTER ═══════════ */
+/* ═══════════ NAVIGATION RETOUR & SORTIE DE L'APPLICATION ═══════════
+   On compte les entrées d'historique que NOUS ajoutons (_histDepth) afin de
+   pouvoir sortir proprement de toute la pile quand l'utilisateur confirme. */
+var _histDepth=0;
 var _exitAsked=false;
+var _allowExit=false;
+
+window.addEventListener('popstate',function(){
+  if(_allowExit)return;                     // sortie confirmée : on laisse partir
+  if(_histDepth>0)_histDepth--;
+  if(closeTopOverlay()){armBack();return;}  // il restait une couche à fermer
+  askExitApp();                             // plus rien : on demande confirmation
+});
+
 function askExitApp(){
-  if(_exitAsked)return;          // évite l'empilement de popups
+  if(_exitAsked)return;                     // une seule popup à la fois
   _exitAsked=true;
-  armBack();                     // on reste dans l'app le temps de la réponse
+  armBack();                                // on reste dans l'app pendant la question
   var ov=document.getElementById('exit-overlay');
-  if(!ov){                       // repli si l'overlay est absent
+  if(!ov){
     _exitAsked=false;
-    if(confirm('Voulez-vous quitter ASG Store ?'))doExitApp();
+    if(confirm('Quitter ASG Store ?'))doExitApp();
     return;
   }
   ov.classList.add('open');
+  // Sécurité : si l'utilisateur ne répond pas, la popup se referme seule
+  clearTimeout(window._exitTO);
+  window._exitTO=setTimeout(cancelExitApp,15000);
 }
 function cancelExitApp(){
+  clearTimeout(window._exitTO);
   _exitAsked=false;
   var ov=document.getElementById('exit-overlay');
   if(ov)ov.classList.remove('open');
 }
 function doExitApp(){
+  clearTimeout(window._exitTO);
   _exitAsked=false;
   var ov=document.getElementById('exit-overlay');
   if(ov)ov.classList.remove('open');
-  // On laisse réellement partir : on retire notre garde puis on recule
-  window.removeEventListener('popstate',arguments.callee);
+
+  // 1) Application Android native (WebView) : on ferme via le pont si présent
   try{
-    if(window.AndroidBridge&&AndroidBridge.closeApp){AndroidBridge.closeApp();return;}
+    if(window.AndroidBridge&&typeof AndroidBridge.closeApp==='function'){AndroidBridge.closeApp();return;}
+    if(window.Android&&typeof window.Android.closeApp==='function'){window.Android.closeApp();return;}
   }catch(e){}
+
+  // 2) Web / PWA : on recule de TOUTES les entrées que nous avons ajoutées
   _allowExit=true;
-  history.go(-2);                // sort de la pile de l'app
-  setTimeout(function(){try{window.close();}catch(e){}},120);
+  var back=_histDepth+1;
+  _histDepth=0;
+  try{history.go(-back);}catch(e){}
+
+  // 3) Dernier recours : fermer l'onglet, sinon écran d'au revoir
+  setTimeout(function(){
+    try{window.close();}catch(e){}
+    if(!document.hidden){
+      _allowExit=false;                     // la sortie a échoué → on reste utilisable
+      document.body.innerHTML='<div style="min-height:100vh;display:flex;flex-direction:column;'
+        +'align-items:center;justify-content:center;text-align:center;padding:30px;'
+        +'font-family:inherit;background:var(--bg);color:var(--text)">'
+        +'<div style="font-size:56px">👋</div>'
+        +'<h2 style="margin:14px 0 6px">À bientôt sur ASG Store</h2>'
+        +'<p style="color:var(--text3);font-size:13.5px;margin-bottom:22px">Vous pouvez fermer cet onglet.</p>'
+        +'<button onclick="location.reload()" style="padding:13px 26px;border-radius:14px;border:0;'
+        +'background:linear-gradient(135deg,#00d4ff,#7c3aed);color:#fff;font-weight:800;font-size:14px;cursor:pointer">'
+        +'↻ Revenir à la boutique</button></div>';
+    }
+  },350);
 }
-var _allowExit=false;
 // armer le retour pour les overlays existants
 ['openCart','openFilterSheet','openAuthModal','openPayHistory'].forEach(fn=>{
   if(typeof window[fn]==='function'){const o=window[fn];window[fn]=function(){o.apply(this,arguments);armBack();};}
