@@ -833,19 +833,7 @@ footer{
 
 /* ════ CHAT (admin <-> client) ════ */
 .chat-wrap{display:flex;flex-direction:column;flex:1;min-height:0}
-#exit-overlay{position:fixed;inset:0;background:rgba(0,0,0,.62);z-index:9999;
-  display:flex;align-items:center;justify-content:center;padding:26px;
-  opacity:0;pointer-events:none;transition:opacity .22s}
-#exit-overlay.open{opacity:1;pointer-events:all}
-#exit-overlay .exit-box{background:var(--bg2);border:1px solid var(--border);
-  border-radius:22px;padding:26px 22px;max-width:340px;width:100%;text-align:center;
-  box-shadow:0 18px 50px rgba(0,0,0,.4);transform:scale(.9);transition:transform .25s cubic-bezier(.34,1.56,.64,1)}
-#exit-overlay.open .exit-box{transform:scale(1)}
-.exit-btn{flex:1;padding:13px;border-radius:14px;font-family:inherit;font-size:14px;
-  font-weight:800;cursor:pointer;border:1px solid var(--border);transition:.15s}
-.exit-btn:active{transform:scale(.96)}
-.exit-btn.cancel{background:var(--bg3);color:var(--text)}
-.exit-btn.ok{background:linear-gradient(135deg,#ff416c,#ff4b2b);color:#fff;border-color:transparent}
+
 .soc-card{display:block;text-decoration:none;border-radius:18px;padding:16px 14px;
   box-shadow:0 4px 14px rgba(0,0,0,.08);transition:transform .15s}
 .soc-card:active{transform:scale(.96)}
@@ -1643,21 +1631,6 @@ body.ios .pnotif .pn-ic{border-radius:11px}
 </div>
 
 <!-- ════ MODAL : CRÉER / MODIFIER LE CODE PIN ════ -->
-<!-- ════ CONFIRMATION : QUITTER L'APPLICATION ════ -->
-<div id="exit-overlay" onclick="if(event.target===this)cancelExitApp()">
-  <div class="exit-box">
-    <div style="font-size:44px;line-height:1">👋</div>
-    <h3 style="margin:10px 0 6px;font-size:18px;font-weight:800;color:var(--text)">Quitter ASG Store ?</h3>
-    <p style="font-size:13px;color:var(--text2);line-height:1.5;margin:0 0 18px">
-      Vous êtes sur le point de fermer l'application. Vos données restent enregistrées.
-    </p>
-    <div style="display:flex;gap:10px">
-      <button class="exit-btn cancel" onclick="cancelExitApp()">Annuler</button>
-      <button class="exit-btn ok" onclick="doExitApp()">OK, quitter</button>
-    </div>
-  </div>
-</div>
-
 <!-- ════ FEUILLE : MODE DE PAIEMENT D'UN COMPTE ════ -->
 <div id="accpay-overlay" onclick="if(event.target===this)closeAccountPay()">
   <div class="auth-modal">
@@ -5025,84 +4998,18 @@ function closeTopOverlay(){
   return false;
 }
 /* ═══════════ NAVIGATION RETOUR & SORTIE DE L'APPLICATION ═══════════
-   On compte les entrées d'historique que NOUS ajoutons (_histDepth) afin de
-   pouvoir sortir proprement de toute la pile quand l'utilisateur confirme. */
+   Retour étape par étape : chaque écran/feuille ouvert ajoute une entrée
+   d'historique ; le bouton « retour » ferme la couche du dessus. Quand il ne
+   reste plus rien, le navigateur recule normalement (sortie de l'app). */
 var _histDepth=0;
-var _exitAsked=false;
-var _allowExit=false;
 
 window.addEventListener('popstate',function(){
-  if(_allowExit)return;                     // sortie confirmée : on laisse partir
   if(_histDepth>0)_histDepth--;
-  if(closeTopOverlay()){armBack();return;}  // il restait une couche à fermer
-  askExitApp();                             // plus rien : on demande confirmation
+  // Comportement d'origine : on ferme la couche du dessus, sinon on laisse
+  // le navigateur reculer normalement (aucune confirmation de sortie).
+  if(closeTopOverlay())armBack();
 });
 
-function askExitApp(){
-  if(_exitAsked)return;                     // une seule popup à la fois
-  _exitAsked=true;
-  armBack();                                // on reste dans l'app pendant la question
-  var ov=document.getElementById('exit-overlay');
-  if(!ov){
-    _exitAsked=false;
-    if(confirm('Quitter ASG Store ?'))doExitApp();
-    return;
-  }
-  ov.classList.add('open');
-  // Sécurité : si l'utilisateur ne répond pas, la popup se referme seule
-  clearTimeout(window._exitTO);
-  window._exitTO=setTimeout(cancelExitApp,15000);
-}
-function cancelExitApp(){
-  clearTimeout(window._exitTO);
-  _exitAsked=false;
-  var ov=document.getElementById('exit-overlay');
-  if(ov)ov.classList.remove('open');
-}
-function doExitApp(){
-  clearTimeout(window._exitTO);
-  _exitAsked=false;
-  var ov=document.getElementById('exit-overlay');
-  if(ov)ov.classList.remove('open');
-  _allowExit=true;
-
-  // ── 1) APK / WebView Android : on essaie TOUS les ponts natifs connus ──
-  var bridges=[
-    ['AndroidBridge','closeApp'],['AndroidBridge','exit'],['AndroidBridge','finish'],
-    ['Android','closeApp'],['Android','exit'],['Android','finish'],
-    ['ASGBridge','closeApp'],['JSBridge','closeApp'],['AppInterface','closeApp']
-  ];
-  for(var i=0;i<bridges.length;i++){
-    try{
-      var o=window[bridges[i][0]];
-      if(o&&typeof o[bridges[i][1]]==='function'){o[bridges[i][1]]();return;}
-    }catch(e){}
-  }
-  // Cordova / Capacitor
-  try{if(navigator.app&&typeof navigator.app.exitApp==='function'){navigator.app.exitApp();return;}}catch(e){}
-  try{if(window.Capacitor&&Capacitor.Plugins&&Capacitor.Plugins.App){Capacitor.Plugins.App.exitApp();return;}}catch(e){}
-
-  // ── 2) PWA installée : window.close() ferme réellement l'application ──
-  try{window.close();}catch(e){}
-
-  // ── 3) Navigateur : on sort de TOUTE la session (retour au site précédent) ──
-  try{
-    var n=Math.max(_histDepth+1,(history.length||1)-1);
-    _histDepth=0;
-    history.go(-n);
-  }catch(e){}
-
-  // ── 4) Toujours là après 300 ms → l'app est dans un onglet Chrome classique.
-  //      Le navigateur INTERDIT de fermer un onglet non ouvert par script.
-  //      On le dit clairement au lieu de laisser une page blanche. ──
-  setTimeout(function(){
-    if(document.hidden)return;
-    _allowExit=false;
-    _exitAsked=false;
-    armBack();
-    showToast('ℹ️ Fermez l\'onglet pour quitter — ou installez l\'app pour une vraie sortie');
-  },320);
-}
 // armer le retour pour les overlays existants
 ['openCart','openFilterSheet','openAuthModal','openPayHistory'].forEach(fn=>{
   if(typeof window[fn]==='function'){const o=window[fn];window[fn]=function(){o.apply(this,arguments);armBack();};}
