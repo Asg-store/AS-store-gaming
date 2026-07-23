@@ -1350,6 +1350,8 @@ body{font-family:'Exo 2',sans-serif;background:var(--bg);color:var(--text);
       <div class="form-grp"><label>Message</label><input class="inp" id="sn-body" placeholder="Texte de la notification"/></div>
       <div class="form-grp"><label>Date & heure d'envoi</label><input class="inp" id="sn-when" type="datetime-local"/></div>
       <button class="save-btn" onclick="scheduleNotif()">⏰ Programmer</button>
+      <div id="sn-health" style="font-size:12px;margin:10px 0;line-height:1.5"></div>
+      <button class="save-btn" style="background:linear-gradient(135deg,#00b0ff,#7c3aed);margin-bottom:10px" onclick="runScheduledNow()">🚀 Envoyer maintenant les notifications dues</button>
       <div id="sn-list" style="margin-top:14px;display:flex;flex-direction:column;gap:8px"></div>
     </div>
   </div>
@@ -1385,7 +1387,7 @@ body{font-family:'Exo 2',sans-serif;background:var(--bg);color:var(--text);
     <div class="panel-top"><span class="panel-title">📺 Daily Hot Videos (YouTube)</span></div>
     <div style="padding:16px">
       <div class="upload-tip" style="margin-bottom:12px">💡 Collez le lien YouTube d'une vidéo ou d'un live gaming. Elle s'affichera dans l'écran « Daily Hot Videos » de l'app cliente.</div>
-      <div class="form-grp"><label>Lien YouTube</label><input class="inp" id="yt-url" type="url" placeholder="https://youtube.com/watch?v=… ou https://youtu.be/…"/></div>
+      <div class="form-grp"><label>Lien vidéo (YouTube / TikTok / Live)</label><input class="inp" id="yt-url" type="url" placeholder="YouTube, Shorts, Live ou TikTok…"/></div>
       <div class="form-grp"><label>Titre (optionnel)</label><input class="inp" id="yt-title" placeholder="Ex : Live Free Fire — Group Stage"/></div>
       <button class="save-btn" onclick="addHotVideo()">➕ Ajouter la vidéo</button>
       <div id="yt-admin-list" style="margin-top:12px"></div>
@@ -1397,6 +1399,13 @@ body{font-family:'Exo 2',sans-serif;background:var(--bg);color:var(--text);
     <div style="padding:16px">
       <span class="hint">Quand vous publiez une nouvelle version des fichiers, cliquez ici pour demander à tous les clients de recharger l'application (bannière « Mettre à jour »).</span>
       <div id="version-info" style="font-size:13px;color:var(--text2);margin:10px 0"></div>
+      <div class="form-grp"><label>Numéro de version</label>
+        <input class="inp" id="pf-version" placeholder="Ex : 1.2" inputmode="decimal"/>
+        <span class="hint">Laissez vide pour incrémenter automatiquement (1.0 → 1.1).</span>
+      </div>
+      <div class="form-grp"><label>Nouveautés (optionnel)</label>
+        <input class="inp" id="pf-vnotes" placeholder="Ex : Daily Hot Videos, achat par points…"/>
+      </div>
       <button class="save-btn" onclick="bumpPlatformVersion()">📢 Signaler une mise à jour aux clients</button>
     </div>
   </div>
@@ -2399,6 +2408,7 @@ function goTab(id){
   if(id==='orders')loadOrders();
   if(id==='payments')loadPayments();
   if(id==='announce'){loadAnnounce();loadPromos();loadHotVideosAdmin();}
+  if(id==='rewards'){try{checkCronHealth();}catch(e){}}
   if(id==='accounts'){loadAccounts();aoFillGames();aoRenderThumbs();loadImgbbKey();}
   if(id==='messages')loadConversations();
   if(id==='games')loadGamesAdmin();
@@ -4236,9 +4246,51 @@ async function scheduleNotif(){
   var when=new Date(w);
   if(isNaN(when)||when<new Date()){toast('❌ Date invalide (doit être dans le futur)',true);return;}
   try{
-    await db.collection('scheduledNotifs').add({title:t,body:b,sendAt:firebase.firestore.Timestamp.fromDate(when),sent:false,createdAt:firebase.firestore.FieldValue.serverTimestamp()});
+    await db.collection('scheduledNotifs').add({
+      title:t, body:b,
+      sendAt:firebase.firestore.Timestamp.fromDate(when),
+      sent:false,
+      createdAt:firebase.firestore.FieldValue.serverTimestamp()
+    });
     document.getElementById('sn-title').value='';document.getElementById('sn-body').value='';document.getElementById('sn-when').value='';
-    toast('⏰ Notification programmée pour '+when.toLocaleString('fr-FR'));
+    var mins=Math.round((when-new Date())/60000);
+    toast('⏰ Programmée pour '+when.toLocaleString('fr-FR')+' (dans '+(mins<60?mins+' min':Math.round(mins/60)+' h')+')');
+    checkCronHealth();
+  }catch(e){toast('❌ '+e.message,true);}
+}
+/* ⏰ Le « réveil » : vérifie que la fonction serveur répond bien.
+   Sans elle, les notifications programmées ne partiraient jamais. */
+async function checkCronHealth(){
+  var el=document.getElementById('sn-health');if(!el)return;
+  el.innerHTML='<span style="color:var(--text3)">⏳ Vérification du service…</span>';
+  try{
+    var r=await fetch('/api/scheduled-notify',{cache:'no-store'});
+    var d=await r.json().catch(function(){return {};});
+    if(r.ok&&d&&d.ok!==false){
+      el.innerHTML='<span style="color:#00c853">✅ Service actif</span>'
+        +'<span style="color:var(--text3)"> — '+((d.due|0))+' en attente, '+((d.devices|0))+' appareil(s) abonné(s)</span>';
+    }else{
+      el.innerHTML='<span style="color:#ff9800">⚠️ '+((d&&d.error)||'Service indisponible')+'</span>';
+    }
+  }catch(e){
+    el.innerHTML='<span style="color:#ff3b5c">❌ /api/scheduled-notify introuvable — déployez la fonction sur Vercel.</span>';
+  }
+}
+/* Envoi immédiat de toutes les notifications échues (sans attendre le cron) */
+async function runScheduledNow(){
+  if(!confirm('Envoyer maintenant toutes les notifications arrivées à échéance ?'))return;
+  var el=document.getElementById('sn-health');
+  if(el)el.innerHTML='<span style="color:var(--text3)">⏳ Envoi en cours…</span>';
+  try{
+    var r=await fetch('/api/scheduled-notify',{cache:'no-store'});
+    var d=await r.json().catch(function(){return {};});
+    if(r.ok&&d&&d.ok){
+      toast('✅ '+((d.due|0))+' notification(s) traitée(s)');
+      checkCronHealth();
+    }else{
+      toast('❌ '+((d&&d.error)||'Échec'),true);
+      if(el)el.innerHTML='<span style="color:#ff3b5c">❌ '+((d&&d.error)||'Échec')+'</span>';
+    }
   }catch(e){toast('❌ '+e.message,true);}
 }
 let _snLoaded=false;
@@ -4258,17 +4310,32 @@ function loadScheduledNotifs(){
 async function delSchedNotif(id){try{await db.collection('scheduledNotifs').doc(id).delete();toast('✓ Annulée');}catch(e){toast('❌ '+e.message,true);}}
 
 // ── Daily Hot Videos (YouTube) ──
-function ytIdA(u){
-  var x=String(u||'').trim();
-  var m=x.match(/(?:v=|youtu\.be\/|embed\/|shorts\/)([\w-]{11})/);
-  if(m)return m[1];
-  if(/^[\w-]{11}$/.test(x))return x;
-  return '';
+/* Reconnaît YouTube (vidéo, Shorts, live, chaîne/live) ET TikTok (vidéo, live) */
+function parseVideoA(u){
+  var x=String(u||'').trim(); if(!x)return null;
+  var low=x.toLowerCase();
+  if(low.indexOf('youtu')>=0){
+    var m=x.match(/(?:v=|youtu\.be\/|embed\/|shorts\/|live\/)([\w-]{11})/);
+    if(m)return {kind:'YouTube'+(low.indexOf('/live')>=0?' Live':''),id:m[1]};
+    if(/youtube\.com\/(?:@[\w.-]+|channel\/[\w-]+|c\/[\w-]+)\/live/i.test(x))
+      return {kind:'YouTube Live',id:''};
+  }
+  if(low.indexOf('tiktok.com')>=0){
+    var tv=x.match(/tiktok\.com\/@[\w.-]+\/video\/(\d+)/);
+    if(tv)return {kind:'TikTok',id:tv[1]};
+    if(low.indexOf('/live')>=0)return {kind:'TikTok Live',id:''};
+    return {kind:'TikTok',id:''};
+  }
+  if(/^[\w-]{11}$/.test(x))return {kind:'YouTube',id:x};
+  if(/^https?:\/\//i.test(x))return {kind:'Lien',id:''};
+  return null;
 }
+function ytIdA(u){var v=parseVideoA(u);return (v&&v.kind.indexOf('YouTube')===0)?v.id:'';}
 async function addHotVideo(){
   var url=(document.getElementById('yt-url').value||'').trim();
   var title=(document.getElementById('yt-title').value||'').trim();
-  if(!ytIdA(url)){toast('❌ Lien YouTube invalide',true);return;}
+  var pv=parseVideoA(url);
+  if(!pv){toast('❌ Lien invalide. Collez un lien YouTube ou TikTok (vidéo ou live).',true);return;}
   try{
     var d=await db.collection('config').doc('shop').get();
     var vids=(d.exists&&(d.data()||{}).hotVideos)||[];
@@ -4276,7 +4343,7 @@ async function addHotVideo(){
     await db.collection('config').doc('shop').set({hotVideos:vids},{merge:true});
     document.getElementById('yt-url').value='';
     document.getElementById('yt-title').value='';
-    toast('✅ Vidéo ajoutée');
+    toast('✅ '+pv.kind+' ajouté');
     loadHotVideosAdmin();
   }catch(e){toast('❌ '+e.message,true);}
 }
@@ -4297,13 +4364,16 @@ async function loadHotVideosAdmin(){
     var vids=(d.exists&&(d.data()||{}).hotVideos)||[];
     if(!vids.length){el.innerHTML='<span class="hint">Aucune vidéo pour le moment.</span>';return;}
     el.innerHTML=vids.map(function(v,i){
-      var id=ytIdA(typeof v==='string'?v:(v.url||v.id||''));
-      var t=(typeof v==='object'&&v.title)?v.title:('Vidéo '+(i+1));
-      var thumb=id?'https://img.youtube.com/vi/'+id+'/mqdefault.jpg':'';
+      var raw=(typeof v==='string')?v:(v.url||v.id||'');
+      var pv=parseVideoA(raw)||{kind:'Lien',id:''};
+      var t=(typeof v==='object'&&v.title)?v.title:(pv.kind+' '+(i+1));
+      var thumb=(pv.kind.indexOf('YouTube')===0&&pv.id)?'https://img.youtube.com/vi/'+pv.id+'/mqdefault.jpg':'';
+      var ico=pv.kind.indexOf('TikTok')===0?'🎵':(pv.kind.indexOf('Live')>=0?'🔴':'▶️');
       return '<div style="display:flex;gap:10px;align-items:center;padding:8px 0;border-bottom:1px solid var(--border)">'
-        +(thumb?'<img src="'+thumb+'" style="width:64px;height:40px;border-radius:6px;object-fit:cover">':'')
+        +(thumb?'<img src="'+thumb+'" style="width:64px;height:40px;border-radius:6px;object-fit:cover;flex:0 0 auto">'
+               :'<div style="width:64px;height:40px;border-radius:6px;background:var(--bg3);display:flex;align-items:center;justify-content:center;font-size:20px;flex:0 0 auto">'+ico+'</div>')
         +'<div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+aEsc(t)+'</div>'
-        +'<div style="font-size:10px;color:var(--text3)">'+id+'</div></div>'
+        +'<div style="font-size:10px;color:var(--text3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+pv.kind+' · '+aEsc(raw)+'</div></div>'
         +'<button onclick="delHotVideo('+i+')" style="background:rgba(255,59,92,.12);color:#ff3b5c;border:0;border-radius:8px;padding:6px 10px;cursor:pointer">🗑️</button></div>';
     }).join('');
   }catch(e){el.innerHTML='<span class="hint">Erreur : '+e.message+'</span>';}
@@ -4356,20 +4426,44 @@ async function delSocialLink(i){
 async function loadVersionInfo(){
   const el=document.getElementById('version-info');if(!el)return;
   try{const d=await db.collection('config').doc('shop').get();
-    const v=(d.exists&&d.data().platformVersion)||0;
-    el.innerHTML='Version actuelle signalée aux clients : <b>'+v+'</b>';
+    const dd=d.exists?(d.data()||{}):{};
+    const label=dd.versionLabel||('v'+((dd.platformVersion)||0));
+    el.innerHTML='Version actuelle signalée aux clients : <b style="color:var(--accent)">'+label+'</b>'
+      +(dd.versionNotes?'<br><span style="font-size:11.5px;color:var(--text3)">'+aEsc(dd.versionNotes)+'</span>':'');
+    var inp=document.getElementById('pf-version');
+    if(inp&&!inp.value)inp.placeholder='Actuelle : '+label;
   }catch(e){}
 }
+/* Incrémente « 1.2 » → « 1.3 » ; « 2 » → « 2.1 » */
+function nextVersion(cur){
+  var m=String(cur||'').replace(/^v/i,'').match(/^(\d+)(?:\.(\d+))?$/);
+  if(!m)return '1.0';
+  var maj=+m[1], min=(m[2]!==undefined)?+m[2]:0;
+  min++;
+  if(min>9){maj++;min=0;}
+  return maj+'.'+min;
+}
 async function bumpPlatformVersion(){
-  if(!confirm('Demander à TOUS les clients de recharger l\'application ?'))return;
+  var manual=((document.getElementById('pf-version')||{}).value||'').trim().replace(/^v/i,'');
+  if(manual&&!/^\d+(\.\d+)?$/.test(manual)){toast('❌ Format invalide. Ex : 1.2',true);return;}
+  var notes=((document.getElementById('pf-vnotes')||{}).value||'').trim();
   try{
     const d=await db.collection('config').doc('shop').get();
-    const v=((d.exists&&d.data().platformVersion)||0)+1;
-    await db.collection('config').doc('shop').set({platformVersion:v},{merge:true});
-    toast('✓ Mise à jour signalée (v'+v+')');loadVersionInfo();
+    const dd=d.exists?(d.data()||{}):{};
+    const label=manual||nextVersion(dd.versionLabel||dd.platformVersion||'1.0');
+    if(!confirm('Publier la version '+label+' et demander à TOUS les clients de recharger ?'))return;
+    // platformVersion (nombre) sert de déclencheur : il doit TOUJOURS augmenter
+    const v=((dd.platformVersion)||0)+1;
+    await db.collection('config').doc('shop').set({
+      platformVersion:v, versionLabel:label, versionNotes:notes,
+      versionAt:firebase.firestore.FieldValue.serverTimestamp()
+    },{merge:true});
+    var iv=document.getElementById('pf-version');if(iv)iv.value='';
+    var nv=document.getElementById('pf-vnotes');if(nv)nv.value='';
+    toast('✓ Version '+label+' publiée');loadVersionInfo();
     // 🔔 Notification système « mise à jour disponible » à tous les clients
     fetch('/api/send-push',{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({title:'🚀 Mise à jour disponible',body:'Une nouvelle version d\'ASG Store est disponible. Ouvrez l\'app pour mettre à jour.'})}).catch(()=>{});
+      body:JSON.stringify({title:'🚀 Mise à jour '+label+' disponible',body:(notes||'Une nouvelle version d\'ASG Store est disponible.')+' Ouvrez l\'app pour mettre à jour.'})}).catch(()=>{});
   }catch(e){toast('❌ '+e.message,true);}
 }
 

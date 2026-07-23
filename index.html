@@ -833,6 +833,19 @@ footer{
 
 /* ════ CHAT (admin <-> client) ════ */
 .chat-wrap{display:flex;flex-direction:column;flex:1;min-height:0}
+#exit-overlay{position:fixed;inset:0;background:rgba(0,0,0,.62);z-index:9999;
+  display:flex;align-items:center;justify-content:center;padding:26px;
+  opacity:0;pointer-events:none;transition:opacity .22s}
+#exit-overlay.open{opacity:1;pointer-events:all}
+#exit-overlay .exit-box{background:var(--bg2);border:1px solid var(--border);
+  border-radius:22px;padding:26px 22px;max-width:340px;width:100%;text-align:center;
+  box-shadow:0 18px 50px rgba(0,0,0,.4);transform:scale(.9);transition:transform .25s cubic-bezier(.34,1.56,.64,1)}
+#exit-overlay.open .exit-box{transform:scale(1)}
+.exit-btn{flex:1;padding:13px;border-radius:14px;font-family:inherit;font-size:14px;
+  font-weight:800;cursor:pointer;border:1px solid var(--border);transition:.15s}
+.exit-btn:active{transform:scale(.96)}
+.exit-btn.cancel{background:var(--bg3);color:var(--text)}
+.exit-btn.ok{background:linear-gradient(135deg,#ff416c,#ff4b2b);color:#fff;border-color:transparent}
 .soc-card{display:block;text-decoration:none;border-radius:18px;padding:16px 14px;
   box-shadow:0 4px 14px rgba(0,0,0,.08);transition:transform .15s}
 .soc-card:active{transform:scale(.96)}
@@ -1628,6 +1641,21 @@ body.ios .pnotif .pn-ic{border-radius:11px}
 </div>
 
 <!-- ════ MODAL : CRÉER / MODIFIER LE CODE PIN ════ -->
+<!-- ════ CONFIRMATION : QUITTER L'APPLICATION ════ -->
+<div id="exit-overlay" onclick="if(event.target===this)cancelExitApp()">
+  <div class="exit-box">
+    <div style="font-size:44px;line-height:1">👋</div>
+    <h3 style="margin:10px 0 6px;font-size:18px;font-weight:800;color:var(--text)">Quitter ASG Store ?</h3>
+    <p style="font-size:13px;color:var(--text2);line-height:1.5;margin:0 0 18px">
+      Vous êtes sur le point de fermer l'application. Vos données restent enregistrées.
+    </p>
+    <div style="display:flex;gap:10px">
+      <button class="exit-btn cancel" onclick="cancelExitApp()">Annuler</button>
+      <button class="exit-btn ok" onclick="doExitApp()">OK, quitter</button>
+    </div>
+  </div>
+</div>
+
 <!-- ════ FEUILLE : MODE DE PAIEMENT D'UN COMPTE ════ -->
 <div id="accpay-overlay" onclick="if(event.target===this)closeAccountPay()">
   <div class="auth-modal">
@@ -2795,12 +2823,26 @@ async function claimMission(i){
   userData.claimedMissions.push(m.id);
   renderMissions();
   try{
-    await db.collection('users').doc(currentUser.uid).set({
-      points:firebase.firestore.FieldValue.increment(+m.reward||0),
-      claimedMissions:firebase.firestore.FieldValue.arrayUnion(m.id)
-    },{merge:true});
+    // 🔒 TRANSACTION : garantit qu'une mission ne peut être réclamée QU'UNE FOIS,
+    // même si le client rejoue la requête, ouvre 2 onglets ou perd la connexion.
+    var uref=db.collection('users').doc(currentUser.uid);
+    await db.runTransaction(async function(tx){
+      var snap=await tx.get(uref);
+      var d=snap.exists?(snap.data()||{}):{};
+      var srv=d.claimedMissions||[];
+      if(srv.indexOf(m.id)>=0)throw new Error('__ALREADY__');   // déjà réclamée côté serveur
+      tx.set(uref,{
+        points:(+d.points||0)+(+m.reward||0),
+        claimedMissions:srv.concat([m.id])
+      },{merge:true});
+    });
     showToast('🎉 Mission accomplie ! +'+(+m.reward||0)+' points');
   }catch(e){
+    if(e&&e.message==='__ALREADY__'){
+      showToast('✓ Mission déjà réclamée');
+      delete _claimingMissions[m.id];
+      return;   // on GARDE le marquage local : le bouton reste « ✓ Reçu »
+    }
     // Échec : on annule le marquage local pour permettre un nouvel essai
     userData.claimedMissions=(userData.claimedMissions||[]).filter(function(x){return x!==m.id;});
     renderMissions();
@@ -3072,37 +3114,78 @@ function hexRgba(hex,a){
   var n=parseInt(h,16);
   return 'rgba('+((n>>16)&255)+','+((n>>8)&255)+','+(n&255)+','+a+')';
 }
-/* ═══════════ DAILY HOT VIDEOS (YouTube) ═══════════
-   Les vidéos sont gérées par l'admin dans config/shop.hotVideos (tableau d'URL
-   ou d'ID YouTube). Chaque vidéo est affichée en lecteur intégré. */
-function ytId(u){
-  var s=String(u||'').trim();
-  var m=s.match(/(?:v=|youtu\.be\/|embed\/|shorts\/)([\w-]{11})/);
-  if(m)return m[1];
-  if(/^[\w-]{11}$/.test(s))return s;   // déjà un ID
-  return '';
+/* ═══════════ DAILY HOT VIDEOS ═══════════
+   Accepte YouTube (vidéo, Shorts, live), TikTok (vidéo et live).
+   YouTube et TikTok s'affichent en lecteur intégré ; les autres liens
+   sont présentés en carte cliquable. */
+function parseVideo(u){
+  var x=String(u||'').trim();
+  if(!x)return null;
+  var low=x.toLowerCase();
+
+  // ── YouTube : live, shorts, watch, youtu.be, embed ──
+  if(low.indexOf('youtu')>=0){
+    var m=x.match(/(?:v=|youtu\.be\/|embed\/|shorts\/|live\/)([\w-]{11})/);
+    if(m)return {type:'yt',id:m[1],live:low.indexOf('/live')>=0};
+    // Live d'une chaîne : youtube.com/@chaine/live ou /channel/UCxxxx/live
+    var ch=x.match(/youtube\.com\/(?:@[\w.-]+|channel\/[\w-]+|c\/[\w-]+)\/live/i);
+    if(ch)return {type:'link',url:x,live:true,brand:'YouTube Live'};
+  }
+  // ── TikTok : vidéo ou live ──
+  if(low.indexOf('tiktok.com')>=0){
+    var tv=x.match(/tiktok\.com\/@[\w.-]+\/video\/(\d+)/);
+    if(tv)return {type:'tt',id:tv[1],live:false};
+    if(low.indexOf('/live')>=0)return {type:'link',url:x,live:true,brand:'TikTok Live'};
+    return {type:'link',url:x,live:false,brand:'TikTok'};
+  }
+  // ── Identifiant YouTube brut ──
+  if(/^[\w-]{11}$/.test(x))return {type:'yt',id:x,live:false};
+
+  // ── Tout autre lien valide ──
+  if(/^https?:\/\//i.test(x))return {type:'link',url:x,live:low.indexOf('live')>=0,brand:''};
+  return null;
 }
+function ytId(u){var v=parseVideo(u);return (v&&v.type==='yt')?v.id:'';}
 function loadHotVideos(){
   var box=document.getElementById('yt-videos');if(!box)return;
   var list=(shopConfig&&shopConfig.hotVideos)||[];
-  // Normalise : accepte ['url', {url,title}, ...]
   var vids=list.map(function(v){
-    if(typeof v==='string')return {id:ytId(v),title:''};
-    return {id:ytId(v.url||v.id||''),title:v.title||''};
-  }).filter(function(v){return v.id;});
+    var raw=(typeof v==='string')?v:(v.url||v.id||'');
+    var pv=parseVideo(raw);
+    return pv?{v:pv,title:(typeof v==='object'&&v.title)?v.title:''}:null;
+  }).filter(Boolean);
+
   if(!vids.length){
     box.innerHTML='<div class="mk-empty"><div class="ico">📺</div><p>Aucune vidéo pour le moment.<br>Revenez bientôt !</p></div>';
     return;
   }
-  box.innerHTML=vids.map(function(v){
+  box.innerHTML=vids.map(function(o){
+    var v=o.v, t=String(o.title||'').replace(/</g,'&lt;');
+    var badge=v.live?'<span style="position:absolute;top:9px;left:9px;z-index:2;background:#ff2d55;color:#fff;font-size:10px;font-weight:800;padding:3px 8px;border-radius:6px">🔴 LIVE</span>':'';
+    var inner='';
+    if(v.type==='yt'){
+      inner='<div style="position:relative;width:100%;padding-top:56.25%">'+badge
+        +'<iframe style="position:absolute;inset:0;width:100%;height:100%;border:0" '
+        +'src="https://www.youtube.com/embed/'+v.id+'" loading="lazy" allowfullscreen '
+        +'allow="accelerometer;autoplay;clipboard-write;encrypted-media;gyroscope;picture-in-picture"></iframe></div>';
+    }else if(v.type==='tt'){
+      inner='<div style="position:relative;width:100%;padding-top:150%">'+badge
+        +'<iframe style="position:absolute;inset:0;width:100%;height:100%;border:0" '
+        +'src="https://www.tiktok.com/embed/v2/'+v.id+'" loading="lazy" allowfullscreen '
+        +'allow="autoplay;encrypted-media;picture-in-picture"></iframe></div>';
+    }else{
+      var col=(v.brand||'').indexOf('TikTok')>=0?'#EE1D52':'#FF0000';
+      inner='<a href="'+String(v.url).replace(/"/g,'')+'" target="_blank" rel="noopener" '
+        +'style="display:flex;align-items:center;gap:12px;padding:16px;text-decoration:none">'
+        +'<span style="font-size:30px">'+(v.live?'🔴':'▶️')+'</span>'
+        +'<div style="flex:1;min-width:0"><div style="font-weight:800;font-size:14px;color:var(--text)">'
+        +(v.brand||'Vidéo')+'</div><div style="font-size:11.5px;color:var(--text3)">'
+        +(v.live?'En direct — appuyez pour regarder':'Appuyez pour ouvrir')+'</div></div>'
+        +'<span style="font-weight:800;font-size:13px;color:'+col+'">Ouvrir →</span></a>';
+    }
     return '<div style="margin-bottom:16px;border-radius:14px;overflow:hidden;width:100%;box-sizing:border-box;'
-      +'border:1px solid var(--border);background:var(--bg2)">'
-      +'<div style="position:relative;width:100%;padding-top:56.25%">'
-      +'<iframe style="position:absolute;inset:0;width:100%;height:100%;border:0" '
-      +'src="https://www.youtube.com/embed/'+v.id+'" '
-      +'loading="lazy" allowfullscreen '
-      +'allow="accelerometer;autoplay;clipboard-write;encrypted-media;gyroscope;picture-in-picture"></iframe></div>'
-      +(v.title?'<div style="padding:9px 12px;font-size:13px;font-weight:600;color:var(--text)">'+String(v.title).replace(/</g,'&lt;')+'</div>':'')
+      +'border:1px solid var(--border);background:var(--bg2)">'+inner
+      +(t?'<div style="padding:9px 12px;font-size:13px;font-weight:600;color:var(--text)">'+t+'</div>':'')
       +'</div>';
   }).join('');
 }
@@ -4912,7 +4995,45 @@ function closeTopOverlay(){
   if(sidebar.classList.contains('open')){closeSidebar();return true;}
   return false;
 }
-window.addEventListener('popstate',()=>{if(closeTopOverlay())armBack();});
+window.addEventListener('popstate',function(){
+  if(closeTopOverlay()){armBack();return;}
+  // ⚠️ Plus rien à fermer → l'utilisateur s'apprête à QUITTER l'application.
+  // On affiche une confirmation au lieu de sortir brutalement.
+  askExitApp();
+});
+/* ═══════════ CONFIRMATION AVANT DE QUITTER ═══════════ */
+var _exitAsked=false;
+function askExitApp(){
+  if(_exitAsked)return;          // évite l'empilement de popups
+  _exitAsked=true;
+  armBack();                     // on reste dans l'app le temps de la réponse
+  var ov=document.getElementById('exit-overlay');
+  if(!ov){                       // repli si l'overlay est absent
+    _exitAsked=false;
+    if(confirm('Voulez-vous quitter ASG Store ?'))doExitApp();
+    return;
+  }
+  ov.classList.add('open');
+}
+function cancelExitApp(){
+  _exitAsked=false;
+  var ov=document.getElementById('exit-overlay');
+  if(ov)ov.classList.remove('open');
+}
+function doExitApp(){
+  _exitAsked=false;
+  var ov=document.getElementById('exit-overlay');
+  if(ov)ov.classList.remove('open');
+  // On laisse réellement partir : on retire notre garde puis on recule
+  window.removeEventListener('popstate',arguments.callee);
+  try{
+    if(window.AndroidBridge&&AndroidBridge.closeApp){AndroidBridge.closeApp();return;}
+  }catch(e){}
+  _allowExit=true;
+  history.go(-2);                // sort de la pile de l'app
+  setTimeout(function(){try{window.close();}catch(e){}},120);
+}
+var _allowExit=false;
 // armer le retour pour les overlays existants
 ['openCart','openFilterSheet','openAuthModal','openPayHistory'].forEach(fn=>{
   if(typeof window[fn]==='function'){const o=window[fn];window[fn]=function(){o.apply(this,arguments);armBack();};}
