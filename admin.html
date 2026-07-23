@@ -1384,6 +1384,19 @@ body{font-family:'Exo 2',sans-serif;background:var(--bg);color:var(--text);
   </div>
 
   <div class="panel">
+    <div class="panel-top"><span class="panel-title">🎁 Parrainage — Inviter des amis</span></div>
+    <div style="padding:16px">
+      <div class="upload-tip" style="margin-bottom:12px">💡 Définissez combien d'amis un client doit inviter et combien de points il gagne. Les libellés se mettent à jour partout dans l'application cliente.</div>
+      <div class="f-row">
+        <div class="form-grp"><label>Nombre d'amis à inviter</label><input class="inp" id="inv-goal" type="number" min="1" placeholder="10"/></div>
+        <div class="form-grp"><label>Points de récompense</label><input class="inp" id="inv-reward" type="number" min="0" placeholder="500"/></div>
+      </div>
+      <div id="inv-current" style="font-size:12.5px;color:var(--text2);margin-bottom:10px"></div>
+      <button class="save-btn" onclick="saveInviteConfig()">💾 Enregistrer le parrainage</button>
+    </div>
+  </div>
+
+  <div class="panel">
     <div class="panel-top"><span class="panel-title">📺 Daily Hot Videos (YouTube)</span></div>
     <div style="padding:16px">
       <div class="upload-tip" style="margin-bottom:12px">💡 Collez le lien YouTube d'une vidéo ou d'un live gaming. Elle s'affichera dans l'écran « Daily Hot Videos » de l'app cliente.</div>
@@ -2407,7 +2420,7 @@ function goTab(id){
   if(id==='dashboard')loadDashboard();
   if(id==='orders')loadOrders();
   if(id==='payments')loadPayments();
-  if(id==='announce'){loadAnnounce();loadPromos();loadHotVideosAdmin();}
+  if(id==='announce'){loadAnnounce();loadPromos();loadHotVideosAdmin();loadInviteConfig();}
   if(id==='rewards'){try{checkCronHealth();}catch(e){}}
   if(id==='accounts'){loadAccounts();aoFillGames();aoRenderThumbs();loadImgbbKey();}
   if(id==='messages')loadConversations();
@@ -4309,6 +4322,29 @@ function loadScheduledNotifs(){
 }
 async function delSchedNotif(id){try{await db.collection('scheduledNotifs').doc(id).delete();toast('✓ Annulée');}catch(e){toast('❌ '+e.message,true);}}
 
+// ── Parrainage : objectif et récompense ──
+async function loadInviteConfig(){
+  var el=document.getElementById('inv-current');
+  try{
+    var d=await db.collection('config').doc('shop').get();
+    var dd=d.exists?(d.data()||{}):{};
+    var g=+dd.inviteGoal||10, r=+dd.inviteReward||500;
+    var gi=document.getElementById('inv-goal');   if(gi&&!gi.value)gi.value=g;
+    var ri=document.getElementById('inv-reward'); if(ri&&!ri.value)ri.value=r;
+    if(el)el.innerHTML='Réglage actuel : <b style="color:var(--accent)">'+g+' amis</b> → <b style="color:var(--accent)">'+r+' points</b>';
+  }catch(e){if(el)el.textContent='';}
+}
+async function saveInviteConfig(){
+  var g=parseInt((document.getElementById('inv-goal')||{}).value,10);
+  var r=parseInt((document.getElementById('inv-reward')||{}).value,10);
+  if(!(g>0)){toast('❌ Nombre d\'amis invalide',true);return;}
+  if(!(r>=0)){toast('❌ Points invalides',true);return;}
+  try{
+    await db.collection('config').doc('shop').set({inviteGoal:g,inviteReward:r},{merge:true});
+    toast('✅ Parrainage : '+g+' amis → '+r+' points');
+    loadInviteConfig();
+  }catch(e){toast('❌ '+e.message,true);}
+}
 // ── Daily Hot Videos (YouTube) ──
 /* Reconnaît YouTube (vidéo, Shorts, live, chaîne/live) ET TikTok (vidéo, live) */
 function parseVideoA(u){

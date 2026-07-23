@@ -1170,13 +1170,13 @@ body.ios .pnotif .pn-ic{border-radius:11px}
       <span class="c-ico"><svg viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg></span> Mes Points
     </div>
     <div class="cat-item" onclick="openWheel();closeSidebar()">
-      <span class="c-ico"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="2" x2="12" y2="22"/><line x1="2" y1="12" x2="22" y2="12"/><line x1="5" y1="5" x2="19" y2="19"/><line x1="19" y1="5" x2="5" y2="19"/></svg></span> 🎡 Roue de la chance <span style="margin-left:auto;font-size:10px;background:linear-gradient(135deg,#00e676,#00b0ff);color:#052;font-weight:800;border-radius:99px;padding:2px 8px">1×/jour</span>
+      <span class="c-ico"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="2" x2="12" y2="22"/><line x1="2" y1="12" x2="22" y2="12"/><line x1="5" y1="5" x2="19" y2="19"/><line x1="19" y1="5" x2="5" y2="19"/></svg></span> 🎡 Roue de la chance
     </div>
     <div class="cat-item" onclick="openProfile();closeSidebar()">
       <span class="c-ico"><svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></span> 👤 Mon profil
     </div>
     <div class="cat-item" onclick="openInvite();closeSidebar()">
-      <span class="c-ico"><svg viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg></span> 🎁 Inviter 10 amis <span style="margin-left:auto;font-size:10px;background:linear-gradient(135deg,#ffd700,#ff9800);color:#3a2a00;font-weight:800;border-radius:99px;padding:2px 8px">+500 pts</span>
+      <span class="c-ico"><svg viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg></span> <span id="sb-invite-label">🎁 Inviter des amis</span>
     </div>
     <div class="cat-item" onclick="openScreen('vpn');closeSidebar()">
       <span class="c-ico"><svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></span> Boutique VPN 🔐
@@ -1209,7 +1209,7 @@ body.ios .pnotif .pn-ic{border-radius:11px}
       <span class="c-ico"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></span> FAQ & Aide
     </div>
     <div class="cat-item" onclick="openScreen('guides');closeSidebar()">
-      <span class="c-ico"><svg viewBox="0 0 24 24"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg></span> Guides &amp; Tutoriels <span style="margin-left:auto;font-size:10px;background:linear-gradient(135deg,#00e676,#00b0ff);color:#052;font-weight:800;border-radius:99px;padding:2px 8px">NEW</span>
+      <span class="c-ico"><svg viewBox="0 0 24 24"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg></span> Guides &amp; Tutoriels
     </div>
     <div class="cat-item" onclick="openScreen('privacy');closeSidebar()">
       <span class="c-ico"><svg viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></span> Confidentialité
@@ -1585,10 +1585,10 @@ body.ios .pnotif .pn-ic{border-radius:11px}
   <div class="iv-card">
     <div class="nd-bar"></div>
     <h3>🎁 Invitez un ami</h3>
-    <p class="iv-sub">Partagez votre lien : <b>invitez 10 amis et gagnez 500 points</b> ! Chaque ami inscrit compte, votre progression est automatique.</p>
+    <p class="iv-sub" id="iv-sub">Partagez votre lien et gagnez des points ! Chaque ami inscrit compte, votre progression est automatique.</p>
     <div class="iv-reward">
-      <div class="iv-pill"><b>10 amis</b><span>à inviter</span></div>
-      <div class="iv-pill"><b>+500</b><span>points pour VOUS</span></div>
+      <div class="iv-pill"><b id="iv-goal">—</b><span>à inviter</span></div>
+      <div class="iv-pill"><b id="iv-reward">—</b><span>points pour VOUS</span></div>
     </div>
     <input id="invite-link" readonly onclick="this.select()"/>
     <button class="iv-btn" onclick="shareInvite()">📤 Partager sur WhatsApp</button>
@@ -2525,6 +2525,7 @@ async function loadConfig(){
     if(doc.exists){
       const d=doc.data();
       shopConfig=Object.assign(shopConfig,d);
+      try{renderInviteLabels();}catch(_){}   // libellés parrainage à jour
       if(typeof syncCinetPayKeys==='function')syncCinetPayKeys(); // 🔑 clés CinetPay depuis l'admin
       if(typeof refreshPayMethodsVisibility==='function')refreshPayMethodsVisibility(); // affiche/masque CinetPay en direct
       if(d.logoUrl){
@@ -2725,7 +2726,7 @@ function renderMissions(){
   if(!list.length){
     list=[
       {id:'_review',icon:'⭐',title:'Laisser un premier avis',type:'review',goal:1,reward:0,_screen:'reviews'},
-      {id:'_invite',icon:'🎁',title:'Inviter 10 amis',type:'invite',goal:10,reward:500,_act:'invite'},
+      {id:'_invite',icon:'🎁',title:'Inviter '+inviteGoal()+' amis',type:'invite',goal:inviteGoal(),reward:inviteReward(),_act:'invite'},
       {id:'_wheel',icon:'🎡',title:'Tourner la roue aujourd\'hui',type:'wheel',goal:1,reward:0,_act:'wheel'}
     ];
   }
@@ -5704,7 +5705,21 @@ async function spinWheel(){
     if(r&&r.length>5)localStorage.setItem('asg-ref',r);
   }catch(e){}
 })();
+/* 🎁 Objectif et récompense de parrainage — réglables par l'admin
+   dans config/shop (inviteGoal / inviteReward). Valeurs par défaut : 10 / 500. */
+function inviteGoal(){var n=+(shopConfig&&shopConfig.inviteGoal);return (n>0)?n:10;}
+function inviteReward(){var n=+(shopConfig&&shopConfig.inviteReward);return (n>0)?n:500;}
+function renderInviteLabels(){
+  var g=inviteGoal(), r=inviteReward();
+  var $=function(id){return document.getElementById(id);};
+  if($('iv-goal'))$('iv-goal').textContent=g+' amis';
+  if($('iv-reward'))$('iv-reward').textContent='+'+r;
+  if($('iv-sub'))$('iv-sub').innerHTML='Partagez votre lien : <b>invitez '+g+' amis et gagnez '+r+' points</b> ! Chaque ami inscrit compte, votre progression est automatique.';
+  var lab=$('sb-invite-label');
+  if(lab)lab.textContent='🎁 Inviter '+g+' amis';
+}
 function openInvite(){
+  renderInviteLabels();
   if(!currentUser){openAuthModal();showToast('🔐 Connectez-vous pour inviter');return;}
   var link='https://as-store-gaming.vercel.app/?ref='+currentUser.uid;
   var ov=document.getElementById('invite-overlay');
