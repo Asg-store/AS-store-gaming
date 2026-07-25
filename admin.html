@@ -852,6 +852,13 @@ body{font-family:'Exo 2',sans-serif;background:var(--bg);color:var(--text);
 <!-- PAGE: LOGO -->
 <div class="page" id="pg-logo">
   <div class="sec-head"><span class="sec-title">🏪 Logo & Nom</span></div>
+  <div class="panel">
+    <div class="panel-top"><span class="panel-title">🔑 Clé ImgBB (hébergement des images)</span></div>
+    <div style="padding:16px">
+      <div class="upload-tip" style="margin-bottom:10px">💡 Une seule clé pour TOUTES les images de l'app (logo, produits, comptes, support). Gratuite sur <a href="https://imgbb.com/api" target="_blank">imgbb.com/api</a>.</div>
+      <div id="key-box-logo"></div>
+    </div>
+  </div>
   <div class="logo-preview">
     <small>Aperçu live</small>
     <div class="logo-big" id="logo-big"><span>N</span></div>
@@ -2422,6 +2429,7 @@ function goTab(id){
   if(id==='payments')loadPayments();
   if(id==='announce'){loadAnnounce();loadPromos();loadHotVideosAdmin();loadInviteConfig();}
   if(id==='rewards'){try{checkCronHealth();}catch(e){}}
+  if(id==='logo'){ensureImgbbKey().then(renderImgbbKeyBox);}
   if(id==='accounts'){loadAccounts();aoFillGames();aoRenderThumbs();loadImgbbKey();}
   if(id==='messages')loadConversations();
   if(id==='games')loadGamesAdmin();
@@ -2660,17 +2668,14 @@ function toggleFeeHint(){
 // Importer un logo depuis la galerie (upload Firebase Storage)
 async function uploadLogoFile(e){
   const file=(e.target.files||[])[0];if(!file)return;e.target.value='';
-  if(!storage){toast('⚠️ Stockage Firebase indisponible',true);return;}
-  if(file.size>4000000){toast('⚠️ Image trop lourde (max 4 Mo)',true);return;}
   toast('⏳ Envoi du logo…');
   try{
-    const ref=storage.ref('config/logo_'+Date.now()+'_'+file.name.replace(/[^\w.]/g,'_'));
-    const url=await ref.put(file).then(s=>s.ref.getDownloadURL());
+    const url=await uploadImageImgbb(file);   // ImgBB (Storage payant non requis)
     document.getElementById('cfg-logo').value=url;
     previewLogo();
     await db.collection('config').doc('shop').set({logoUrl:url,updatedAt:firebase.firestore.FieldValue.serverTimestamp()},{merge:true});
     toast('✅ Logo importé et enregistré');
-  }catch(err){toast('❌ Envoi impossible',true);}
+  }catch(err){toast('❌ '+(err.message||'Envoi impossible'),true);}
 }
 
 /* ══ PHOTOS ══ */
@@ -2893,6 +2898,27 @@ let allAccounts=[],accFilter='pending';
    clients (status:'pending'), elles sont publiées en 'approved' → visibles
    immédiatement, avec le drapeau isOfficial pour le badge « ASG Officiel ». */
 
+/* ══════════ CLÉ IMGBB PARTAGÉE (logo, produits points, comptes, support) ══════════
+   Une seule clé pour toute l'application. Stockée dans config/shop.imgbbKey. */
+async function ensureImgbbKey(){
+  if(IMGBB_KEY)return IMGBB_KEY;
+  IMGBB_KEY=localStorage.getItem('asg-imgbb')||'';
+  if(IMGBB_KEY)return IMGBB_KEY;
+  try{
+    var d=await db.collection('config').doc('shop').get();
+    var k=(d.exists&&(d.data()||{}).imgbbKey)||'';
+    if(k){IMGBB_KEY=k;localStorage.setItem('asg-imgbb',k);}
+  }catch(e){}
+  return IMGBB_KEY;
+}
+/* Upload générique : renvoie l'URL de l'image hébergée sur ImgBB */
+async function uploadImageImgbb(file){
+  var key=await ensureImgbbKey();
+  if(!key)throw new Error('Clé ImgBB manquante — configurez-la dans « Logo & Nom ».');
+  if(file.size>30000000)throw new Error('Image trop lourde (max 30 Mo).');
+  return await imgbbUpload(file);   // imgbbUpload utilise IMGBB_KEY
+}
+
 /* ══ Photos du compte : upload vers ImgBB ══
    Firebase Storage exige le forfait Blaze (carte bancaire) : indisponible ici.
    ImgBB est gratuit, illimité et ne demande qu'une clé API. */
@@ -2924,14 +2950,33 @@ function aoEditKey(){
     +'<span class="hint">Firebase Storage exige un forfait payant : les photos passent par ImgBB (gratuit).</span>';
   var i=document.getElementById('ao-imgbb');if(i&&IMGBB_KEY)i.value=IMGBB_KEY;
 }
-async function saveImgbbKey(){
-  var k=((document.getElementById('ao-imgbb')||{}).value||'').trim();
+function renderImgbbKeyBox(){
+  var b=document.getElementById('key-box-logo');if(!b)return;
+  if(IMGBB_KEY){
+    b.innerHTML='<div style="display:flex;align-items:center;gap:10px;font-size:13px">'
+      +'<span style="color:#00c853;font-weight:700">✅ Clé configurée</span>'
+      +'<code style="flex:1;background:var(--bg3);border-radius:8px;padding:6px 10px;font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+IMGBB_KEY.slice(0,6)+'••••••••'+IMGBB_KEY.slice(-4)+'</code>'
+      +'<button onclick="editImgbbKeyLogo()" style="background:var(--accent);color:#001;border:0;border-radius:8px;padding:7px 12px;font-weight:700;cursor:pointer">Modifier</button></div>';
+  }else{
+    editImgbbKeyLogo();
+  }
+}
+function editImgbbKeyLogo(){
+  var b=document.getElementById('key-box-logo');if(!b)return;
+  b.innerHTML='<input class="inp" id="imgbb-key-input" type="text" placeholder="Collez votre clé API ImgBB"/>'
+    +'<button class="save-btn" style="margin-top:8px" onclick="saveImgbbKey(\'imgbb-key-input\')">💾 Enregistrer la clé</button>';
+  var i=document.getElementById('imgbb-key-input');if(i&&IMGBB_KEY)i.value=IMGBB_KEY;
+}
+async function saveImgbbKey(inputId){
+  var id=inputId||'ao-imgbb';
+  var k=((document.getElementById(id)||document.getElementById('ao-imgbb')||{}).value||'').trim();
   if(k.length<10){toast('❌ Clé invalide',true);return;}
   try{
     await db.collection('config').doc('shop').set({imgbbKey:k},{merge:true});
     IMGBB_KEY=k;localStorage.setItem('asg-imgbb',k);
-    aoToggleKeyBox();
-    toast('✅ Clé ImgBB enregistrée');
+    try{aoToggleKeyBox();}catch(_){}
+    try{renderImgbbKeyBox();}catch(_){}
+    toast('✅ Clé ImgBB enregistrée — utilisable partout');
   }catch(e){toast('❌ '+e.message,true);}
 }
 async function aoUploadPhotos(e){
@@ -3311,16 +3356,14 @@ function notifyUser(uid,n){
 // Admin envoie une photo / vidéo / fichier au client
 async function sendReplyMedia(e){
   const file=(e.target.files||[])[0];if(!file||!curConvUid)return;e.target.value='';
-  if(!storage){toast('⚠️ Stockage Firebase indisponible',true);return;}
-  if(file.size>10000000){toast('⚠️ Fichier trop lourd (max 10 Mo)',true);return;}
-  const isImg=file.type.startsWith('image'),isVid=file.type.startsWith('video');
-  toast('⏳ Envoi…');
+  const isImg=file.type.startsWith('image');
+  if(!isImg){toast('📷 Seules les photos sont acceptées',true);return;}
+  toast('⏳ Envoi de la photo…');
   const c=db.collection('chats').doc(curConvUid);
   try{
-    const ref=storage.ref('chat/'+curConvUid+'/admin_'+Date.now()+'_'+file.name.replace(/[^\w.]/g,'_'));
-    const url=await ref.put(file).then(s=>s.ref.getDownloadURL());
-    const media={type:isImg?'image':isVid?'video':'file',url,name:file.name};
-    const label=isImg?'📷 Photo':isVid?'🎥 Vidéo':'📎 '+file.name;
+    const url=await uploadImageImgbb(file);   // ImgBB (Storage payant non requis)
+    const media={type:'image',url,name:file.name};
+    const label='📷 Photo';
     await c.collection('messages').add({from:'admin',text:'',media,createdAt:firebase.firestore.FieldValue.serverTimestamp()});
     await c.set({lastMsg:label,updatedAt:firebase.firestore.FieldValue.serverTimestamp(),
       unreadUser:firebase.firestore.FieldValue.increment(1),unreadAdmin:0},{merge:true});
@@ -3679,14 +3722,12 @@ function ppPrevImg(){
 }
 async function uploadPointsProductImg(e){
   const file=e.target.files&&e.target.files[0];if(!file)return;
-  if(!storage){toast('⚠️ Stockage Firebase indisponible',true);return;}
   const btn=document.getElementById('pp-save');const old=btn.textContent;btn.disabled=true;btn.textContent='⏳ Upload…';
   try{
-    const ref=storage.ref('pointsProducts/'+Date.now()+'_'+file.name.replace(/[^\w.]/g,'_'));
-    const url=await ref.put(file).then(s=>s.ref.getDownloadURL());
+    const url=await uploadImageImgbb(file);   // ImgBB
     document.getElementById('pp-img').value=url;ppPrevImg();
     toast('✓ Photo importée');
-  }catch(err){toast('❌ '+err.message,true);}
+  }catch(err){toast('❌ '+(err.message||'Envoi impossible'),true);}
   finally{btn.disabled=false;btn.textContent=old;e.target.value='';}
 }
 async function addPointsProduct(){

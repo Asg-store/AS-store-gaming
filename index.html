@@ -6658,20 +6658,40 @@ async function sendChat(){
   }catch(e){showToast('❌ '+e.message);}
 }
 // Envoi d'une photo / vidéo / fichier dans le chat (client → admin)
+/* Upload d'image via ImgBB (clé partagée gérée par l'admin dans config/shop) */
+function imgbbUploadClient(file){
+  return new Promise(function(resolve,reject){
+    var key=(shopConfig&&shopConfig.imgbbKey)||'';
+    if(!key){reject(new Error('Envoi de photo indisponible pour le moment'));return;}
+    var fr=new FileReader();
+    fr.onerror=function(){reject(new Error('Lecture impossible'));};
+    fr.onload=function(){
+      var b64=String(fr.result||'').split(',')[1];
+      if(!b64){reject(new Error('Fichier vide'));return;}
+      var fd=new FormData();fd.append('image',b64);
+      fetch('https://api.imgbb.com/1/upload?key='+encodeURIComponent(key),{method:'POST',body:fd})
+        .then(function(r){return r.json();})
+        .then(function(d){
+          if(d&&d.success&&d.data&&d.data.url)resolve(d.data.url);
+          else reject(new Error((d&&d.error&&d.error.message)||'ImgBB a refusé l\'image'));
+        }).catch(reject);
+    };
+    fr.readAsDataURL(file);
+  });
+}
 async function sendChatMedia(e){
   const file=(e.target.files||[])[0];if(!file||!currentUser)return;e.target.value='';
-  if(!storage){showToast('⚠️ Stockage indisponible');return;}
   const uid=currentUser.uid;
-  const isImg=file.type.startsWith('image'),isVid=file.type.startsWith('video');
-  if(file.size>8000000){showToast('⚠️ Fichier trop lourd (max 8 Mo)');return;}
-  showToast('⏳ Envoi en cours…');
+  const isImg=file.type.startsWith('image');
+  if(!isImg){showToast('📷 Seules les photos sont acceptées ici');return;}
+  if(file.size>30000000){showToast('⚠️ Photo trop lourde (max 30 Mo)');return;}
+  showToast('⏳ Envoi de la photo…');
   try{
     let upload=file;
-    if(isImg){try{const d=await compressImage(file);const r=await fetch(d);upload=await r.blob();}catch(_){upload=file;}}
-    const ref=storage.ref('chat/'+uid+'/'+Date.now()+'_'+file.name.replace(/[^\w.]/g,'_'));
-    const url=await withTimeout(ref.put(upload).then(s=>s.ref.getDownloadURL()),20000);
-    const media={type:isImg?'image':isVid?'video':'file',url,name:file.name};
-    const label=isImg?'📷 Photo':isVid?'🎥 Vidéo':'📎 '+file.name;
+    try{const d=await compressImage(file);const r=await fetch(d);upload=new File([await r.blob()],file.name,{type:'image/jpeg'});}catch(_){upload=file;}
+    const url=await imgbbUploadClient(upload);
+    const media={type:'image',url,name:file.name};
+    const label='📷 Photo';
     await db.collection('chats').doc(uid).set({
       userName:currentUser.displayName||currentUser.email.split('@')[0],userEmail:currentUser.email||'',
       lastMsg:label,updatedAt:firebase.firestore.FieldValue.serverTimestamp(),
