@@ -1949,6 +1949,17 @@ body.ios .pnotif .pn-ic{border-radius:11px}
     <div class="chat-msgs" id="chat-msgs">
       <div class="chat-empty">Démarrez la conversation avec l'équipe 👋</div>
     </div>
+    <div id="chat-preview" style="display:none;padding:10px 12px;border-top:1px solid var(--border);background:var(--bg2)">
+      <div style="display:flex;align-items:center;gap:10px">
+        <img id="chat-preview-img" style="width:56px;height:56px;border-radius:10px;object-fit:cover;border:1px solid var(--border)"/>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:12.5px;font-weight:700;color:var(--text)">📷 Photo prête à envoyer</div>
+          <div id="chat-preview-name" style="font-size:11px;color:var(--text3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></div>
+        </div>
+        <button onclick="cancelChatPreview()" style="background:rgba(255,59,92,.12);color:#ff3b5c;border:0;border-radius:9px;padding:7px 11px;cursor:pointer;font-size:13px;font-weight:700">Annuler</button>
+        <button onclick="confirmChatPreview()" style="background:linear-gradient(135deg,#00d4ff,#7c3aed);color:#fff;border:0;border-radius:9px;padding:7px 14px;cursor:pointer;font-size:13px;font-weight:800">Envoyer</button>
+      </div>
+    </div>
     <div class="chat-input-bar">
       <button class="chat-attach" onclick="document.getElementById('chat-file').click()" title="Envoyer une photo/fichier"><svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg></button>
       <input type="file" id="chat-file" accept="image/*,video/*,application/pdf" style="display:none" onchange="sendChatMedia(event)"/>
@@ -2018,7 +2029,7 @@ body.ios .pnotif .pn-ic{border-radius:11px}
       <div class="pack-grid" id="arena-packs"></div>
     </div>
 
-    <div class="reward-sec">
+    <div class="reward-sec" id="pts-shop-sec">
       <h4>🛒 Boutique Points</h4>
       <p class="sub">Achetez ces produits <b>uniquement avec vos points</b>. Indiquez votre ID joueur, la livraison se fait automatiquement.</p>
       <div class="pts-shop" id="pts-shop-grid"><p class="sub" style="margin:0">Chargement…</p></div>
@@ -2945,7 +2956,10 @@ function openPoints(){
   // Packs Arène (gérés par l'admin depuis Firestore, repli sur les packs par défaut)
   renderArenaPacks();
   // 🛒 Boutique Points (produits achetables uniquement avec des points)
-  loadPointsShop();
+  var sec=document.getElementById('pts-shop-sec');
+  var on=(shopConfig&&shopConfig.pointsShopEnabled)!==false;   // activée par défaut
+  if(sec)sec.style.display=on?'block':'none';
+  if(on)loadPointsShop();
 }
 // 🌐 Écran Réseaux sociaux
 // ════════ NOTES & AVIS ════════
@@ -6679,12 +6693,32 @@ function imgbbUploadClient(file){
     fr.readAsDataURL(file);
   });
 }
-async function sendChatMedia(e){
+var _chatPendingFile=null;
+function sendChatMedia(e){
   const file=(e.target.files||[])[0];if(!file||!currentUser)return;e.target.value='';
-  const uid=currentUser.uid;
-  const isImg=file.type.startsWith('image');
-  if(!isImg){showToast('📷 Seules les photos sont acceptées ici');return;}
+  if(!file.type.startsWith('image')){showToast('📷 Seules les photos sont acceptées ici');return;}
   if(file.size>30000000){showToast('⚠️ Photo trop lourde (max 30 Mo)');return;}
+  // Aperçu AVANT envoi
+  _chatPendingFile=file;
+  var pv=document.getElementById('chat-preview');
+  var im=document.getElementById('chat-preview-img');
+  var nm=document.getElementById('chat-preview-name');
+  if(im)im.src=URL.createObjectURL(file);
+  if(nm)nm.textContent=file.name;
+  if(pv)pv.style.display='block';
+}
+function cancelChatPreview(){
+  _chatPendingFile=null;
+  var pv=document.getElementById('chat-preview');if(pv)pv.style.display='none';
+}
+async function confirmChatPreview(){
+  var file=_chatPendingFile;if(!file||!currentUser)return;
+  cancelChatPreview();
+  await doSendChatPhoto(file);
+}
+async function doSendChatPhoto(file){
+  const uid=currentUser.uid;
+  const isImg=true;
   showToast('⏳ Envoi de la photo…');
   try{
     let upload=file;
