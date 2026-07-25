@@ -5615,12 +5615,24 @@ function closeDelivery(){
 let _flashAd=null,_flashTimer=null,_flashLoaded=false;
 function loadFlash(){
   if(_flashLoaded)return;_flashLoaded=true;
-  db.collection('flashOffers').where('active','==',true).onSnapshot(function(snap){
+  // On récupère TOUTES les offres puis on filtre côté client :
+  // where('active','==',true) exigeait un index et échouait en silence.
+  db.collection('flashOffers').onSnapshot(function(snap){
     var now=Date.now();
     var list=snap.docs.map(function(d){return Object.assign({id:d.id},d.data());})
-      .filter(function(o){var end=(o.endsAt&&o.endsAt.toMillis)?o.endsAt.toMillis():0;return end>now;});
-    _flashAd=list[0]||null;renderFlash();
-  },function(){});
+      .filter(function(o){
+        if(o.active===false)return false;                       // désactivée explicitement
+        var end=(o.endsAt&&o.endsAt.toMillis)?o.endsAt.toMillis():0;
+        return end>now;                                          // encore valable
+      })
+      .sort(function(a,b){
+        var ea=(a.endsAt&&a.endsAt.toMillis)?a.endsAt.toMillis():0;
+        var eb=(b.endsAt&&b.endsAt.toMillis)?b.endsAt.toMillis():0;
+        return ea-eb;                                            // celle qui finit le plus tôt
+      });
+    _flashAd=list[0]||null;
+    renderFlash();
+  },function(err){console.warn('[flash]',err&&err.message);});
 }
 // Toutes les zones où la bannière flash peut apparaître (accueil + catalogue)
 function flashSlots(){
