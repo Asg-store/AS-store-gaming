@@ -2023,7 +2023,7 @@ body.ios .pnotif .pn-ic{border-radius:11px}
       <div id="missions-list"></div>
     </div>
 
-    <div class="reward-sec">
+    <div class="reward-sec" id="arena-sec">
       <h4>🏟️ Arène — Acheter des points</h4>
       <p class="sub">Utilisez votre portefeuille pour obtenir des points instantanément. Gagnez aussi +10 points à chaque achat.</p>
       <div class="pack-grid" id="arena-packs"></div>
@@ -2953,8 +2953,11 @@ function openPoints(){
   refreshRewardsUI();
   loadMissions();      // 🎯 (ré)abonne en temps réel aux missions admin
   renderMissions();    // affiche immédiatement les missions déjà connues
-  // Packs Arène (gérés par l'admin depuis Firestore, repli sur les packs par défaut)
-  renderArenaPacks();
+  // Packs Arène (achat de points) — masquables par l'admin
+  var arenaSec=document.getElementById('arena-sec');
+  var arenaOn=(shopConfig&&shopConfig.arenaEnabled)!==false;   // activée par défaut
+  if(arenaSec)arenaSec.style.display=arenaOn?'block':'none';
+  if(arenaOn)renderArenaPacks();
   // 🛒 Boutique Points (produits achetables uniquement avec des points)
   var sec=document.getElementById('pts-shop-sec');
   var on=(shopConfig&&shopConfig.pointsShopEnabled)!==false;   // activée par défaut

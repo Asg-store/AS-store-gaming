@@ -1190,6 +1190,11 @@ body{font-family:'Exo 2',sans-serif;background:var(--bg);color:var(--text);
     <div class="panel-top"><span class="panel-title">🏟️ Packs de points (Arène)</span>
       <button class="btn-add" onclick="addArenaPack()" style="padding:6px 10px">+ Ajouter</button></div>
     <div style="padding:16px">
+      <div id="arena-toggle-box" style="display:flex;align-items:center;justify-content:space-between;gap:10px;background:var(--bg3);border:1px solid var(--border);border-radius:12px;padding:12px 14px;margin-bottom:14px">
+        <div><div style="font-weight:700;font-size:13.5px" id="arena-toggle-label">Achat de points activé</div>
+        <div style="font-size:11.5px;color:var(--text3)">Désactivé : la section « Acheter des points » disparaît chez les clients.</div></div>
+        <button id="arena-toggle-btn" onclick="toggleArena()" style="border:0;border-radius:99px;padding:9px 16px;font-weight:800;cursor:pointer">—</button>
+      </div>
       <p style="font-size:12px;color:var(--text2);margin-bottom:10px">Packs que les clients achètent avec leur portefeuille. Modifiez le prix, les points, ajoutez ou supprimez des packs.</p>
       <div id="arena-pack-list"></div>
       <button class="save-btn" onclick="saveArenaPacks()" style="margin-top:12px">💾 Enregistrer les packs</button>
@@ -2433,7 +2438,7 @@ function goTab(id){
   if(id==='orders')loadOrders();
   if(id==='payments')loadPayments();
   if(id==='announce'){loadAnnounce();loadPromos();loadHotVideosAdmin();loadInviteConfig();}
-  if(id==='rewards'){try{checkCronHealth();}catch(e){}try{loadPointsShopToggle();}catch(e){}}
+  if(id==='rewards'){try{checkCronHealth();}catch(e){}try{loadPointsShopToggle();}catch(e){}try{loadArenaToggle();}catch(e){}}
   if(id==='logo'){ensureImgbbKey().then(renderImgbbKeyBox);}
   if(id==='accounts'){loadAccounts();aoFillGames();aoRenderThumbs();loadImgbbKey();}
   if(id==='messages')loadConversations();
@@ -3717,6 +3722,33 @@ async function fulfillRedemption(id){
   catch(e){toast('❌ '+e.message,true);}
 }
 
+// ── Activer / désactiver l'Achat de points (Arène) ──
+var _arenaOn=true;
+async function loadArenaToggle(){
+  try{
+    var d=await db.collection('config').doc('shop').get();
+    _arenaOn=((d.exists&&(d.data()||{}).arenaEnabled)!==false);
+  }catch(e){_arenaOn=true;}
+  renderArenaToggle();
+}
+function renderArenaToggle(){
+  var b=document.getElementById('arena-toggle-btn');
+  var l=document.getElementById('arena-toggle-label');
+  if(l)l.textContent=_arenaOn?'Achat de points activé':'Achat de points désactivé';
+  if(b){
+    b.textContent=_arenaOn?'✅ Activé':'❌ Désactivé';
+    b.style.background=_arenaOn?'rgba(0,200,83,.15)':'rgba(255,59,92,.15)';
+    b.style.color=_arenaOn?'#00c853':'#ff3b5c';
+  }
+}
+async function toggleArena(){
+  var next=!_arenaOn;
+  try{
+    await db.collection('config').doc('shop').set({arenaEnabled:next},{merge:true});
+    _arenaOn=next;renderArenaToggle();
+    toast(next?'✅ Achat de points activé':'❌ Achat de points désactivé');
+  }catch(e){toast('❌ '+e.message,true);}
+}
 // ── Activer / désactiver la Boutique Points ──
 var _ptsShopOn=true;
 async function loadPointsShopToggle(){
