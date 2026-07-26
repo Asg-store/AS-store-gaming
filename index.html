@@ -1612,6 +1612,7 @@ body.ios .pnotif .pn-ic{border-radius:11px}
       <div class="iv-pill"><b id="iv-goal">—</b><span>à inviter</span></div>
       <div class="iv-pill"><b id="iv-reward">—</b><span>points pour VOUS</span></div>
     </div>
+    <div id="iv-progress" style="text-align:center;font-size:12px;color:var(--text2);margin-bottom:12px"></div>
     <input id="invite-link" readonly onclick="this.select()"/>
     <button class="iv-btn" onclick="shareInvite()">📤 Partager sur WhatsApp</button>
     <button class="iv-btn alt" onclick="copyInviteLink()">📋 Copier le lien</button>
@@ -4752,7 +4753,7 @@ function authErrorMsg(code){
 // Listen to auth state — met à jour l'UI
 auth.onAuthStateChanged(user=>{
   updateAuthUI(user);
-  if(user){watchAccountStatus(user.uid);loadUserNotifs(user.uid);if(pushEnabled())initFCM();}
+  if(user){watchAccountStatus(user.uid);loadUserNotifs(user.uid);if(pushEnabled())initFCM();retryPendingReferral(user.uid);}
   else{const bo=document.getElementById('blocked-overlay');if(bo)bo.classList.remove('open');if(_statusUnsub){_statusUnsub();_statusUnsub=null;}stopUserNotifs();}
 });
 
@@ -5906,6 +5907,14 @@ function openInvite(){
   var link='https://as-store-gaming.vercel.app/?ref='+currentUser.uid;
   var ov=document.getElementById('invite-overlay');
   document.getElementById('invite-link').value=link;
+  var pel=document.getElementById('iv-progress');
+  if(pel){
+    pel.innerHTML='⏳ Chargement de votre progression…';
+    db.collection('users').doc(currentUser.uid).get().then(function(s){
+      var c=((s.data()||{}).referralCount)||0, g=inviteGoal();
+      pel.innerHTML='👥 <b>'+c+'</b> ami'+(c>1?'s':'')+' invité'+(c>1?'s':'')+' · objectif <b>'+g+'</b>';
+    }).catch(function(){pel.innerHTML='';});
+  }
   ov.classList.add('open');
 }
 function closeInvite(){document.getElementById('invite-overlay').classList.remove('open');}
@@ -5919,7 +5928,7 @@ function shareInvite(){
   if(navigator.share){navigator.share({title:'ASG Store Mali',text:txt,url:v}).catch(function(){});}
   else{try{navigator.clipboard.writeText(txt);showToast('✓ Message copié, colle-le sur WhatsApp !');}catch(e){}}
 }
-// À la 1ʳᵉ inscription : enregistre le parrainage ; le parrain gagne 500 pts tous les 10 filleuls
+// À la 1ʳᵉ inscription : enregistre le parrainage puis crédite le parrain.
 async function processReferral(newUid){
   var refUid=localStorage.getItem('asg-ref');
   if(!refUid||refUid===newUid)return;
@@ -5930,9 +5939,24 @@ async function processReferral(newUid){
     await db.collection('referrals').doc(newUid).set({
       referrerId:refUid,newUserId:newUid,status:'pending',
       createdAt:firebase.firestore.FieldValue.serverTimestamp()
-    });
-    fetch('/.netlify/functions/referral-credit',{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({newUserId:newUid})}).catch(function(){});
+    },{merge:true});
+    creditReferral(newUid);
+  }catch(e){}
+}
+// Appelle la fonction serverless Vercel qui crédite le parrain + le filleul,
+// et envoie la notification au parrain.
+function creditReferral(newUid){
+  fetch('/api/referral-credit',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({newUserId:newUid})}).catch(function(){});
+}
+// Filet de sécurité : si le filleul courant a un parrainage encore "pending"
+// (le 1er appel a pu échouer / hors-ligne), on relance le crédit à l'ouverture.
+// Le crédit côté serveur est idempotent : aucun risque de double comptage.
+async function retryPendingReferral(uid){
+  if(!uid)return;
+  try{
+    var s=await db.collection('referrals').doc(uid).get();
+    if(s.exists&&(s.data()||{}).status!=='credited'){creditReferral(uid);}
   }catch(e){}
 }
 
