@@ -4496,7 +4496,7 @@ function parseVideoA(u){
       return {kind:'YouTube Live',id:''};
   }
   if(low.indexOf('tiktok.com')>=0){
-    var tv=x.match(/tiktok\.com\/@[\w.-]+\/video\/(\d+)/);
+    var tv=x.match(/video\/(\d+)/);
     if(tv)return {kind:'TikTok',id:tv[1]};
     if(low.indexOf('/live')>=0)return {kind:'TikTok Live',id:''};
     return {kind:'TikTok',id:''};
