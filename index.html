@@ -4837,15 +4837,18 @@ async function loadUserPayments(){
   if(!currentUser)return;
   let userOrders=[];
   try{
-    // Chercher dans 'orders' les commandes de l'utilisateur
+    // Requête indexée (rapide) : userId + tri par date
     const snap=await db.collection('orders').where('userId','==',currentUser.uid).orderBy('createdAt','desc').get();
     userOrders=snap.docs.map(d=>({id:d.id,...d.data()}));
   }catch(e){
+    console.warn('orders (indexé) a échoué, repli sans tri :',e&&e.message);
+    // Repli SANS orderBy : pas besoin d'index composite, et on filtre bien par
+    // userId (obligatoire pour les règles Firestore). Tri effectué côté client.
     try{
-      const snap=await db.collection('orders').where('email','==',currentUser.email).get();
+      const snap=await db.collection('orders').where('userId','==',currentUser.uid).get();
       userOrders=snap.docs.map(d=>({id:d.id,...d.data()}));
       userOrders.sort((a,b)=>(_tms(b.createdAt))-(_tms(a.createdAt)));
-    }catch(e2){userOrders=[];}
+    }catch(e2){console.warn('orders (repli) a échoué :',e2&&e2.message);userOrders=[];}
   }
   // ── Achats de comptes de la Marketplace (collection accountPurchases) ──
   // Ils n'apparaissaient pas dans l'historique : on les fusionne avec les commandes.
