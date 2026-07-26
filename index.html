@@ -3800,7 +3800,7 @@ async function verifyCinetPay(txId){
   const box=document.getElementById('recharge-pay-status');box.style.display='block';
   box.innerHTML='<div style="text-align:center;padding:18px"><div style="font-size:32px">⏳</div><div style="margin-top:8px">Vérification du paiement…</div></div>';
   try{
-    const res=await fetch('/.netlify/functions/cinetpay-verify',{method:'POST',headers:{'Content-Type':'application/json'},
+    const res=await fetch('/api/cinetpay-verify',{method:'POST',headers:{'Content-Type':'application/json'},
       body:JSON.stringify({transactionId:txId,userId:currentUser.uid})});
     const data=await res.json().catch(function(){return {};});
     if(data&&data.credited){rechargePayResult(true);}
@@ -3842,7 +3842,7 @@ async function verifyPayPal(orderId){
   box.style.display='block';
   box.innerHTML='<div style="text-align:center;padding:18px"><div style="font-size:32px">⏳</div><div style="margin-top:8px">Vérification du paiement PayPal…</div></div>';
   try{
-    const res=await fetch('/.netlify/functions/paypal-verify',{method:'POST',headers:{'Content-Type':'application/json'},
+    const res=await fetch('/api/paypal-verify',{method:'POST',headers:{'Content-Type':'application/json'},
       body:JSON.stringify({orderId:orderId,userId:currentUser.uid})});
     const data=await res.json().catch(function(){return {};});
     if(data&&data.credited){rechargePayResult(true);}
@@ -3890,7 +3890,7 @@ async function verifyFedaPay(transactionId){
   const box=document.getElementById('recharge-pay-status');box.style.display='block';
   box.innerHTML='<div style="text-align:center;padding:18px"><div style="font-size:32px">⏳</div><div style="margin-top:8px">Vérification du paiement…</div></div>';
   try{
-    const res=await fetch('/.netlify/functions/fedapay-verify',{
+    const res=await fetch('/api/fedapay-verify',{
       method:'POST',headers:{'Content-Type':'application/json'},
       body:JSON.stringify({transactionId:transactionId,userId:currentUser.uid})
     });
@@ -3926,7 +3926,7 @@ async function startRechargeAdyen(amt){
   const dz=document.getElementById('adyen-recharge-dropin');
   dz.innerHTML='<p style="text-align:center;padding:20px;color:var(--text3)">⏳ Chargement du paiement…</p>';
   try{
-    const res=await fetch('/.netlify/functions/create-recharge',{
+    const res=await fetch('/api/create-recharge',{
       method:'POST',headers:{'Content-Type':'application/json'},
       body:JSON.stringify({amount:amt,userId:currentUser.uid,email:currentUser.email||''})
     });
@@ -5344,7 +5344,7 @@ function payCartCinetPay(){
     CinetPay.setConfig({apikey:CINETPAY_API_KEY,site_id:CINETPAY_SITE_ID,notify_url:'',mode:'PRODUCTION'});
     CinetPay.getCheckout({transaction_id:txId,amount:Math.max(100,Math.round(total*655.957/5)*5),currency:'XOF',channels:'ALL',description:'Commande ASG Store',customer_name:currentUser.displayName||'Client',customer_email:currentUser.email||'client@asg.app'});
     CinetPay.waitResponse(function(data){
-      if(data.status==='ACCEPTED'){finalizeCartVerified('/.netlify/functions/cinetpay-verify',{transactionId:txId,userId:currentUser.uid,mode:'verify'},total,playerId,'CinetPay',txId);}
+      if(data.status==='ACCEPTED'){finalizeCartVerified('/api/cinetpay-verify',{transactionId:txId,userId:currentUser.uid,mode:'verify'},total,playerId,'CinetPay',txId);}
       else showToast('Paiement annulé.');
     });
   });
@@ -5425,7 +5425,7 @@ async function openAccountCheckout(id){
   document.getElementById('acc-pay-status').style.display='none';
   openScreen('account-checkout');
   try{
-    const res=await fetch('/.netlify/functions/create-account-payment',{
+    const res=await fetch('/api/create-account-payment',{
       method:'POST',headers:{'Content-Type':'application/json'},
       body:JSON.stringify({accountId:a.id,buyerId:currentUser.uid,buyerEmail:currentUser.email||'',promoCode:accCheckoutData._promoCode||'',discount:accCheckoutData._discount||0,total:accCheckoutData._total!=null?accCheckoutData._total:(a.price||0)})
     });
@@ -5585,7 +5585,7 @@ async function finalizeCartFedaPay(transactionId,total,playerId){
   document.getElementById('cart-pay-status').style.display='block';
   document.getElementById('cart-pay-status').innerHTML='<div style="text-align:center;padding:18px"><div style="font-size:32px">⏳</div><div style="margin-top:8px">Vérification du paiement…</div></div>';
   try{
-    const res=await fetch('/.netlify/functions/fedapay-verify',{
+    const res=await fetch('/api/fedapay-verify',{
       method:'POST',headers:{'Content-Type':'application/json'},
       body:JSON.stringify({transactionId:transactionId,userId:currentUser.uid,mode:'verify'})
     });
@@ -5621,7 +5621,7 @@ async function startCartPayment(){
   document.getElementById('adyen-cart-dropin').style.display='block';
   document.getElementById('adyen-cart-dropin').innerHTML='<p style="text-align:center;padding:20px;color:var(--text3)">⏳ Chargement du paiement…</p>';
   try{
-    const res=await fetch('/.netlify/functions/create-payment',{
+    const res=await fetch('/api/create-payment',{
       method:'POST',headers:{'Content-Type':'application/json'},
       body:JSON.stringify({items:cartCheckoutData.items,subtotal:cartCheckoutData.subtotal,deliveryFee:cartCheckoutData.deliveryFee||0,discount:cartCheckoutData.discount||0,promoCode:cartCheckoutData.promoCode||'',total:cartCheckoutData.total,playerId,userId:currentUser.uid,email:currentUser.email||''})
     });
@@ -6067,7 +6067,7 @@ function payVpnDirect(id){
     if(typeof FedaPay==='undefined'){showToast('Paiement indisponible');return;}
     FedaPay.init({public_key:FEDAPAY_PUBLIC_KEY,transaction:{amount:Math.round(price*655.957),description:'VPN '+(v.name||'')+' — ASG Store'},currency:{iso:'XOF'},
       customer:{email:currentUser.email||'client@asg.app',firstname:(currentUser.displayName||'Client').split(' ')[0],lastname:'ASG'},
-      onComplete:function(resp){var tx=resp&&resp.transaction;if(resp&&(resp.reason===FedaPay.CHECKOUT_COMPLETED||(tx&&tx.status==='approved'))&&tx&&tx.id)done('/.netlify/functions/fedapay-verify',{transactionId:tx.id,userId:currentUser.uid,mode:'verify'});else showToast('Paiement annulé.');}
+      onComplete:function(resp){var tx=resp&&resp.transaction;if(resp&&(resp.reason===FedaPay.CHECKOUT_COMPLETED||(tx&&tx.status==='approved'))&&tx&&tx.id)done('/api/fedapay-verify',{transactionId:tx.id,userId:currentUser.uid,mode:'verify'});else showToast('Paiement annulé.');}
     }).open();
   }else if(m==='paypal'){
     loadPayPalSdk(function(ok){
@@ -6078,7 +6078,7 @@ function payVpnDirect(id){
       document.body.appendChild(ov);
       paypal.Buttons({
         createOrder:function(d,a){return a.order.create({purchase_units:[{amount:{value:price.toFixed(2),currency_code:'EUR'},description:'VPN '+(v.name||'')}]});},
-        onApprove:function(d){ov.remove();done('/.netlify/functions/paypal-verify',{orderId:d.orderID,userId:currentUser.uid,mode:'verify'});},
+        onApprove:function(d){ov.remove();done('/api/paypal-verify',{orderId:d.orderID,userId:currentUser.uid,mode:'verify'});},
         onError:function(){ov.remove();showToast('❌ PayPal échoué');}
       }).render('#pp-vpn');
     });
@@ -6088,7 +6088,7 @@ function payVpnDirect(id){
       if(!ok){showToast('CinetPay indisponible');return;}
       CinetPay.setConfig({apikey:CINETPAY_API_KEY,site_id:CINETPAY_SITE_ID,notify_url:'',mode:'PRODUCTION'});
       CinetPay.getCheckout({transaction_id:txId,amount:Math.max(100,Math.round(price*655.957/5)*5),currency:'XOF',channels:'ALL',description:'VPN '+(v.name||'')+' — ASG Store',customer_name:currentUser.displayName||'Client',customer_email:currentUser.email||'client@asg.app'});
-      CinetPay.waitResponse(function(data){if(data.status==='ACCEPTED')done('/.netlify/functions/cinetpay-verify',{transactionId:txId,userId:currentUser.uid,mode:'verify'});else showToast('Paiement annulé.');});
+      CinetPay.waitResponse(function(data){if(data.status==='ACCEPTED')done('/api/cinetpay-verify',{transactionId:txId,userId:currentUser.uid,mode:'verify'});else showToast('Paiement annulé.');});
     });
   }
 }

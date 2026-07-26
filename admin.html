@@ -4527,9 +4527,10 @@ async function loadInviteConfig(){
     var d=await db.collection('config').doc('shop').get();
     var dd=d.exists?(d.data()||{}):{};
     var g=+dd.inviteGoal||10, r=+dd.inviteReward||500;
+    var per=Math.max(1,Math.round(r/g));
     var gi=document.getElementById('inv-goal');   if(gi&&!gi.value)gi.value=g;
     var ri=document.getElementById('inv-reward'); if(ri&&!ri.value)ri.value=r;
-    if(el)el.innerHTML='Réglage actuel : <b style="color:var(--accent)">'+g+' amis</b> → <b style="color:var(--accent)">'+r+' points</b>';
+    if(el)el.innerHTML='Réglage actuel : <b style="color:var(--accent)">'+g+' ami'+(g>1?'s':'')+'</b> → <b style="color:var(--accent)">'+r+' points</b> · soit <b style="color:#ffb020">'+per+' pts par ami inscrit</b>';
   }catch(e){if(el)el.textContent='';}
 }
 async function saveInviteConfig(){
