@@ -4877,10 +4877,12 @@ async function loadUserPayments(){
     el.innerHTML=`<div class="ph-empty"><div class="ico">💳</div><p>Aucun historique de paiement</p><p style="font-size:12px;margin-top:8px;color:var(--text3)">Vos commandes apparaîtront ici</p></div>`;
     return;
   }
+  window._invOrders={};
+  userOrders.forEach(function(o){window._invOrders[o.id]=o;});
   el.innerHTML=userOrders.map(o=>{
     const isPaid=o.status==='paid';
     const ref='CMD-'+o.id.slice(0,6).toUpperCase();
-    return`<div class="ph-item">
+    return`<div class="ph-item" onclick="showInvoice('${o.id}')" style="cursor:pointer">
       <div class="ph-ico ${isPaid?'paid':'pending'}">${isPaid?'✅':'⏳'}</div>
       <div class="ph-info">
         <div class="ph-name">${o.productName||o.customerName||'Commande'}</div>
@@ -4891,6 +4893,7 @@ async function loadUserPayments(){
       <div class="ph-right">
         <div class="ph-amount">${fmtMoney((o.total||o.amount||0))}</div>
         <div class="ph-date">${formatPhDate(o.createdAt)}</div>
+        <div style="font-size:16px;color:var(--text3);margin-top:4px">›</div>
       </div>
     </div>`;
   }).join('');
@@ -4901,6 +4904,62 @@ function formatPhDate(ts){
     const d=ts.toDate?ts.toDate():new Date(ts);
     return d.toLocaleDateString('fr-FR',{day:'2-digit',month:'short',year:'numeric'});
   }catch{return'—';}
+}
+// ── Facture détaillée (clic sur une commande de l'historique) ──
+function showInvoice(id){
+  var o=(window._invOrders||{})[id];if(!o)return;
+  var _e=function(s){return String(s==null?'':s).replace(/</g,'&lt;');};
+  var isPaid=o.status==='paid';
+  var ref='CMD-'+String(o.id).slice(0,6).toUpperCase();
+  var statusTxt=isPaid?'✅ Payé':(o.status==='pending'?'⏳ En attente':(o.status==='cancelled'?'❌ Annulé':(o.status==='delivered'?'📦 Livré':(o.status==='shipped'?'🚚 En livraison':(o.status||'—')))));
+  var statusCol=isPaid||o.status==='delivered'?'#00c853':(o.status==='pending'?'#ffb020':(o.status==='cancelled'?'#ff3b5c':'var(--text2)'));
+  var items=(o.items||[]);
+  var rows='';
+  if(items.length){
+    for(var i=0;i<items.length;i++){
+      var it=items[i],qty=it.qty||1,line=(it.price||0)*qty;
+      rows+='<div style="display:flex;justify-content:space-between;gap:10px;padding:8px 0;border-bottom:1px dashed var(--border)"><div style="min-width:0"><div style="font-weight:600;font-size:13px">'+_e(it.name||'Article')+'</div><div style="font-size:11px;color:var(--text3)">'+qty+' × '+fmtMoney(it.price||0)+'</div></div><div style="font-weight:700;font-size:13px;white-space:nowrap">'+fmtMoney(line)+'</div></div>';
+    }
+  }else{
+    rows='<div style="display:flex;justify-content:space-between;gap:10px;padding:8px 0;border-bottom:1px dashed var(--border)"><div style="font-weight:600;font-size:13px">'+_e(o.productName||'Commande')+'</div><div style="font-weight:700;font-size:13px">'+fmtMoney(o.total||o.amount||0)+'</div></div>';
+  }
+  var lines='';
+  var addLine=function(label,val,col){lines+='<div style="display:flex;justify-content:space-between;font-size:13px;padding:3px 0"><span style="color:var(--text3)">'+label+'</span><span style="font-weight:600'+(col?';color:'+col:'')+'">'+val+'</span></div>';};
+  if(o.subtotal!=null)addLine('Sous-total',fmtMoney(o.subtotal));
+  if(o.deliveryFee)addLine('Livraison',fmtMoney(o.deliveryFee));
+  if(o.discount)addLine('Remise'+(o.promoCode?(' ('+_e(o.promoCode)+')'):''),'-'+fmtMoney(o.discount),'#00c853');
+  if(o.pointsSpent)addLine('Payé en points','⭐ '+o.pointsSpent+' pts','#ffb020');
+  var meta='';
+  var addMeta=function(label,val){if(val==null||val==='')return;meta+='<div style="display:flex;justify-content:space-between;gap:10px;font-size:12px;padding:4px 0"><span style="color:var(--text3)">'+label+'</span><span style="font-weight:600;text-align:right;word-break:break-word;max-width:65%">'+_e(val)+'</span></div>';};
+  addMeta('Méthode',o.paymentMethod);
+  addMeta('Réf. paiement',o.paymentRef||o.fedapayRef||o.cinetpayRef||'');
+  addMeta('ID joueur',o.playerId);
+  var money=(o.total||o.amount||0),pts=(o.pointsSpent||o._pts||0);
+  var totalDisplay=money>0?fmtMoney(money):(pts>0?('⭐ '+pts+' pts'):fmtMoney(0));
+  var host=document.createElement('div');
+  host.id='inv-host';
+  host.innerHTML=''
+   +'<div onclick="if(event.target===this)closeInvoice()" style="position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.55);display:flex;align-items:flex-end;justify-content:center">'
+   +'<div style="background:var(--bg);width:100%;max-width:520px;max-height:88vh;overflow:auto;border-radius:20px 20px 0 0;padding:20px 18px 30px">'
+     +'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">'
+       +'<div style="font-family:Orbitron,sans-serif;font-weight:800;font-size:17px">🧾 Facture</div>'
+       +'<button onclick="closeInvoice()" style="width:34px;height:34px;border:0;border-radius:10px;background:var(--bg3);color:var(--text);font-size:16px;cursor:pointer">✕</button>'
+     +'</div>'
+     +'<div style="display:flex;justify-content:space-between;align-items:center;background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:12px 14px;margin-bottom:14px">'
+       +'<div><div style="font-size:11px;color:var(--text3)">Référence</div><div style="font-weight:800;font-size:15px">'+ref+'</div></div>'
+       +'<div style="text-align:right"><div style="font-weight:800;font-size:13px;color:'+statusCol+'">'+statusTxt+'</div><div style="font-size:11px;color:var(--text3)">'+formatPhDate(o.createdAt)+'</div></div>'
+     +'</div>'
+     +'<div style="font-size:11px;font-weight:800;letter-spacing:1px;color:var(--text3);text-transform:uppercase;margin-bottom:2px">Articles</div>'
+     +rows
+     +(lines?('<div style="margin-top:12px">'+lines+'</div>'):'')
+     +'<div style="display:flex;justify-content:space-between;align-items:center;margin-top:12px;padding-top:12px;border-top:2px solid var(--border)"><span style="font-weight:800;font-size:15px">TOTAL</span><span style="font-weight:800;font-size:19px;color:var(--accent)">'+totalDisplay+'</span></div>'
+     +(meta?('<div style="margin-top:16px;background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:10px 14px">'+meta+'</div>'):'')
+   +'</div>'
+   +'</div>';
+  document.body.appendChild(host);
+}
+function closeInvoice(){
+  var h=document.getElementById('inv-host');if(h&&h.parentNode)h.parentNode.removeChild(h);
 }
 
 // Fermer payment history avec overlay
