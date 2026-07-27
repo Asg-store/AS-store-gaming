@@ -2361,6 +2361,7 @@ function showAdminInvoice(id){
   addMeta('Réf. paiement',o.paymentRef||o.fedapayRef||o.cinetpayRef||'');
   addMeta('ID joueur',o.playerId);
   addMeta('ID commande',o.id);
+  var proofBlock=o.proofUrl?('<div style="margin-top:14px"><div style="font-size:11px;font-weight:800;letter-spacing:1px;color:var(--text3);text-transform:uppercase;margin-bottom:6px">📸 Preuve de paiement</div><a href="'+aEsc(o.proofUrl)+'" target="_blank" rel="noopener"><img src="'+aEsc(o.proofUrl)+'" style="max-width:100%;border-radius:12px;border:1px solid var(--border);display:block"></a><div style="font-size:11px;color:var(--text3);margin-top:4px">Touchez l\'image pour l\'agrandir</div></div>'):'';
   var pts=(o.pointsSpent||0),m=(o.total||o.amount||0);
   var totalDisplay=(o.paymentMethod==='points'||(pts&&!m))?('⭐ '+pts+' pts'):money(m);
   var host=document.createElement('div');
@@ -2381,6 +2382,7 @@ function showAdminInvoice(id){
      +(lines?('<div style="margin-top:12px">'+lines+'</div>'):'')
      +'<div style="display:flex;justify-content:space-between;align-items:center;margin-top:12px;padding-top:12px;border-top:2px solid var(--border)"><span style="font-weight:800;font-size:15px">TOTAL</span><span style="font-weight:800;font-size:19px;color:var(--accent)">'+totalDisplay+'</span></div>'
      +(meta?('<div style="margin-top:16px;background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:10px 14px">'+meta+'</div>'):'')
+     +proofBlock
    +'</div>'
    +'</div>';
   document.body.appendChild(host);
