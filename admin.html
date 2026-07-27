@@ -2314,6 +2314,8 @@ function renderOrders(){
         </div>
         ${o.productName?`<div style="font-size:11px;color:var(--text3);margin-top:3px">🛍️ ${o.productName}</div>`:''}
         ${(o.paymentMethod==='points'||o.pointsSpent)?`<div style="font-size:11px;color:#ffb020;margin-top:3px;font-weight:700">⭐ Payée en points${o.playerId?` · ID joueur : ${(''+o.playerId).replace(/</g,'&lt;')}`:''}</div>`:''}
+        ${o.paymentMethod&&(''+o.paymentMethod).indexOf('Orange')>=0?`<div style="font-size:11px;color:#ff7900;margin-top:3px;font-weight:700">🟠 ${aEsc(o.paymentMethod)}</div>`:''}
+        ${o.proofUrl?`<div style="margin-top:6px"><span onclick="event.stopPropagation();viewProof('${o.id}')" style="display:inline-flex;align-items:center;gap:5px;background:rgba(0,200,83,.14);color:#00c853;font-size:11px;font-weight:800;padding:5px 11px;border-radius:99px;cursor:pointer">📸 Voir la preuve de paiement</span></div>`:''}
       </div>
       <div style="flex-shrink:0;text-align:right">
         <div class="order-amount">${(o.paymentMethod==='points'||o.pointsSpent)?((o.pointsSpent||0)+' pts'):((o.total||o.amount||0).toFixed(2)+' €')}</div>
@@ -2390,6 +2392,26 @@ function showAdminInvoice(id){
 function closeInvoice(){
   var h=document.getElementById('inv-host');if(h&&h.parentNode)h.parentNode.removeChild(h);
 }
+// 📸 Visionneuse plein écran de la preuve de paiement (Orange Money, etc.)
+function viewProof(id){
+  var o=(allOrders||[]).find(function(x){return x.id===id;});
+  if(!o||!o.proofUrl){toast('Aucune preuve jointe',true);return;}
+  var url=o.proofUrl;
+  var host=document.createElement('div');
+  host.id='proof-host';
+  host.innerHTML='<div onclick="if(event.target===this)closeProof()" style="position:fixed;inset:0;z-index:100000;background:rgba(0,0,0,.88);display:flex;align-items:center;justify-content:center;padding:16px">'
+    +'<div style="max-width:600px;width:100%;text-align:center">'
+      +'<div style="color:#fff;font-weight:800;font-size:15px;margin-bottom:10px">📸 Preuve de paiement</div>'
+      +'<img src="'+aEsc(url)+'" style="max-width:100%;max-height:74vh;border-radius:12px;border:1px solid rgba(255,255,255,.2);display:block;margin:0 auto">'
+      +'<div style="margin-top:14px;display:flex;gap:10px;justify-content:center">'
+        +'<a href="'+aEsc(url)+'" target="_blank" rel="noopener" style="background:var(--accent);color:#fff;border-radius:10px;padding:9px 16px;font-weight:800;text-decoration:none">Ouvrir / Zoomer</a>'
+        +'<button onclick="closeProof()" style="background:rgba(255,255,255,.15);color:#fff;border:0;border-radius:10px;padding:9px 16px;font-weight:800;cursor:pointer">Fermer</button>'
+      +'</div>'
+    +'</div>'
+  +'</div>';
+  document.body.appendChild(host);
+}
+function closeProof(){var h=document.getElementById('proof-host');if(h&&h.parentNode)h.parentNode.removeChild(h);}
 async function updateOrderStatus(id,status){
   try{
     await db.collection('orders').doc(id).update({status,updatedAt:firebase.firestore.FieldValue.serverTimestamp()});
