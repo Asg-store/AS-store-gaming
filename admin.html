@@ -2316,6 +2316,7 @@ function renderOrders(){
         ${(o.paymentMethod==='points'||o.pointsSpent)?`<div style="font-size:11px;color:#ffb020;margin-top:3px;font-weight:700">⭐ Payée en points${o.playerId?` · ID joueur : ${(''+o.playerId).replace(/</g,'&lt;')}`:''}</div>`:''}
         ${o.paymentMethod&&(''+o.paymentMethod).indexOf('Orange')>=0?`<div style="font-size:11px;color:#ff7900;margin-top:3px;font-weight:700">🟠 ${aEsc(o.paymentMethod)}</div>`:''}
         ${o.proofUrl?`<div style="margin-top:6px"><span onclick="event.stopPropagation();viewProof('${o.id}')" style="display:inline-flex;align-items:center;gap:5px;background:rgba(0,200,83,.14);color:#00c853;font-size:11px;font-weight:800;padding:5px 11px;border-radius:99px;cursor:pointer">📸 Voir la preuve de paiement</span></div>`:''}
+        ${o.account?`<div style="margin-top:6px"><span style="display:inline-flex;align-items:center;gap:5px;background:rgba(124,58,237,.16);color:#a78bfa;font-size:11px;font-weight:800;padding:5px 11px;border-radius:99px">🔑 Identifiants du compte joints</span></div>`:''}
       </div>
       <div style="flex-shrink:0;text-align:right">
         <div class="order-amount">${(o.paymentMethod==='points'||o.pointsSpent)?((o.pointsSpent||0)+' pts'):((o.total||o.amount||0).toFixed(2)+' €')}</div>
@@ -2364,6 +2365,15 @@ function showAdminInvoice(id){
   addMeta('ID joueur',o.playerId);
   addMeta('ID commande',o.id);
   var proofBlock=o.proofUrl?('<div style="margin-top:14px"><div style="font-size:11px;font-weight:800;letter-spacing:1px;color:var(--text3);text-transform:uppercase;margin-bottom:6px">📸 Preuve de paiement</div><a href="'+aEsc(o.proofUrl)+'" target="_blank" rel="noopener"><img src="'+aEsc(o.proofUrl)+'" style="max-width:100%;border-radius:12px;border:1px solid var(--border);display:block"></a><div style="font-size:11px;color:var(--text3);margin-top:4px">Touchez l\'image pour l\'agrandir</div></div>'):'';
+  var accountBlock='';
+  if(o.account&&typeof o.account==='object'){
+    var a=o.account,arows='';
+    var aline=function(label,val){if(val==null||val==='')return;arows+='<div style="display:flex;justify-content:space-between;gap:10px;font-size:12.5px;padding:6px 0;border-bottom:1px dashed var(--border)"><span style="color:var(--text3)">'+label+'</span><span style="font-weight:700;text-align:right;word-break:break-all;max-width:62%;user-select:all;-webkit-user-select:all">'+aEsc(val)+'</span></div>';};
+    if(a.loginModel!=null){aline('Login model',a.loginModel);aline('Account Email',a.email);aline('Password',a.password);aline('User ID',a.userId);}
+    else if(a.konamiId!=null){aline('Konami / Email',a.konamiId);aline('Password',a.password);aline('Username',a.username);}
+    else{for(var k in a){if(a.hasOwnProperty(k))aline(k,a[k]);}}
+    if(arows)accountBlock='<div style="margin-top:14px"><div style="font-size:11px;font-weight:800;letter-spacing:1px;color:var(--text3);text-transform:uppercase;margin-bottom:6px">🔑 Identifiants du compte (pour livrer)</div><div style="background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:6px 14px">'+arows+'</div><div style="font-size:10.5px;color:var(--text3);margin-top:4px">Touchez une valeur pour la sélectionner.</div></div>';
+  }
   var pts=(o.pointsSpent||0),m=(o.total||o.amount||0);
   var totalDisplay=(o.paymentMethod==='points'||(pts&&!m))?('⭐ '+pts+' pts'):money(m);
   var host=document.createElement('div');
@@ -2384,6 +2394,7 @@ function showAdminInvoice(id){
      +(lines?('<div style="margin-top:12px">'+lines+'</div>'):'')
      +'<div style="display:flex;justify-content:space-between;align-items:center;margin-top:12px;padding-top:12px;border-top:2px solid var(--border)"><span style="font-weight:800;font-size:15px">TOTAL</span><span style="font-weight:800;font-size:19px;color:var(--accent)">'+totalDisplay+'</span></div>'
      +(meta?('<div style="margin-top:16px;background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:10px 14px">'+meta+'</div>'):'')
+     +accountBlock
      +proofBlock
    +'</div>'
    +'</div>';

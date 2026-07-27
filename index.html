@@ -2448,8 +2448,7 @@ body.ios .pnotif .pn-ic{border-radius:11px}
   <div class="screen-body">
     <div class="acc-pay-summary" id="cart-pay-summary"></div>
     <div id="cart-player-info">
-      <div class="field"><label>🎮 ID Joueur *</label><input id="cart-player-id" inputmode="numeric" placeholder="Ex: 5123456789"/></div>
-      <span class="hint" style="display:block;margin-bottom:14px">Entrez l'ID du compte qui doit recevoir la commande (UC, Diamants…). Vérifiez bien : la livraison se fait sur cet ID.</span>
+      <div id="cart-cred-fields"></div>
       <label style="display:block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--text3);margin-bottom:6px">🎟️ Code promo</label>
       <div class="promo-row">
         <input id="cart-promo" placeholder="CODE PROMO" oninput="this.value=this.value.toUpperCase()"/>
@@ -5374,8 +5373,8 @@ function payCartGo(){
 }
 /* CinetPay pour le panier */
 function payCartCinetPay(){
-  const playerId=(document.getElementById('cart-player-id').value||'').trim();
-  if(!playerId){showToast('🎮 Entrez votre ID joueur');return;}
+  const _a=getCartAccount();if(!_a)return;const playerId=_a.playerId,_accData=_a.account||null;if(cartCheckoutData)cartCheckoutData.playerId=playerId;
+  
   if(!cartCheckoutData)return;cartCheckoutData.playerId=playerId;
   const total=cartCheckoutData.total||0;if(total<=0)return;
   const txId='ASGCART'+Date.now();
@@ -5391,8 +5390,8 @@ function payCartCinetPay(){
 }
 /* Orange Money manuel pour le panier : commande en attente de vérification */
 async function payCartOrange(){
-  const playerId=(document.getElementById('cart-player-id').value||'').trim();
-  if(!playerId){showToast('🎮 Entrez votre ID joueur');return;}
+  const _a=getCartAccount();if(!_a)return;const playerId=_a.playerId,_accData=_a.account||null;if(cartCheckoutData)cartCheckoutData.playerId=playerId;
+  
   if(!cartCheckoutData)return;
   const total=cartCheckoutData.total||0;
   if(!_omProofFile){ if(!confirm('Aucune preuve de paiement jointe. Nous vous conseillons de joindre la capture d\'écran. Continuer quand même ?'))return; }
@@ -5414,7 +5413,7 @@ async function payCartOrange(){
     await db.collection('orders').add({
       items:cartCheckoutData.items,subtotal:cartCheckoutData.subtotal,
       deliveryFee:cartCheckoutData.deliveryFee||0,discount:cartCheckoutData.discount||0,
-      promoCode:cartCheckoutData.promoCode||'',total:total,playerId:playerId,
+      promoCode:cartCheckoutData.promoCode||'',total:total,playerId:playerId,account:_accData,
       userId:currentUser.uid,userName:currentUser.displayName||(currentUser.email||'').split('@')[0],
       email:currentUser.email||'',paymentMethod:'Orange Money (manuel)',status:'pending',
       proofUrl:proofUrl,
@@ -5440,7 +5439,7 @@ async function finalizeCartVerified(url,payload,total,playerId,methodName,ref){
     const data=await res.json().catch(function(){return {};});
     if(data&&data.approved&&(data.amount>=total-0.05)){
       const oref=db.collection('orders').doc();
-      await oref.set({items:cartCheckoutData.items,subtotal:cartCheckoutData.subtotal,deliveryFee:cartCheckoutData.deliveryFee||0,discount:cartCheckoutData.discount||0,promoCode:cartCheckoutData.promoCode||'',total:total,playerId:playerId,userId:currentUser.uid,userName:currentUser.displayName||(currentUser.email||'').split('@')[0],email:currentUser.email||'',paymentMethod:methodName,paymentRef:ref||'',status:'paid',createdAt:firebase.firestore.FieldValue.serverTimestamp()});
+      await oref.set({items:cartCheckoutData.items,subtotal:cartCheckoutData.subtotal,deliveryFee:cartCheckoutData.deliveryFee||0,discount:cartCheckoutData.discount||0,promoCode:cartCheckoutData.promoCode||'',total:total,playerId:playerId,account:_accData,userId:currentUser.uid,userName:currentUser.displayName||(currentUser.email||'').split('@')[0],email:currentUser.email||'',paymentMethod:methodName,paymentRef:ref||'',status:'paid',createdAt:firebase.firestore.FieldValue.serverTimestamp()});
       awardPurchasePoints(oref.id,total,cartCheckoutData.items);
       showCartPaymentSuccess({});
     }else{
@@ -5550,6 +5549,71 @@ function showAccountDeliveryFailed(){
 
 /* ─── ACHAT DES PRODUITS DU PANIER VIA ADYEN ─── */
 let cartCheckoutData=null,cartAdyenCheckout=null,cartOrderUnsub=null;
+// ── Formulaire de compte dynamique selon le jeu du panier ──
+// Certains jeux (Call of Duty, eFootball/Konami) exigent les identifiants du
+// compte pour la livraison, au lieu d'un simple ID joueur.
+function detectCheckoutGame(){
+  var items=(cartCheckoutData&&cartCheckoutData.items)||cart||[];
+  var isCod=false,isEfoot=false;
+  items.forEach(function(it){
+    var p=(allProducts||[]).find(function(x){return x.id===it.id;});
+    var key=p?productGame(p):'';
+    var g=(GAMES||[]).find(function(x){return x.key===key;});
+    var txt=((key||'')+' '+((g&&g.name)||'')+' '+((p&&(p.category||''))||'')+' '+((it.name||''))).toLowerCase();
+    if(key==='cod'||/\bcod\b|call of duty|warzone/.test(txt))isCod=true;
+    if(/efoot|e-foot|konami|\bpes\b/.test(txt))isEfoot=true;
+  });
+  if(isCod)return'cod';
+  if(isEfoot)return'efootball';
+  return'id';
+}
+function renderCheckoutFields(game){
+  var el=document.getElementById('cart-cred-fields');if(!el)return;
+  if(game==='cod'){
+    el.innerHTML=''
+      +'<div style="font-weight:800;font-size:13px;margin-bottom:10px">🔫 Informations du compte Call of Duty</div>'
+      +'<div class="field"><label>Login model *</label><select id="cc-loginmodel"><option value="">— Sélectionner —</option><option>Activision</option><option>Facebook</option><option>Google</option><option>Apple</option><option>Garena</option><option>Line</option><option>Twitter / X</option><option>VK</option></select></div>'
+      +'<div class="field"><label>Account Email *</label><input id="cc-email" type="email" placeholder="email@exemple.com" autocomplete="off"/></div>'
+      +'<div class="field"><label>Password *</label><input id="cc-pass" type="text" placeholder="Mot de passe du compte" autocomplete="off"/></div>'
+      +'<div class="field"><label>User ID *</label><input id="cc-userid" placeholder="ID du compte"/></div>'
+      +'<span class="hint" style="display:block;margin-bottom:14px">🔒 Ces infos servent uniquement à livrer vos CP en nous connectant à votre compte. Vérifiez bien qu\'elles sont correctes.</span>';
+  }else if(game==='efootball'){
+    el.innerHTML=''
+      +'<div style="font-weight:800;font-size:13px;margin-bottom:10px">⚽ Informations du compte eFootball (Konami)</div>'
+      +'<div class="field"><label>Konami ID or Email *</label><input id="cc-konami" placeholder="Konami ID ou email" autocomplete="off"/></div>'
+      +'<div class="field"><label>Password *</label><input id="cc-pass" type="text" placeholder="Mot de passe du compte" autocomplete="off"/></div>'
+      +'<div class="field"><label>Username *</label><input id="cc-username" placeholder="Nom d\'utilisateur en jeu"/></div>'
+      +'<span class="hint" style="display:block;margin-bottom:14px">🔒 Ces infos servent uniquement à livrer vos coins en nous connectant à votre compte. Vérifiez bien qu\'elles sont correctes.</span>';
+  }else{
+    el.innerHTML=''
+      +'<div class="field"><label>🎮 ID Joueur *</label><input id="cc-playerid" inputmode="numeric" placeholder="Ex: 5123456789"/></div>'
+      +'<span class="hint" style="display:block;margin-bottom:14px">Entrez l\'ID du compte qui doit recevoir la commande (UC, Diamants…). La livraison se fait sur cet ID.</span>';
+  }
+}
+// Récupère + valide les identifiants saisis. Renvoie null si invalide (et signale).
+function getCartAccount(){
+  var g=detectCheckoutGame();
+  var val=function(id){var e=document.getElementById(id);return e?(e.value||'').trim():'';};
+  var focus=function(id){var e=document.getElementById(id);if(e)e.focus();};
+  if(g==='cod'){
+    var lm=val('cc-loginmodel'),em=val('cc-email'),pw=val('cc-pass'),uid=val('cc-userid');
+    if(!lm){showToast('Choisissez le « Login model »');focus('cc-loginmodel');return null;}
+    if(!em){showToast('Entrez l\'Account Email');focus('cc-email');return null;}
+    if(!pw){showToast('Entrez le Password');focus('cc-pass');return null;}
+    if(!uid){showToast('Entrez le User ID');focus('cc-userid');return null;}
+    return{game:'cod',playerId:uid,account:{loginModel:lm,email:em,password:pw,userId:uid}};
+  }
+  if(g==='efootball'){
+    var kid=val('cc-konami'),pw2=val('cc-pass'),un=val('cc-username');
+    if(!kid){showToast('Entrez le Konami ID ou l\'email');focus('cc-konami');return null;}
+    if(!pw2){showToast('Entrez le Password');focus('cc-pass');return null;}
+    if(!un){showToast('Entrez le Username');focus('cc-username');return null;}
+    return{game:'efootball',playerId:kid,account:{konamiId:kid,password:pw2,username:un}};
+  }
+  var pid=val('cc-playerid');
+  if(!pid){showToast('🎮 Entrez votre ID joueur');focus('cc-playerid');return null;}
+  return{game:'id',playerId:pid,account:null};
+}
 async function openCartCheckout(){
   if(!currentUser){openAuthModal();showToast('🔐 Connectez-vous pour payer');return;}
   if(!cart.length){showToast('🛒 Votre panier est vide');return;}
@@ -5561,8 +5625,9 @@ async function openCartCheckout(){
   document.getElementById('cart-pay-summary').innerHTML=`
     <div class="t">${count} article${count>1?'s':''}</div>
     <div style="font-size:12px;color:var(--text2);margin-top:8px">${cart.map(i=>`${i.qty}× ${i.name}`).join('<br>')}</div>`;
-  // Étape 1 : ID joueur + code promo + frais
+  // Étape 1 : identifiants du compte (selon le jeu) + code promo + frais
   document.getElementById('cart-player-info').style.display='block';
+  renderCheckoutFields(detectCheckoutGame());
   document.getElementById('cart-promo').value='';
   document.getElementById('cart-promo-msg').style.display='none';
   renderCartLines();
@@ -5579,8 +5644,8 @@ async function payCartWithWallet(){
     openPinLock(function(){payCartWithWallet();},false);
     return;
   }
-  const playerId=(document.getElementById('cart-player-id').value||'').trim();
-  if(!playerId){showToast('🎮 Entrez votre ID joueur');document.getElementById('cart-player-id').focus();return;}
+  const _a=getCartAccount();if(!_a)return;const playerId=_a.playerId,_accData=_a.account||null;if(cartCheckoutData)cartCheckoutData.playerId=playerId;
+  
   if(!cartCheckoutData){showToast('🛒 Panier vide');return;}
   const total=cartCheckoutData.total||0;
   if((userData.walletBalance||0)<total){showToast('❌ Solde insuffisant. Rechargez votre portefeuille.');return;}
@@ -5598,7 +5663,7 @@ async function payCartWithWallet(){
         items:cartCheckoutData.items,subtotal:cartCheckoutData.subtotal,
         deliveryFee:cartCheckoutData.deliveryFee||0,discount:cartCheckoutData.discount||0,
         promoCode:cartCheckoutData.promoCode||'',total:total,
-        playerId:playerId,userId:currentUser.uid,
+        playerId:playerId,account:_accData,userId:currentUser.uid,
         userName:currentUser.displayName||(currentUser.email||'').split('@')[0],
         email:currentUser.email||'',paymentMethod:'wallet',status:'paid',
         createdAt:firebase.firestore.FieldValue.serverTimestamp()
@@ -5615,8 +5680,8 @@ async function payCartWithWallet(){
 // 📱 Paiement direct du panier par Mobile Money (FedaPay), vérifié côté serveur
 async function payCartFedaPay(){
   if(!currentUser){openAuthModal();return;}
-  const playerId=(document.getElementById('cart-player-id').value||'').trim();
-  if(!playerId){showToast('🎮 Entrez votre ID joueur');document.getElementById('cart-player-id').focus();return;}
+  const _a=getCartAccount();if(!_a)return;const playerId=_a.playerId,_accData=_a.account||null;if(cartCheckoutData)cartCheckoutData.playerId=playerId;
+  
   if(!cartCheckoutData){showToast('🛒 Panier vide');return;}
   cartCheckoutData.playerId=playerId;
   const total=cartCheckoutData.total||0;
@@ -5655,7 +5720,7 @@ async function finalizeCartFedaPay(transactionId,total,playerId){
         items:cartCheckoutData.items,subtotal:cartCheckoutData.subtotal,
         deliveryFee:cartCheckoutData.deliveryFee||0,discount:cartCheckoutData.discount||0,
         promoCode:cartCheckoutData.promoCode||'',total:total,
-        playerId:playerId,userId:currentUser.uid,
+        playerId:playerId,account:_accData,userId:currentUser.uid,
         userName:currentUser.displayName||(currentUser.email||'').split('@')[0],
         email:currentUser.email||'',paymentMethod:'FedaPay',fedapayRef:transactionId,status:'paid',
         createdAt:firebase.firestore.FieldValue.serverTimestamp()
@@ -5670,8 +5735,8 @@ async function finalizeCartFedaPay(transactionId,total,playerId){
   }
 }
 async function startCartPayment(){
-  const playerId=(document.getElementById('cart-player-id').value||'').trim();
-  if(!playerId){showToast('🎮 Entrez votre ID joueur');document.getElementById('cart-player-id').focus();return;}
+  const _a=getCartAccount();if(!_a)return;const playerId=_a.playerId,_accData=_a.account||null;if(cartCheckoutData)cartCheckoutData.playerId=playerId;
+  
   if(!cartCheckoutData){showToast('🛒 Panier vide');return;}
   cartCheckoutData.playerId=playerId;
   // Étape 2 : paiement Adyen
@@ -5722,7 +5787,7 @@ function showCartPaymentSuccess(order){
   </div>`;
   showToast('✅ Paiement réussi !');
   // Écran de livraison estimée (1 à 2 min)
-  showDeliveryProgress(Object.assign({playerId:(document.getElementById('cart-player-id')||{}).value},order||{}));
+  showDeliveryProgress(Object.assign({playerId:(cartCheckoutData&&cartCheckoutData.playerId)||''},order||{}));
 }
 // Ouvre l'historique des commandes de façon fiable (sans course avec history.back)
 function goToMyOrders(){
