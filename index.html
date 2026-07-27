@@ -5317,6 +5317,9 @@ function renderCartLines(){
     var hidden=(pm[m]===false)||(m==='cinetpay'&&(!CINETPAY_SITE_ID||!CINETPAY_API_KEY));
     el.style.display=hidden?'none':'flex';
   });
+  // 🔁 Le bouton de paiement est toujours réinitialisé → jamais bloqué sur « Paiement… »
+  var _pb=document.getElementById('cart-pay-btn');
+  if(_pb){_pb.disabled=false;_pb.textContent='Payer →';}
 }
 let _cartMethod='';
 function selectCartMethod(m){
@@ -5365,7 +5368,7 @@ async function payCartOrange(){
       email:currentUser.email||'',paymentMethod:'Orange Money (manuel)',status:'pending',
       createdAt:firebase.firestore.FieldValue.serverTimestamp()
     });
-    cart=[];saveCart();updateCartUI();
+    cart=[];saveCart();renderCart();
     document.getElementById('cart-player-info').style.display='none';
     const st=document.getElementById('cart-pay-status');st.style.display='block';
     st.innerHTML='<div style="text-align:center;padding:18px"><div style="font-size:42px">⏳</div><div style="font-weight:800;margin-top:8px">Commande envoyée !</div><div style="font-size:12px;color:var(--text3);margin-top:6px">Un administrateur va vérifier votre paiement Orange Money (+223 82 13 14 18) puis livrer votre commande. Vous recevrez une notification.</div><button class="btn-primary" style="margin-top:16px" onclick="goBack()">Terminer</button></div>';
@@ -5550,7 +5553,7 @@ async function payCartWithWallet(){
     showCartPaymentSuccess({});
   }catch(e){
     showToast('❌ '+(e.message||'Paiement impossible'));
-    if(wb){wb.disabled=false;}
+    if(wb){wb.disabled=false;wb.textContent='Payer →';}
     renderCartLines();
   }
 }
@@ -5976,7 +5979,7 @@ function setCurrency(c){
   try{renderMarketplace&&renderMarketplace();}catch(e){}
   try{renderVpnShop&&renderVpnShop();}catch(e){}
   try{refreshRewardsUI&&refreshRewardsUI();}catch(e){}
-  try{updateCartUI&&updateCartUI();}catch(e){}
+  try{renderCart&&renderCart();}catch(e){}
 }
 /* ═══════════ BOUTIQUE VPN (WireGuard) ═══════════ */
 function vEsc(s){return (''+(s||'')).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');}
