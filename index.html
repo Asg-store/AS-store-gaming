@@ -5341,6 +5341,28 @@ function previewOMProof(e){
   if(f){var url=URL.createObjectURL(f);pv.innerHTML='<img src="'+url+'" style="max-width:100%;max-height:190px;border-radius:10px;border:1px solid var(--border);display:block"><div style="font-size:11.5px;color:#00c853;margin-top:5px;font-weight:700">✅ Capture jointe</div>';}
   else pv.innerHTML='';
 }
+// Compresse une image en JPEG (réduit la taille pour l'upload / le stockage)
+function compressImage(file,maxDim,quality){
+  return new Promise(function(resolve){
+    try{
+      var img=new Image();
+      img.onload=function(){
+        try{
+          var w=img.width||1,h=img.height||1;
+          var scale=Math.min(1,maxDim/Math.max(w,h));
+          var cw=Math.max(1,Math.round(w*scale)),ch=Math.max(1,Math.round(h*scale));
+          var c=document.createElement('canvas');c.width=cw;c.height=ch;
+          c.getContext('2d').drawImage(img,0,0,cw,ch);
+          var dataUrl=c.toDataURL('image/jpeg',quality);
+          if(c.toBlob){c.toBlob(function(blob){resolve({blob:blob,dataUrl:dataUrl});},'image/jpeg',quality);}
+          else{resolve({blob:null,dataUrl:dataUrl});}
+        }catch(e){resolve(null);}
+      };
+      img.onerror=function(){resolve(null);};
+      img.src=URL.createObjectURL(file);
+    }catch(e){resolve(null);}
+  });
+}
 function payCartGo(){
   if(!currentUser){openAuthModal();return;}
   if(!_cartMethod){showToast('Choisissez une méthode de paiement');return;}
@@ -5377,13 +5399,17 @@ async function payCartOrange(){
   if(!confirm('Envoyez '+fmtMoney(total)+' au +223 82 13 14 18 (Orange Money), puis touchez OK pour confirmer votre commande. Un administrateur vérifiera le paiement.'))return;
   const btn=document.getElementById('cart-pay-btn');if(btn){btn.disabled=true;btn.textContent='⏳ Envoi…';}
   try{
-    // 📸 Upload de la preuve de paiement (si jointe)
+    // 📸 Preuve de paiement : hébergée via ImgBB (clé admin), sinon intégrée à la commande.
     let proofUrl='';
-    if(_omProofFile&&storage){
+    if(_omProofFile){
+      var comp=await compressImage(_omProofFile,1400,0.7);
+      var toSend=(comp&&comp.blob)?comp.blob:_omProofFile;
       try{
-        const pref=storage.ref('payment-proofs/'+currentUser.uid+'/'+Date.now()+'_'+_omProofFile.name.replace(/[^\w.]/g,'_'));
-        proofUrl=await withTimeout(pref.put(_omProofFile).then(s=>s.ref.getDownloadURL()),20000);
-      }catch(e){ /* upload impossible : la commande est quand même créée, sans preuve */ }
+        proofUrl=await imgbbUploadClient(toSend);   // ImgBB (clé partagée gérée par l'admin)
+      }catch(e){proofUrl='';}
+      // Repli : image intégrée à la commande (aucune dépendance externe)
+      if(!proofUrl&&comp&&comp.dataUrl&&comp.dataUrl.length<720000){proofUrl=comp.dataUrl;}
+      if(!proofUrl){showToast('⚠️ La preuve n\'a pas pu être enregistrée. Commande envoyée sans preuve.');}
     }
     await db.collection('orders').add({
       items:cartCheckoutData.items,subtotal:cartCheckoutData.subtotal,
