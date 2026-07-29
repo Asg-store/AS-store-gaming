@@ -2097,10 +2097,15 @@ body.ios .pnotif .pn-ic{border-radius:11px}
     <div class="screen-title">⭐ Notes & avis</div>
   </div>
   <div class="screen-body">
-    <div class="reward-sec" style="text-align:center">
-      <div id="rev-avg-num" style="font-family:'Orbitron',sans-serif;font-size:40px;font-weight:800;color:var(--gold);line-height:1">—</div>
-      <div id="rev-avg-stars" style="font-size:20px;margin:4px 0">☆☆☆☆☆</div>
-      <div id="rev-count" class="sub" style="margin:0">Aucun avis pour le moment</div>
+    <div class="reward-sec">
+      <div style="display:flex;gap:16px;align-items:center">
+        <div style="text-align:center;flex-shrink:0">
+          <div id="rev-avg-num" style="font-family:'Orbitron',sans-serif;font-size:42px;font-weight:800;color:var(--gold);line-height:1">—</div>
+          <div id="rev-avg-stars" style="font-size:15px;margin:5px 0">☆☆☆☆☆</div>
+          <div id="rev-count" class="sub" style="margin:0;font-size:12px">Aucun avis</div>
+        </div>
+        <div id="rev-dist" style="flex:1;min-width:0;display:flex;flex-direction:column;gap:6px"></div>
+      </div>
     </div>
 
     <div class="reward-sec" id="rev-form-sec">
@@ -2247,7 +2252,12 @@ body.ios .pnotif .pn-ic{border-radius:11px}
   <div class="screen-body">
     <div class="settings-group">
       <div class="settings-group-label">Apparence</div>
-      <div class="set-row" onclick="toggleThemeSwitch()">
+      <div class="set-row" id="theme-sys-row" onclick="setThemeSystem(!document.getElementById('sys-theme-switch').checked)">
+        <div class="set-ico"><svg viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg></div>
+        <div class="set-txt"><div class="set-name">Utiliser les paramètres de l'appareil</div><div class="set-desc">Suit le thème clair/sombre de votre téléphone</div></div>
+        <label class="switch" onclick="event.stopPropagation()"><input type="checkbox" id="sys-theme-switch" onchange="setThemeSystem(this.checked)"><span class="slider"></span></label>
+      </div>
+      <div class="set-row" id="theme-row" onclick="toggleThemeSwitch()">
         <div class="set-ico"><svg viewBox="0 0 24 24"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg></div>
         <div class="set-txt"><div class="set-name">Mode sombre / clair</div><div class="set-desc" id="theme-state">Mode sombre activé</div></div>
         <label class="switch" onclick="event.stopPropagation()"><input type="checkbox" id="theme-switch" onchange="setThemeFromSwitch(this.checked)"><span class="slider"></span></label>
@@ -2525,7 +2535,10 @@ let messaging=null;try{if(firebase.messaging.isSupported())messaging=firebase.me
 
 let allProducts=[],cart=JSON.parse(localStorage.getItem('nex-cart')||'[]');
 let currentCat='all',currentSort='default',currentSearch='',isListView=false;
-let isDark=localStorage.getItem('nex-theme')!=='light';
+function _sysDark(){return !!(window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches);}
+function getThemeMode(){var m=localStorage.getItem('nex-theme-mode');if(m==='light'||m==='dark'||m==='system')return m;return localStorage.getItem('nex-theme')==='light'?'light':'dark';}
+let themeMode=getThemeMode();
+let isDark=(themeMode==='system')?_sysDark():(themeMode!=='light');
 let currentUser=null;
 let userData={};            // profil Firestore (points, walletBalance, …)
 let _userLoaded=false;      // vrai UNIQUEMENT une fois les données Firestore reçues (évite les fausses réinitialisations)
@@ -2535,12 +2548,17 @@ function _tms(ts){try{return ts&&ts.toDate?ts.toDate().getTime():0;}catch(e){ret
 
 // ─ Theme
 function applyTheme(){
+  isDark=(themeMode==='system')?_sysDark():(themeMode!=='light');
   document.documentElement.setAttribute('data-theme',isDark?'dark':'light');
   const ic=document.getElementById('theme-ico');
   ic.innerHTML=isDark?'<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>':'<circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>';
 }
 applyTheme();
-document.getElementById('theme-toggle').addEventListener('click',()=>{isDark=!isDark;localStorage.setItem('nex-theme',isDark?'dark':'light');applyTheme();});
+// Suit les changements de thème de l'appareil quand le mode « système » est actif
+(function(){var mq=window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)');if(!mq)return;
+  var on=function(){if(themeMode==='system'){applyTheme();if(typeof syncSettingsUI==='function')syncSettingsUI();}};
+  if(mq.addEventListener)mq.addEventListener('change',on);else if(mq.addListener)mq.addListener(on);})();
+document.getElementById('theme-toggle').addEventListener('click',()=>{setTheme(!isDark);});
 
 // ─ Menu
 const menuBtn=document.getElementById('menu-btn');
@@ -3029,15 +3047,29 @@ function loadReviews(){
 function renderReviews(revs){
   const list=document.getElementById('rev-list');if(!list)return;
   // Moyenne + nombre
-  const avgEl=document.getElementById('rev-avg-num'),starsEl=document.getElementById('rev-avg-stars'),cntEl=document.getElementById('rev-count');
+  const avgEl=document.getElementById('rev-avg-num'),starsEl=document.getElementById('rev-avg-stars'),cntEl=document.getElementById('rev-count'),distEl=document.getElementById('rev-dist');
   if(revs.length){
     const sum=revs.reduce(function(a,r){return a+(+r.rating||0);},0);
     const avg=sum/revs.length;
-    if(avgEl)avgEl.textContent=avg.toFixed(1);
+    if(avgEl)avgEl.textContent=avg.toFixed(1).replace('.',',');
     if(starsEl)starsEl.textContent=starStr(avg);
     if(cntEl)cntEl.textContent=revs.length+' avis';
   }else{
-    if(avgEl)avgEl.textContent='—';if(starsEl)starsEl.textContent='☆☆☆☆☆';if(cntEl)cntEl.textContent='Aucun avis pour le moment';
+    if(avgEl)avgEl.textContent='—';if(starsEl)starsEl.textContent='☆☆☆☆☆';if(cntEl)cntEl.textContent='Aucun avis';
+  }
+  // Répartition des notes (5→1), style Google Play
+  if(distEl){
+    var dist=[0,0,0,0,0];
+    revs.forEach(function(r){var n=Math.round(+r.rating||0);if(n>=1&&n<=5)dist[n-1]++;});
+    var mx=revs.length||1,rows='';
+    for(var s=5;s>=1;s--){
+      var pct=Math.round(dist[s-1]/mx*100);
+      rows+='<div style="display:flex;align-items:center;gap:8px">'
+        +'<span style="font-size:12px;color:var(--text2);width:9px;text-align:right;flex-shrink:0">'+s+'</span>'
+        +'<div style="flex:1;height:9px;background:var(--bg3);border-radius:99px;overflow:hidden"><div style="height:100%;width:'+pct+'%;background:var(--gold);border-radius:99px;transition:width .6s ease"></div></div>'
+        +'</div>';
+    }
+    distEl.innerHTML=rows;
   }
   if(!revs.length){list.innerHTML='<p class="sub" style="margin:0">Soyez le premier à laisser un avis !</p>';return;}
   list.innerHTML=revs.map(function(r){
@@ -3732,10 +3764,19 @@ function startRechargeOrange(amt){
     +'<div style="display:flex;gap:8px;margin-bottom:10px">'
     +'<select id="om-indicatif" class="set-select" style="width:110px;flex-shrink:0"><option value="+223">🇲🇱 +223</option><option value="+225">🇨🇮 +225</option><option value="+221">🇸🇳 +221</option><option value="+226">🇧🇫 +226</option><option value="+227">🇳🇪 +227</option><option value="+224">🇬🇳 +224</option><option value="+229">🇧🇯 +229</option><option value="+228">🇹🇬 +228</option></select>'
     +'<input id="om-phone" type="tel" placeholder="Votre numéro (ex: 82131418)" style="flex:1;padding:12px;border-radius:12px;border:1px solid var(--border);background:var(--bg3);color:var(--text);font-size:13px"/></div>'
-    +'<label style="display:block;font-size:12px;color:var(--text2);margin-bottom:6px">📸 Capture d\'écran du reçu (preuve de paiement) :</label>'
-    +'<input id="om-proof" type="file" accept="image/*" style="font-size:12px;margin-bottom:14px;width:100%"/>'
+    +'<div style="font-weight:700;font-size:13px;margin-bottom:3px">📸 Preuve de paiement</div>'
+    +'<div style="font-size:11.5px;color:var(--text3);margin-bottom:8px">Joignez la capture d\'écran de votre paiement Orange Money.</div>'
+    +'<input id="om-proof" type="file" accept="image/*" style="display:none" onchange="previewRcProof(event)"/>'
+    +'<button type="button" style="width:100%;padding:11px;border:1px dashed var(--border);border-radius:10px;background:var(--bg3);color:var(--text);font-weight:700;cursor:pointer" onclick="document.getElementById(\'om-proof\').click()">📎 Choisir la capture d\'écran</button>'
+    +'<div id="om-proof-preview" style="margin:8px 0 14px"></div>'
     +'<button class="rw-btn" onclick="confirmOrangeSent('+amt+')">📤 Envoyer ma preuve de paiement</button>'
     +'<button class="rw-btn alt" style="margin-top:8px" onclick="closeRecharge()">Annuler</button></div>';
+}
+function previewRcProof(e){
+  var f=(e.target.files||[])[0];
+  var pv=document.getElementById('om-proof-preview');if(!pv)return;
+  if(f){var url=URL.createObjectURL(f);pv.innerHTML='<img src="'+url+'" style="max-width:100%;max-height:180px;border-radius:10px;border:1px solid var(--border);display:block"><div style="font-size:11.5px;color:#00c853;margin-top:5px;font-weight:700">✅ Capture jointe</div>';}
+  else pv.innerHTML='';
 }
 function compressProof(file){return new Promise(function(res,rej){
   var r=new FileReader();r.onload=function(){
@@ -3755,8 +3796,12 @@ async function confirmOrangeSent(amt){
   if(!f){showToast('❌ Ajoutez la capture d\'écran du reçu');return;}
   try{
     showToast('⏳ Envoi de la preuve…');
-    var proof=await compressProof(f);
-    if(proof.length>850000){showToast('❌ Image trop lourde, réessayez');return;}
+    var proof='';
+    var comp=await compressImage(f,1400,0.7);
+    var toSend=(comp&&comp.blob)?comp.blob:f;
+    try{proof=await imgbbUploadClient(toSend);}catch(e){proof='';}
+    if(!proof&&comp&&comp.dataUrl&&comp.dataUrl.length<720000)proof=comp.dataUrl;
+    if(!proof){showToast('❌ Preuve non enregistrée, réessayez');return;}
     await db.collection('walletRequests').add({
       userId:currentUser.uid,userName:currentUser.displayName||(currentUser.email||'').split('@')[0],
       email:currentUser.email||'',amount:+amt,method:'Orange Money',
@@ -7207,12 +7252,21 @@ function watchChatBadge(){
 }
 
 /* ─── PARAMÈTRES (thème, notif) ─── */
-function setTheme(d){isDark=d;localStorage.setItem('nex-theme',d?'dark':'light');applyTheme();syncSettingsUI();}
-function toggleThemeSwitch(){setTheme(!isDark);}
-function setThemeFromSwitch(checked){setTheme(checked);}
+function setTheme(d){themeMode=d?'dark':'light';localStorage.setItem('nex-theme-mode',themeMode);localStorage.setItem('nex-theme',d?'dark':'light');applyTheme();syncSettingsUI();}
+function toggleThemeSwitch(){if(themeMode==='system'){showToast('📱 Désactivez d\'abord « paramètres de l\'appareil »');return;}setTheme(!isDark);}
+function setThemeFromSwitch(checked){if(themeMode==='system')return;setTheme(checked);}
+function setThemeSystem(on){
+  if(on){themeMode='system';}
+  else{themeMode=_sysDark()?'dark':'light';localStorage.setItem('nex-theme',themeMode);}
+  localStorage.setItem('nex-theme-mode',themeMode);
+  applyTheme();syncSettingsUI();
+  showToast(on?'📱 Thème : paramètres de l\'appareil':(isDark?'🌙 Mode sombre':'☀️ Mode clair'));
+}
 function syncSettingsUI(){
-  const sw=document.getElementById('theme-switch');if(sw)sw.checked=isDark;
-  const ts=document.getElementById('theme-state');if(ts)ts.textContent=isDark?'Mode sombre activé':'Mode clair activé';
+  const sys=document.getElementById('sys-theme-switch');if(sys)sys.checked=(themeMode==='system');
+  const sw=document.getElementById('theme-switch');if(sw){sw.checked=isDark;sw.disabled=(themeMode==='system');}
+  const trow=document.getElementById('theme-row');if(trow)trow.style.opacity=(themeMode==='system')?'.5':'1';
+  const ts=document.getElementById('theme-state');if(ts)ts.textContent=(themeMode==='system')?('Automatique — '+(isDark?'sombre':'clair')):(isDark?'Mode sombre activé':'Mode clair activé');
   const ns=document.getElementById('notif-switch');if(ns)ns.checked=localStorage.getItem('nex-notif-pref')!=='off';
   const ls=document.getElementById('lang-select');if(ls)ls.value=localStorage.getItem('nex-lang')||'fr';
   const fs=document.getElementById('font-select');if(fs)fs.value=localStorage.getItem('nex-font')||'default';
