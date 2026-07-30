@@ -2896,9 +2896,15 @@ async function claimMission(i){
 
 function openWallet(){
   if(!currentUser){openAuthModal();return;}
-  // 🔒 Si un verrou protège le portefeuille : empreinte d'abord, sinon code PIN
+  // 🔒 Verrou actif : si l'empreinte est activée, on la déclenche DIRECTEMENT
+  //    (sans afficher le code PIN). Le PIN ne s'affiche qu'en secours si l'empreinte échoue.
   if(walletPinActive()&&!_walletUnlocked){
-    tryWalletUnlock();
+    if(walletBiometricActive()){
+      _bioVerify().then(function(){_walletUnlocked=true;refreshRewardsUI();})
+                  .catch(function(){openPinLock(function(){refreshRewardsUI();},true);});
+      return;
+    }
+    openPinLock(function(){refreshRewardsUI();},true);
     return;
   }
   refreshRewardsUI();
@@ -2922,24 +2928,12 @@ async function _bioRegister(){
   }});
   localStorage.setItem('asg-wallet-bio',_b64u(cred.rawId));
 }
+// Tente l'empreinte ; si indispo/échec, bascule sur le code PIN
 async function _bioVerify(){
   var id=localStorage.getItem('asg-wallet-bio');
   if(!id)throw new Error('no-credential');
   var ch=new Uint8Array(32);crypto.getRandomValues(ch);
   await navigator.credentials.get({publicKey:{challenge:ch,allowCredentials:[{type:'public-key',id:_ub64(id)}],userVerification:'required',timeout:60000}});
-}
-// Tente l'empreinte ; si indispo/échec, bascule sur le code PIN
-async function tryWalletUnlock(){
-  if(walletBiometricActive()&&await _bioAvailable()){
-    try{
-      await _bioVerify();
-      _walletUnlocked=true;
-      var ov=document.getElementById('pinlock-overlay');if(ov)ov.classList.remove('open');
-      refreshRewardsUI();
-      return;
-    }catch(e){ /* empreinte échouée/annulée → on affiche le PIN en secours */ }
-  }
-  openPinLock(function(){refreshRewardsUI();},true);
 }
 // Bouton « Utiliser l'empreinte » dans l'écran de verrouillage
 async function bioUnlock(){
