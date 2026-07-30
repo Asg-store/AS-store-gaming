@@ -5754,8 +5754,13 @@ async function openCartCheckout(){
 // 💰 Paiement instantané avec le solde du portefeuille (transaction atomique)
 async function payCartWithWallet(){
   if(!currentUser){openAuthModal();return;}
-  // 🔒 Code PIN requis avant de dépenser le portefeuille
+  // 🔒 Verrou requis avant de dépenser : empreinte directe si activée, sinon code PIN
   if(walletPinActive()&&!_walletUnlocked){
+    if(walletBiometricActive()){
+      _bioVerify().then(function(){_walletUnlocked=true;payCartWithWallet();})
+                  .catch(function(){openPinLock(function(){payCartWithWallet();},false);});
+      return;
+    }
     openPinLock(function(){payCartWithWallet();},false);
     return;
   }
