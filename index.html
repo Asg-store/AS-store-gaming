@@ -2012,6 +2012,12 @@ body.ios .pnotif .pn-ic{border-radius:11px}
     </div>
 
     <div class="reward-sec">
+      <h4>🎟️ Mes codes de recharge</h4>
+      <p class="sub">Retrouvez ici les codes livrés pour vos commandes. Touchez un code pour le sélectionner.</p>
+      <div id="w-codes-list"><p class="sub" style="margin:0">⏳ Chargement…</p></div>
+    </div>
+
+    <div class="reward-sec">
       <h4>🎁 Carte cadeau</h4>
       <p class="sub">Vous avez reçu un code cadeau ? Saisissez-le pour créditer votre portefeuille.</p>
       <div class="promo-row">
@@ -2891,10 +2897,31 @@ function openWallet(){
   if(!currentUser){openAuthModal();return;}
   // 🔒 Si un code PIN protège le portefeuille, on le demande d'abord
   if(walletPinActive()&&!_walletUnlocked){
-    openPinLock(function(){refreshRewardsUI();},true);
+    openPinLock(function(){refreshRewardsUI();loadWalletCodes();},true);
     return;
   }
   refreshRewardsUI();
+  loadWalletCodes();
+}
+async function loadWalletCodes(){
+  var el=document.getElementById('w-codes-list');if(!el)return;
+  if(!currentUser){el.innerHTML='<p class="sub" style="margin:0">Connectez-vous pour voir vos codes.</p>';return;}
+  el.innerHTML='<p class="sub" style="margin:0">⏳ Chargement…</p>';
+  var orders=[];
+  try{
+    var snap=await db.collection('orders').where('userId','==',currentUser.uid).get();
+    orders=snap.docs.map(function(d){return Object.assign({id:d.id},d.data());});
+  }catch(e){el.innerHTML='<p class="sub" style="margin:0">Erreur de chargement.</p>';return;}
+  var withCodes=orders.filter(function(o){return o.deliveredCodes&&o.deliveredCodes.length;});
+  withCodes.sort(function(a,b){return (_tms(b.deliveredAt||b.createdAt))-(_tms(a.deliveredAt||a.createdAt));});
+  if(!withCodes.length){el.innerHTML='<p class="sub" style="margin:0">Aucun code pour le moment. Vos codes livrés apparaîtront ici.</p>';return;}
+  var esc=function(s){return String(s==null?'':s).replace(/</g,'&lt;');};
+  el.innerHTML=withCodes.map(function(o){
+    var ref='CMD-'+String(o.id).slice(0,6).toUpperCase();
+    var pname=(o.items&&o.items[0]&&o.items[0].name)||o.productName||'Commande';
+    var codes=o.deliveredCodes.map(function(c){return '<div style="background:var(--bg3);border:1px dashed var(--accent);border-radius:9px;padding:9px 11px;margin-top:6px;font-family:monospace;font-size:14px;font-weight:800;color:#00e5a0;user-select:all;-webkit-user-select:all;word-break:break-all;text-align:center">'+esc(c)+'</div>';}).join('');
+    return '<div style="background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:12px;margin-bottom:10px"><div style="display:flex;justify-content:space-between;gap:8px;font-size:12px;color:var(--text3)"><span style="font-weight:700;color:var(--text2)">'+esc(pname)+'</span><span>'+ref+'</span></div>'+codes+'</div>';
+  }).join('');
 }
 
 // ════════ CODE PIN DU PORTEFEUILLE ════════
@@ -4989,20 +5016,6 @@ function showInvoice(id){
   addMeta('ID joueur',o.playerId);
   var money=(o.total||o.amount||0),pts=(o.pointsSpent||o._pts||0);
   var totalDisplay=money>0?fmtMoney(money):(pts>0?('⭐ '+pts+' pts'):fmtMoney(0));
-  var codeBlock='';
-  if(o.deliveredCodes&&o.deliveredCodes.length){
-    var clist=o.deliveredCodes.map(function(c){return '<div style="background:var(--bg3);border:1px dashed var(--accent);border-radius:10px;padding:11px 13px;margin-top:8px;font-family:monospace;font-size:15px;font-weight:800;color:#00e5a0;user-select:all;-webkit-user-select:all;word-break:break-all;text-align:center">'+_e(c)+'</div>';}).join('');
-    codeBlock='<div style="margin-top:16px;background:rgba(0,229,160,.08);border:1px solid rgba(0,229,160,.35);border-radius:14px;padding:14px">'
-      +'<div style="font-weight:800;font-size:14px;color:#00e5a0">🎟️ Votre code de recharge</div>'
-      +'<div id="code-locked-'+o.id+'">'
-        +'<div style="font-size:11.5px;color:var(--text3);margin:4px 0 10px">🔒 Protégé. Déverrouillez avec votre empreinte pour afficher le code.</div>'
-        +'<button onclick="revealCode(\''+o.id+'\')" style="width:100%;padding:12px;border:0;border-radius:10px;background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;font-weight:800;cursor:pointer">🔓 Afficher avec l\'empreinte</button>'
-      +'</div>'
-      +'<div id="code-shown-'+o.id+'" style="display:none">'
-        +'<div style="font-size:11.5px;color:var(--text3);margin-top:4px">Utilisez-le dans le jeu ou sur la plateforme officielle. Touchez le code pour le sélectionner.</div>'+clist
-      +'</div>'
-    +'</div>';
-  }
   var host=document.createElement('div');
   host.id='inv-host';
   host.innerHTML=''
@@ -5020,7 +5033,6 @@ function showInvoice(id){
      +rows
      +(lines?('<div style="margin-top:12px">'+lines+'</div>'):'')
      +'<div style="display:flex;justify-content:space-between;align-items:center;margin-top:12px;padding-top:12px;border-top:2px solid var(--border)"><span style="font-weight:800;font-size:15px">TOTAL</span><span style="font-weight:800;font-size:19px;color:var(--accent)">'+totalDisplay+'</span></div>'
-     +codeBlock
      +(meta?('<div style="margin-top:16px;background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:10px 14px">'+meta+'</div>'):'')
    +'</div>'
    +'</div>';
@@ -5028,47 +5040,6 @@ function showInvoice(id){
 }
 function closeInvoice(){
   var h=document.getElementById('inv-host');if(h&&h.parentNode)h.parentNode.removeChild(h);
-}
-// 🔒 Déverrouillage du code par empreinte digitale (WebAuthn / biométrie de l'appareil)
-async function _bioAvailable(){
-  try{
-    if(!window.PublicKeyCredential||!PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable)return false;
-    return await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable();
-  }catch(e){return false;}
-}
-function _b64u(buf){var b=new Uint8Array(buf),s='';for(var i=0;i<b.length;i++)s+=String.fromCharCode(b[i]);return btoa(s).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');}
-function _ub64(b64){b64=(b64||'').replace(/-/g,'+').replace(/_/g,'/');var bin=atob(b64),u=new Uint8Array(bin.length);for(var i=0;i<bin.length;i++)u[i]=bin.charCodeAt(i);return u.buffer;}
-async function _bioRegister(){
-  var ch=new Uint8Array(32);crypto.getRandomValues(ch);
-  var uid=new Uint8Array(16);crypto.getRandomValues(uid);
-  var cred=await navigator.credentials.create({publicKey:{
-    challenge:ch,rp:{name:'ASG Store'},
-    user:{id:uid,name:(currentUser&&currentUser.email)||'asg-user',displayName:'ASG Store'},
-    pubKeyCredParams:[{type:'public-key',alg:-7},{type:'public-key',alg:-257}],
-    authenticatorSelection:{authenticatorAttachment:'platform',userVerification:'required'},
-    timeout:60000,attestation:'none'
-  }});
-  var id=_b64u(cred.rawId);localStorage.setItem('asg-bio-cred',id);return id;
-}
-async function _bioVerify(){
-  var id=localStorage.getItem('asg-bio-cred');
-  if(!id){await _bioRegister();return;} // l'enregistrement exige déjà l'empreinte
-  var ch=new Uint8Array(32);crypto.getRandomValues(ch);
-  await navigator.credentials.get({publicKey:{
-    challenge:ch,allowCredentials:[{type:'public-key',id:_ub64(id)}],
-    userVerification:'required',timeout:60000
-  }});
-}
-async function revealCode(id){
-  var locked=document.getElementById('code-locked-'+id),shown=document.getElementById('code-shown-'+id);
-  var reveal=function(){if(locked)locked.style.display='none';if(shown)shown.style.display='block';};
-  var hasBio=await _bioAvailable();
-  if(!hasBio){ // pas de biométrie sur cet appareil → on affiche après confirmation
-    if(confirm('Afficher votre code de recharge ?'))reveal();
-    return;
-  }
-  try{ await _bioVerify(); reveal(); }
-  catch(e){ showToast('🔒 Empreinte non validée'); }
 }
 
 // Fermer payment history avec overlay
