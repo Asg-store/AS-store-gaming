@@ -1562,6 +1562,7 @@ body{font-family:'Exo 2',sans-serif;background:var(--bg);color:var(--text);
       </div>
     </div>
     <div class="form-grp"><label>Description</label><textarea class="inp" id="f-desc" rows="3" placeholder="Description courte…" style="resize:vertical"></textarea></div>
+    <div class="form-grp"><label>🔗 ID produit Sancay (auto-livraison)</label><input class="inp" id="f-sancay" placeholder="Ex : S4085924 (laisser vide si livraison manuelle)"/><span class="hint" style="display:block;margin-top:5px">Code du produit sur Sancay Vault. Rempli = ce produit se livrera automatiquement par ID joueur.</span></div>
     <div class="f-row">
       <div class="form-grp"><label>Achat avec points</label>
         <select class="inp inp-sel" id="f-pts-on" onchange="document.getElementById('f-pts-cost').disabled=this.value!=='true'">
@@ -2317,7 +2318,6 @@ function renderOrders(){
         ${o.paymentMethod&&(''+o.paymentMethod).indexOf('Orange')>=0?`<div style="font-size:11px;color:#ff7900;margin-top:3px;font-weight:700">🟠 ${aEsc(o.paymentMethod)}</div>`:''}
         ${o.proofUrl?`<div style="margin-top:6px"><span onclick="event.stopPropagation();viewProof('${o.id}')" style="display:inline-flex;align-items:center;gap:5px;background:rgba(0,200,83,.14);color:#00c853;font-size:11px;font-weight:800;padding:5px 11px;border-radius:99px;cursor:pointer">📸 Voir la preuve de paiement</span></div>`:''}
         ${o.account?`<div style="margin-top:6px"><span style="display:inline-flex;align-items:center;gap:5px;background:rgba(124,58,237,.16);color:#a78bfa;font-size:11px;font-weight:800;padding:5px 11px;border-radius:99px">🔑 Identifiants du compte joints</span></div>`:''}
-        ${(o.deliveredCodes&&o.deliveredCodes.length)?`<div style="margin-top:6px"><span style="display:inline-flex;align-items:center;gap:5px;background:rgba(0,229,160,.15);color:#00e5a0;font-size:11px;font-weight:800;padding:5px 11px;border-radius:99px">🎟️ Code livré</span></div>`:''}
       </div>
       <div style="flex-shrink:0;text-align:right">
         <div class="order-amount">${(o.paymentMethod==='points'||o.pointsSpent)?((o.pointsSpent||0)+' pts'):((o.total||o.amount||0).toFixed(2)+' €')}</div>
@@ -2377,15 +2377,15 @@ function showAdminInvoice(id){
   }
   var pts=(o.pointsSpent||0),m=(o.total||o.amount||0);
   var totalDisplay=(o.paymentMethod==='points'||(pts&&!m))?('⭐ '+pts+' pts'):money(m);
-  var codeBlock='';
-  if(o.deliveredCodes&&o.deliveredCodes.length){
-    var clist=o.deliveredCodes.map(function(c){return '<div style="background:var(--bg3);border:1px dashed var(--accent);border-radius:8px;padding:9px 12px;margin-top:6px;font-family:monospace;font-size:14px;font-weight:700;color:#00e5a0;user-select:all;-webkit-user-select:all;word-break:break-all">'+aEsc(c)+'</div>';}).join('');
-    codeBlock='<div style="margin-top:14px"><div style="font-size:11px;font-weight:800;letter-spacing:1px;color:var(--text3);text-transform:uppercase;margin-bottom:6px">🎟️ Code(s) livré(s)</div>'+clist+'</div>';
+  var sancayBlock='';
+  if(o.sancayStatus==='success'){
+    sancayBlock='<div style="margin-top:14px"><div style="display:inline-flex;align-items:center;gap:6px;background:rgba(0,200,83,.14);color:#00c853;font-size:12px;font-weight:800;padding:7px 12px;border-radius:99px">✅ Livré automatiquement via Sancay</div></div>';
   }else{
-    codeBlock='<div style="margin-top:14px"><div style="font-size:11px;font-weight:800;letter-spacing:1px;color:var(--text3);text-transform:uppercase;margin-bottom:6px">🎟️ Livrer un code / PIN</div>'
-      +'<textarea id="inv-code-'+o.id+'" rows="2" placeholder="Collez le(s) code(s) ici — un par ligne" style="width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:10px;color:var(--text);font-family:monospace;font-size:13px;resize:vertical;box-sizing:border-box"></textarea>'
-      +'<button onclick="deliverCode(\''+o.id+'\')" style="width:100%;margin-top:8px;padding:11px;border:0;border-radius:10px;background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;font-weight:800;cursor:pointer">⚡ Livrer au client</button>'
-      +'<div style="font-size:10.5px;color:var(--text3);margin-top:5px">Le client recevra le(s) code(s) dans sa facture + une notification.</div></div>';
+    var stTxt=o.sancayStatus==='pending'?'⏳ En cours chez Sancay — retouchez pour vérifier':(o.sancayStatus==='failed'?'⚠️ Échec Sancay — réessayez ou livrez à la main':'');
+    sancayBlock='<div style="margin-top:14px"><div style="font-size:11px;font-weight:800;letter-spacing:1px;color:var(--text3);text-transform:uppercase;margin-bottom:6px">🔗 Auto-livraison Sancay</div>'
+      +(stTxt?'<div style="font-size:11.5px;color:var(--text2);margin-bottom:8px">'+stTxt+'</div>':'')
+      +'<button id="sancay-btn-'+o.id+'" onclick="sancayDeliver(\''+o.id+'\')" style="width:100%;padding:11px;border:0;border-radius:10px;background:linear-gradient(135deg,#c8922e,#a3781e);color:#fff;font-weight:800;cursor:pointer">⚡ Auto-livrer via Sancay</button>'
+      +'<div style="font-size:10.5px;color:var(--text3);margin-top:5px">Envoie la recharge par ID joueur via l\'API Sancay Vault.</div></div>';
   }
   var host=document.createElement('div');
   host.id='inv-host';
@@ -2406,7 +2406,7 @@ function showAdminInvoice(id){
      +'<div style="display:flex;justify-content:space-between;align-items:center;margin-top:12px;padding-top:12px;border-top:2px solid var(--border)"><span style="font-weight:800;font-size:15px">TOTAL</span><span style="font-weight:800;font-size:19px;color:var(--accent)">'+totalDisplay+'</span></div>'
      +(meta?('<div style="margin-top:16px;background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:10px 14px">'+meta+'</div>'):'')
      +accountBlock
-     +codeBlock
+     +sancayBlock
      +proofBlock
    +'</div>'
    +'</div>';
@@ -2415,24 +2415,20 @@ function showAdminInvoice(id){
 function closeInvoice(){
   var h=document.getElementById('inv-host');if(h&&h.parentNode)h.parentNode.removeChild(h);
 }
-// 🎟️ Livrer un ou plusieurs codes/PIN au client depuis la facture
-async function deliverCode(id){
-  var ta=document.getElementById('inv-code-'+id);if(!ta)return;
-  var codes=(ta.value||'').split(/\r?\n/).map(function(s){return s.trim();}).filter(Boolean);
-  if(!codes.length){toast('Collez au moins un code',true);return;}
-  if(!confirm('Livrer '+codes.length+' code(s) au client ? Il les verra immédiatement.'))return;
+// 🔗 Déclenche l'auto-livraison Sancay pour une commande
+async function sancayDeliver(id){
+  var btn=document.getElementById('sancay-btn-'+id);
+  if(btn){btn.disabled=true;btn.textContent='⏳ Livraison en cours…';}
   try{
-    var o=(allOrders||[]).find(function(x){return x.id===id;})||{};
-    await db.collection('orders').doc(id).update({
-      deliveredCodes:codes,status:'delivered',
-      deliveredAt:firebase.firestore.FieldValue.serverTimestamp()
-    });
-    var ref='CMD-'+String(id).slice(0,6).toUpperCase();
-    if(o.userId)notifyUser(o.userId,{icon:'🎟️',title:'Votre code est prêt !',body:'Votre commande '+ref+' a été livrée. Retrouvez votre code dans l\'historique des paiements (touchez la commande).',type:'order',link:'payments',refId:id});
-    if(o){o.deliveredCodes=codes;o.status='delivered';}
-    toast('✓ Code(s) livré(s) au client');
+    var r=await fetch('/api/sancay-deliver',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({orderId:id})});
+    var d={};try{d=await r.json();}catch(e){}
+    if(!r.ok||d.error){toast('❌ '+(d.error||('Erreur '+r.status)),true);if(btn){btn.disabled=false;btn.textContent='⚡ Auto-livrer via Sancay';}return;}
+    if(d.delivered){toast('✅ Livré automatiquement via Sancay');}
+    else if(d.status==='pending'){toast('⏳ Commande envoyée à Sancay (en cours). Retouchez pour vérifier.');}
+    else{toast('⚠️ Statut Sancay : '+(d.status||'inconnu'),true);}
+    var o=(allOrders||[]).find(function(x){return x.id===id;});if(o&&d.status){o.sancayStatus=d.status==='delivered'?'success':d.status;if(d.delivered)o.status='delivered';}
     closeInvoice();try{renderOrderStats();renderOrders();}catch(e){}
-  }catch(e){toast('Erreur : '+(e.message||''),true);}
+  }catch(e){toast('❌ '+(e.message||'Erreur réseau'),true);if(btn){btn.disabled=false;btn.textContent='⚡ Auto-livrer via Sancay';}}
 }
 // 📸 Visionneuse plein écran de la preuve de paiement (Orange Money, etc.)
 function viewProof(id){
@@ -2699,6 +2695,7 @@ function clearForm(){
   document.getElementById('f-hot').value='false';
   document.getElementById('f-status').value='active';
   document.getElementById('f-game').value='';
+  var _fs=document.getElementById('f-sancay');if(_fs)_fs.value='';
   document.getElementById('f-pts-on').value='false';
   document.getElementById('f-pts-cost').value='';
   document.getElementById('f-pts-cost').disabled=true;
@@ -2727,6 +2724,7 @@ function editProd(id){
   document.getElementById('f-hot').value=p.featured?'true':'false';
   document.getElementById('f-status').value=p.status||'active';
   document.getElementById('f-game').value=p.game||'';
+  document.getElementById('f-sancay').value=p.sancayProductId||'';
   document.getElementById('f-pts-on').value=p.pointsBuyable?'true':'false';
   document.getElementById('f-pts-cost').value=(p.pointsCost!=null&&p.pointsCost>0?p.pointsCost:'');
   document.getElementById('f-pts-cost').disabled=!p.pointsBuyable;
@@ -2750,7 +2748,8 @@ async function saveProduct(){
     status:document.getElementById('f-status').value||'active',
     pointsBuyable:document.getElementById('f-pts-on').value==='true',
     pointsCost:parseInt(document.getElementById('f-pts-cost').value)||0,
-    game:document.getElementById('f-game').value||''};
+    game:document.getElementById('f-game').value||'',
+    sancayProductId:document.getElementById('f-sancay').value.trim()||''};
   const id=document.getElementById('f-id').value;
   try{
     if(id){await db.collection('products').doc(id).update(data);toast('✓ Mis à jour !');}
