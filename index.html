@@ -751,9 +751,10 @@ footer{
 .notif-d{font-size:10px;color:var(--text3);margin-top:5px}
 
 /* ════ MARKETPLACE (account selling) ════ */
-.mk-tabs{display:flex;gap:8px;margin-bottom:16px}
-.mk-tab{flex:1;padding:11px;border-radius:var(--radius-sm);background:var(--bg3);border:1px solid var(--border);
-  color:var(--text2);font-weight:600;font-size:12px;text-align:center;cursor:pointer;transition:.15s}
+.mk-tabs{display:flex;gap:8px;margin-bottom:16px;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;padding-bottom:2px}
+.mk-tabs::-webkit-scrollbar{display:none}
+.mk-tab{flex:0 0 auto;white-space:nowrap;padding:9px 15px;border-radius:var(--radius-sm);background:var(--bg3);border:1px solid var(--border);
+  color:var(--text2);font-weight:600;font-size:12.5px;text-align:center;cursor:pointer;transition:.15s}
 .mk-tab.active{background:rgba(0,212,255,.12);color:var(--accent);border-color:var(--accent)}
 .mk-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
 .mk-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;cursor:pointer;transition:.15s}
@@ -1303,9 +1304,9 @@ body.ios .pnotif .pn-ic{border-radius:11px}
     <svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
     <span>Boutique VPN</span>
   </div>
-  <div class="bnav-item" id="bnav-games" onclick="openScreen('games');selectBnav('games')">
-    <svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
-    <span>Catalogue</span>
+  <div class="bnav-item" id="bnav-games" onclick="openScreen('social');selectBnav('games')">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M23 12s0-3.9-.5-5.8a3 3 0 0 0-2.1-2.1C18.5 3.6 12 3.6 12 3.6s-6.5 0-8.4.5A3 3 0 0 0 1.5 6.2C1 8.1 1 12 1 12s0 3.9.5 5.8a3 3 0 0 0 2.1 2.1c1.9.5 8.4.5 8.4.5s6.5 0 8.4-.5a3 3 0 0 0 2.1-2.1C23 15.9 23 12 23 12z"/><path d="M9.8 15.5v-7l6 3.5-6 3.5z" fill="var(--bg2)"/></svg>
+    <span>Vidéos</span>
   </div>
   <div class="bnav-item" id="bnav-payments" onclick="openPayHistory();selectBnav('payments')">
     <svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
