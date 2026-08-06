@@ -577,7 +577,7 @@ body{font-family:'Exo 2',sans-serif;background:var(--bg);color:var(--text);
 <aside id="drawer">
   <div class="dr-section">
     <div class="dr-label">Général</div>
-    <div class="dr-item" data-pg="dashboard" onclick="drawerGo('dashboard')">
+    <div class="dr-item active" data-pg="dashboard" onclick="drawerGo('dashboard')">
       <span class="d-ico"><svg viewBox="0 0 24 24"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg></span> Dashboard
     </div>
     <div class="dr-item" data-pg="orders" onclick="drawerGo('orders')">
@@ -590,7 +590,7 @@ body{font-family:'Exo 2',sans-serif;background:var(--bg);color:var(--text);
   <div class="dr-divider"></div>
   <div class="dr-section">
     <div class="dr-label">Boutique</div>
-    <div class="dr-item active" data-pg="products" onclick="drawerGo('products')">
+    <div class="dr-item" data-pg="products" onclick="drawerGo('products')">
       <span class="d-ico"><svg viewBox="0 0 24 24"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg></span> Produits
     </div>
     <div class="dr-item" data-pg="clients" onclick="drawerGo('clients')">
@@ -665,7 +665,7 @@ body{font-family:'Exo 2',sans-serif;background:var(--bg);color:var(--text);
 </nav>
 
 <!-- PAGE: DASHBOARD -->
-<div class="page" id="pg-dashboard">
+<div class="page on" id="pg-dashboard">
   <div class="sec-head">
     <span class="sec-title">📊 Dashboard</span>
     <button class="btn-add" onclick="loadDashboard()">
@@ -801,7 +801,7 @@ body{font-family:'Exo 2',sans-serif;background:var(--bg);color:var(--text);
 </div>
 
 <!-- PAGE: PRODUITS -->
-<div class="page on" id="pg-products">
+<div class="page" id="pg-products">
   <div class="sec-head">
     <span class="sec-title">📦 Produits</span>
     <button class="btn-add" id="add-btn">
@@ -1483,7 +1483,7 @@ body{font-family:'Exo 2',sans-serif;background:var(--bg);color:var(--text);
 
 <!-- BOTTOM TABS -->
 <nav id="tabs">
-  <div class="tab" data-pg="dashboard" onclick="goTab('dashboard')">
+  <div class="tab active" data-pg="dashboard" onclick="goTab('dashboard')">
     <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
     <span>Dashboard</span>
   </div>
@@ -1773,10 +1773,12 @@ auth.onAuthStateChanged(user=>{
     db.collection('products').orderBy('createdAt','desc').onSnapshot(snap=>{
       products=snap.docs.map(d=>({id:d.id,...d.data()}));
       renderStats();renderList();renderPhotos();renderPhotoStats();
+      if(dashLoaded)loadDashboard();
     },e=>toast('❌ Firebase: '+e.message,true));
     loadConfigForLogin();
-    loadClients();
+    loadClients().then(()=>{if(dashLoaded)loadDashboard();}).catch(()=>{});
     startAdminBadges();
+    goTab('dashboard');   // 🏠 Ouvrir directement sur le Dashboard
   } else {
     loginScreen.classList.remove('hidden');
   }
