@@ -25,9 +25,26 @@
 //     - FLASHTOPUP_API_KEY         (ta clé SECRÈTE — RÉGÉNÈRE-LA, jamais dans le code)
 //     - FLASHTOPUP_BASE_URL        (optionnel, défaut: https://api.flashtopup.com/api/reseller/v2)
 //     - FLASHTOPUP_SANDBOX         (optionnel: "true" pour tester en bac à sable)
+//     - FT_PROXY_URL               (optionnel: proxy à IP FIXE pour la whitelist
+//                                   FlashTopup, ex: http://user:pass@proxy.host:port
+//                                   — via Fixie / QuotaGuard Static. Vercel ayant des
+//                                   IP dynamiques, ce proxy donne une IP unique à
+//                                   inscrire dans la whitelist FlashTopup.)
 // ════════════════════════════════════════════════════════════════
 const admin = require('firebase-admin');
 const crypto = require('crypto');
+
+// Sortie via proxy à IP fixe si FT_PROXY_URL est défini (sinon fetch normal).
+let _ftAgent = null;
+async function doFetch(url, opts) {
+  const proxy = process.env.FT_PROXY_URL;
+  if (proxy) {
+    const { fetch: uFetch, ProxyAgent } = require('undici');
+    if (!_ftAgent) _ftAgent = new ProxyAgent(proxy);
+    return uFetch(url, Object.assign({}, opts, { dispatcher: _ftAgent }));
+  }
+  return fetch(url, opts);
+}
 
 const BASE = (process.env.FLASHTOPUP_BASE_URL || 'https://api.flashtopup.com/api/reseller/v2').replace(/\/+$/, '');
 const SANDBOX = String(process.env.FLASHTOPUP_SANDBOX || '').toLowerCase() === 'true';
@@ -62,12 +79,14 @@ async function ft(endpoint, body) {
   };
   if (SANDBOX) headers['X-FT-Sandbox'] = 'true';
 
-  const res = await fetch(url, { method: 'POST', headers: headers, body: rawBody });
+  const res = await doFetch(url, { method: 'POST', headers: headers, body: rawBody });
   let json = null;
   try { json = await res.json(); } catch (e) { json = null; }
   const ok = !!(json && ((json.success === true) || (json.status === true) || (json.status === 'success'))) && res.status < 400;
-  const msg = json && (((json.error || {}).message) || (typeof json.message === 'string' ? json.message : '')) || '';
-  return { ok: ok, http: res.status, data: (json && json.data) || null, message: msg, raw: json };
+  const err = (json && json.error) || {};
+  const msg = (err.message) || (typeof (json && json.message) === 'string' ? json.message : '') || '';
+  const code = err.code ? String(err.code) : (res.status >= 400 ? ('HTTP_' + res.status) : '');
+  return { ok: ok, http: res.status, data: (json && json.data) || null, message: msg, code: code, raw: json };
 }
 
 // Lit le statut de commande depuis les diverses formes de réponse
@@ -142,7 +161,9 @@ module.exports = async (req, res) => {
       };
       if (serverId) body.server_id = serverId;
       const r = await ft('/order', body);
-      refs.push({ ref: tasks[t].reference_id, ok: r.ok, status: readOrderStatus(r), msg: r.message });
+      let st = readOrderStatus(r);
+      if (!r.ok && !st) st = 'failed';
+      refs.push({ ref: tasks[t].reference_id, ok: r.ok, status: st, code: r.code || '', msg: r.message });
     }
 
     // 2) Sonde le statut quelques fois (≈12s) pour capter une livraison instantanée
@@ -154,6 +175,8 @@ module.exports = async (req, res) => {
         if (DONE.indexOf(refs[k].status) >= 0) continue;
         const s = await ft('/order/status', { reference_id: refs[k].ref });
         refs[k].status = readOrderStatus(s) || refs[k].status;
+        if (s.code && !refs[k].code) refs[k].code = s.code;
+        if (s.message && !refs[k].msg) refs[k].msg = s.message;
         if (DONE.indexOf(refs[k].status) < 0) allDone = false;
       }
     }
@@ -176,6 +199,9 @@ module.exports = async (req, res) => {
     } else {
       update.ftStatus = 'pending';
     }
+    // Trace de la raison en cas de souci (visible dans Firestore + réponse, pour diagnostic)
+    const problem = refs.find(function (r) { return r.code || FAILED.indexOf(r.status) >= 0; });
+    if (problem) update.ftError = ((problem.code ? problem.code + ': ' : '') + (problem.msg || '')).slice(0, 300);
     await orderRef.set(update, { merge: true });
 
     if (allSuccess && order.userId) {
@@ -190,9 +216,12 @@ module.exports = async (req, res) => {
       } catch (e) {}
     }
 
+    const problem2 = refs.find(function (r) { return r.code || FAILED.indexOf(r.status) >= 0; });
     return res.status(200).json({
       ok: true, orderId: orderId, delivered: allSuccess,
       status: allSuccess ? 'delivered' : (anyFailed ? 'failed' : 'pending'),
+      error: problem2 ? ((problem2.code ? problem2.code + ': ' : '') + (problem2.msg || '')) : null,
+      sandbox: SANDBOX,
       refs: refs
     });
   } catch (e) {
