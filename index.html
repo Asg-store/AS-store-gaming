@@ -4675,20 +4675,17 @@ async function sendResetCode(auto){
   if(!email||!/^\S+@\S+\.\S+$/.test(email)){resetErr('Entrez une adresse e-mail valide.');return;}
   if(btn){btn.disabled=true;btn.textContent='⏳ Envoi du code…';}
   if(auto){showToast('⏳ Envoi du code de vérification…');}
-  let advance=false,fallback=false;
+  let advance=false;
   try{
     await resetApi({action:'send',email:email});
     advance=true;
   }catch(e){
     const msg=e.message||'';
-    if(/introuvable|aucun compte/i.test(msg)){
-      resetErr(msg);
-      if(btn){btn.disabled=false;btn.textContent='📨 Recevoir le code par e-mail';}
-      return;
-    }
-    // Secours : lien de réinitialisation Firebase si la fonction n'est pas dispo
-    try{ await auth.sendPasswordResetEmail(email); fallback=true; }catch(_){}
-    advance=true;
+    // ❌ Plus de secours Firebase (qui envoyait l'e-mail moche en anglais « project-… »).
+    //    On affiche l'erreur et on laisse réessayer : SEUL le beau code ASG est envoyé.
+    resetErr(/introuvable|aucun compte/i.test(msg)?msg:(msg||'Service momentanément indisponible. Réessayez dans un instant.'));
+    if(btn){btn.disabled=false;btn.textContent='📨 Recevoir le code par e-mail';}
+    return;
   }
   if(advance){
     _resetEmail=email;
@@ -4699,7 +4696,7 @@ async function sendResetCode(auto){
     setupOtpBoxes();clearOtp();
     try{otpBoxes()[0].focus();}catch(_){}
     startResendCountdown(45);
-    showToast(fallback?'📧 E-mail de récupération envoyé à '+email:'📧 Code à 4 chiffres envoyé à '+email);
+    showToast('📧 Code à 4 chiffres envoyé à '+email);
   }
   if(btn){btn.disabled=false;btn.textContent='📨 Recevoir le code par e-mail';}
 }
