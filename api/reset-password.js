@@ -12,13 +12,16 @@
 //  ⚙️ Variables d'environnement REQUISES sur Vercel :
 //    FIREBASE_SERVICE_ACCOUNT = contenu JSON complet de la clé de compte
 //                               de service Firebase
-//    RESEND_API_KEY           = clé API Resend (https://resend.com)
-//    RESEND_FROM              = expéditeur vérifié, ex :
-//                               "ASG Store <noreply@votredomaine.com>"
-//                               (par défaut : onboarding@resend.dev)
+//    GMAIL_USER               = ton adresse Gmail (ex : asgstore82@gmail.com)
+//    GMAIL_APP_PASSWORD       = "mot de passe d'application" Google (16 caractères)
+//                               → Google → Sécurité → Validation en 2 étapes →
+//                                 Mots de passe des applications
+//    MAIL_FROM (optionnel)    = expéditeur affiché, ex : "ASG Store <asgstore82@gmail.com>"
+//                               (par défaut : "ASG Store <GMAIL_USER>")
 // ════════════════════════════════════════════════════════════════
 const admin  = require('firebase-admin');
 const crypto = require('crypto');
+const nodemailer = require('nodemailer');
 
 const CODE_TTL_MIN  = 10;  // durée de validité du code (minutes)
 const MAX_ATTEMPTS  = 5;   // essais maximum par code
@@ -79,24 +82,34 @@ function emailHtml(code, name) {
   </table></body></html>`;
 }
 
-// ── Envoi de l'e-mail via Resend ──
+// ── Envoi de l'e-mail via Gmail (SMTP + mot de passe d'application) ──
+let _mailer = null;
+function getMailer() {
+  if (_mailer) return _mailer;
+  const user = process.env.GMAIL_USER;
+  const pass = process.env.GMAIL_APP_PASSWORD;
+  if (!user || !pass) {
+    throw new Error('Service e-mail non configuré (GMAIL_USER / GMAIL_APP_PASSWORD manquants sur Vercel).');
+  }
+  _mailer = nodemailer.createTransport({
+    service: 'gmail',
+    auth: { user, pass: pass.replace(/\s+/g, '') } // on retire les espaces du mot de passe d'application
+  });
+  return _mailer;
+}
+
 async function sendMail(to, code, name) {
-  const key = process.env.RESEND_API_KEY;
-  if (!key) throw new Error('Service e-mail non configuré (RESEND_API_KEY manquante sur Vercel).');
-  const from = process.env.RESEND_FROM || 'ASG Store <onboarding@resend.dev>';
-  const r = await fetch('https://api.resend.com/emails', {
-    method: 'POST',
-    headers: { 'Authorization': 'Bearer ' + key, 'Content-Type': 'application/json' },
-    body: JSON.stringify({
+  const user = process.env.GMAIL_USER;
+  const from = process.env.MAIL_FROM || ('ASG Store <' + user + '>');
+  try {
+    await getMailer().sendMail({
       from,
-      to: [to],
+      to,
       subject: `${code} — votre code de vérification ASG Store`,
       html: emailHtml(code, name)
-    })
-  });
-  if (!r.ok) {
-    const t = await r.text().catch(() => '');
-    throw new Error('Échec de l\'envoi de l\'e-mail. ' + t.slice(0, 160));
+    });
+  } catch (e) {
+    throw new Error('Échec de l\'envoi de l\'e-mail. ' + ((e && e.message) ? e.message : '').slice(0, 160));
   }
 }
 
@@ -190,3 +203,4 @@ module.exports = async (req, res) => {
     return res.status(500).json({ error: e.message || 'Erreur serveur.' });
   }
 };
+
