@@ -272,10 +272,10 @@ body{font-family:'Exo 2',sans-serif;background:var(--bg);color:var(--text);
   transition:.18s;-webkit-tap-highlight-color:transparent;
 }
 .btn-add:active{transform:scale(.9);opacity:.85}
-.btn-buy-pts{margin-top:8px;width:100%;padding:8px;border:none;border-radius:9px;cursor:pointer;
-  font-family:inherit;font-size:12px;font-weight:700;color:#3a2a00;
+.btn-buy-pts{margin-top:6px;width:100%;padding:6px 8px;border:none;border-radius:8px;cursor:pointer;
+  font-family:inherit;font-size:11px;font-weight:700;color:#3a2a00;line-height:1.1;white-space:nowrap;
   background:linear-gradient(135deg,#f7971e,#ffd200);transition:.18s;-webkit-tap-highlight-color:transparent;
-  display:flex;align-items:center;justify-content:center;gap:5px}
+  display:flex;align-items:center;justify-content:center;gap:4px}
 .btn-buy-pts:active{transform:scale(.97);opacity:.9}
 
 /* LIST VIEW */
@@ -2717,11 +2717,11 @@ async function checkMissionReset(){
     if(!at||!currentUser)return;
     var seen=(userData&&userData.missionResetSeen)||0;
     if(at>seen){
-      // ✅ On ne réinitialise QUE les missions récurrentes (hebdo/quotidienne).
-      //    Les missions permanentes déjà réclamées restent « Reçu » à vie
-      //    (impossible de re-réclamer les points d'une même mission permanente).
-      var recur=_recurringMissionIds();
-      var kept=((userData&&userData.claimedMissions)||[]).filter(function(id){return recur.indexOf(id)<0;});
+      // ✅ PROTECTION ARGENT : une mission réclamée reste « Reçu » À VIE.
+      //    On ne vide JAMAIS claimedMissions → impossible de re-réclamer les points
+      //    d'une mission déjà validée (le client ne peut pas farmer tes points).
+      //    On ne remet à zéro que le compteur d'achats de la semaine (affichage).
+      var kept=((userData&&userData.claimedMissions)||[]);
       await db.collection('users').doc(currentUser.uid).set({
         missionResetSeen:at,weekBuys:0,claimedMissions:kept
       },{merge:true});
@@ -2729,7 +2729,7 @@ async function checkMissionReset(){
     }
   }catch(e){}
 }
-// Missions récurrentes (à réinitialiser) : hebdomadaire (buyWeek) + quotidienne (roue)
+// (conservé pour compat — plus utilisé pour vider les missions)
 function _recurringMissionIds(){
   var ids=['_wheel'];
   try{(_adminMissions||[]).forEach(function(m){ if(m.type==='buyWeek'||m.type==='wheel') ids.push(m.id); });}catch(e){}
@@ -3380,7 +3380,7 @@ function renderAbout(){
 async function buyPointsArena(i){
   const pk=ARENA_PACKS[i];if(!pk||!currentUser)return;
   if((userData.walletBalance||0)<pk.cost){showToast('❌ Solde insuffisant. Rechargez votre portefeuille.');return;}
-  if(!confirm(`Acheter ${pk.pts} points pour ${fmtMoney(pk.cost)} ?`))return;
+  if(!await asgConfirm({icon:'🪙',title:'Acheter des points',message:'Acheter '+pk.pts+' points pour '+fmtMoney(pk.cost)+' ?',okText:'Acheter',cancelText:'Annuler'}))return;
   try{
     await db.collection('users').doc(currentUser.uid).set({
       walletBalance:firebase.firestore.FieldValue.increment(-pk.cost),
@@ -3398,9 +3398,9 @@ async function buyWithPoints(id){
   if(!p.pointsBuyable||cost<=0){showToast('❌ Ce produit n\'est pas disponible en points');return;}
   const have=userData.points||0;
   if(have<cost){showToast(`❌ Points insuffisants : ${cost} pts requis (vous avez ${have}).`);return;}
-  const playerId=(prompt('Entrez votre ID joueur pour la livraison :')||'').trim();
+  const playerId=((await asgPrompt({icon:'🎮',title:'ID joueur',message:'Entre ton ID joueur pour la livraison :',placeholder:'Ex : 5123456789',okText:'Valider',inputType:'text'}))||'').trim();
   if(!playerId)return;
-  if(!confirm(`Payer « ${p.name} » avec ${cost} points ?`))return;
+  if(!await asgConfirm({icon:'🪙',title:'Paiement en points',message:'Payer « '+p.name+' » avec '+cost+' points ?',okText:'Payer',cancelText:'Annuler'}))return;
   try{
     const uref=db.collection('users').doc(currentUser.uid);
     const oref=db.collection('orders').doc();
@@ -4245,7 +4245,7 @@ function renderProducts(){
     const discB=p.discount>0?`<div class="badge-disc">-${p.discount}%</div>`:'';
     const hotB=p.featured?`<div class="badge-hot">HOT</div>`:'';
     const ptsCost=(p.pointsBuyable&&+p.pointsCost>0)?+p.pointsCost:0;
-    const ptsBtn=ptsCost?`<button class="btn-buy-pts" data-id="${p.id}" data-pts="${ptsCost}">⭐ Payer ${ptsCost} pts</button>`:'';
+    const ptsBtn=ptsCost?`<button class="btn-buy-pts" data-id="${p.id}" data-pts="${ptsCost}">${ptCoinInline()} Payer ${ptsCost} pts</button>`:'';
     const img=p.imageUrl
       ?`<img src="${p.imageUrl}" alt="${p.name}" loading="lazy" onerror="this.parentElement.innerHTML='<div class=card-placeholder>${p.emoji||'🎮'}</div>'">`
       :`<div class="card-placeholder">${p.emoji||'🎮'}</div>`;
@@ -4682,8 +4682,13 @@ async function sendResetCode(auto){
   }catch(e){
     const msg=e.message||'';
     // ❌ Plus de secours Firebase (qui envoyait l'e-mail moche en anglais « project-… »).
-    //    On affiche l'erreur et on laisse réessayer : SEUL le beau code ASG est envoyé.
-    resetErr(/introuvable|aucun compte/i.test(msg)?msg:(msg||'Service momentanément indisponible. Réessayez dans un instant.'));
+    //    On n'affiche JAMAIS l'erreur brute du serveur (elle peut exposer des infos
+    //    internes comme l'adresse Resend). Message propre + on laisse réessayer.
+    if(/introuvable|aucun compte/i.test(msg)){
+      resetErr(msg);
+    }else{
+      resetErr('📧 Envoi de l\'e-mail momentanément indisponible. Réessaie dans quelques instants.');
+    }
     if(btn){btn.disabled=false;btn.textContent='📨 Recevoir le code par e-mail';}
     return;
   }
@@ -5521,8 +5526,10 @@ async function payCartOrange(){
   
   if(!cartCheckoutData)return;
   const total=cartCheckoutData.total||0;
-  if(!_omProofFile){ if(!confirm('Aucune preuve de paiement jointe. Nous vous conseillons de joindre la capture d\'écran. Continuer quand même ?'))return; }
-  if(!confirm('Envoyez '+fmtMoney(total)+' au +223 82 13 14 18 (Orange Money), puis touchez OK pour confirmer votre commande. Un administrateur vérifiera le paiement.'))return;
+  if(!_omProofFile){ if(!await asgConfirm({icon:'📸',title:'Preuve de paiement',message:'Aucune capture jointe. On te conseille de joindre la preuve du paiement. Continuer quand même ?',okText:'Continuer',cancelText:'Annuler'}))return; }
+  if(!await asgConfirm({icon:'🟠',title:'Paiement Orange Money',message:'Envoie '+fmtMoney(total)+' au +223 82 13 14 18 (Orange Money), puis confirme. Un administrateur vérifiera le paiement.',okText:'J\'ai payé',cancelText:'Annuler'}))return;
+  const payerPhone=((await asgPrompt({icon:'📱',title:'Ton numéro Orange Money',message:'Indique le numéro (avec indicatif) depuis lequel tu as payé, pour la vérification :',placeholder:'Ex : +223 70 12 34 56',okText:'Confirmer',inputType:'tel'}))||'').trim();
+  if(!payerPhone){showToast('📱 Numéro requis pour vérifier ton paiement.');return;}
   const btn=document.getElementById('cart-pay-btn');if(btn){btn.disabled=true;btn.textContent='⏳ Envoi…';}
   try{
     // 📸 Preuve de paiement : hébergée via ImgBB (clé admin), sinon intégrée à la commande.
@@ -5543,7 +5550,7 @@ async function payCartOrange(){
       promoCode:cartCheckoutData.promoCode||'',total:total,playerId:playerId,account:_accData,
       userId:currentUser.uid,userName:currentUser.displayName||(currentUser.email||'').split('@')[0],
       email:currentUser.email||'',paymentMethod:'Orange Money (manuel)',status:'pending',
-      proofUrl:proofUrl,
+      proofUrl:proofUrl,payerPhone:payerPhone,
       createdAt:firebase.firestore.FieldValue.serverTimestamp()
     });
     _omProofFile=null;
@@ -5816,6 +5823,44 @@ function asgConfirm(opts){
 }
 // 💬 Fenêtre de choix personnalisée (remplace prompt() pour choisir une option).
 //    Retourne une Promise résolue avec la valeur choisie, ou null si annulé.
+// 💬 Fenêtre de saisie personnalisée (remplace prompt()). Promise<string|null>.
+function asgPrompt(opts){
+  opts=opts||{};
+  const title=opts.title||'Saisie', message=opts.message||'', placeholder=opts.placeholder||'';
+  const okText=opts.okText||'Valider', cancelText=opts.cancelText||'Annuler', icon=opts.icon||'✏️';
+  const initial=opts.value||'', inputType=opts.inputType||'text';
+  const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+  return new Promise(resolve=>{
+    let ov=document.getElementById('asg-prompt-ov');
+    if(!ov){
+      const st=document.createElement('style'); st.id='asg-prompt-style';
+      st.textContent=`
+#asg-prompt-ov{position:fixed;inset:0;z-index:100000;display:flex;align-items:center;justify-content:center;padding:24px;background:rgba(3,6,15,.62);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);opacity:0;pointer-events:none;transition:opacity .18s}
+#asg-prompt-ov.show{opacity:1;pointer-events:auto}
+#asg-prompt-ov .ap-card{width:100%;max-width:360px;background:var(--card);border:1px solid var(--border);border-radius:20px;padding:22px 20px 18px;box-shadow:0 24px 60px rgba(0,0,0,.5);transform:translateY(12px) scale(.96);transition:transform .2s cubic-bezier(.2,.9,.3,1.2)}
+#asg-prompt-ov.show .ap-card{transform:translateY(0) scale(1)}
+#asg-prompt-ov .ap-head{display:flex;align-items:center;gap:12px}
+#asg-prompt-ov .ap-ico{width:44px;height:44px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:22px;background:linear-gradient(135deg,var(--accent),var(--accent2));flex-shrink:0}
+#asg-prompt-ov .ap-title{font-family:'Orbitron',sans-serif;font-weight:700;font-size:16px;color:var(--text)}
+#asg-prompt-ov .ap-msg{font-size:13px;line-height:1.5;color:var(--text2);margin:10px 0 6px}
+#asg-prompt-ov .ap-input{width:100%;box-sizing:border-box;margin-top:10px;padding:13px;border-radius:12px;border:1px solid var(--border);background:var(--bg3);color:var(--text);font-family:'Exo 2',sans-serif;font-size:15px}
+#asg-prompt-ov .ap-input:focus{outline:none;border-color:var(--accent)}
+#asg-prompt-ov .ap-btns{display:flex;gap:10px;margin-top:16px}
+#asg-prompt-ov .ap-btns button{flex:1;padding:13px;border-radius:12px;font-family:'Exo 2',sans-serif;font-weight:600;font-size:14px;cursor:pointer;border:1px solid var(--border)}
+#asg-prompt-ov .ap-cancel{background:var(--bg3);color:var(--text2)}
+#asg-prompt-ov .ap-ok{background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;border-color:transparent}`;
+      document.head.appendChild(st);
+      ov=document.createElement('div'); ov.id='asg-prompt-ov'; document.body.appendChild(ov);
+    }
+    ov.innerHTML=`<div class="ap-card"><div class="ap-head"><div class="ap-ico">${esc(icon)}</div><div class="ap-title">${esc(title)}</div></div>${message?`<div class="ap-msg">${esc(message)}</div>`:''}<input class="ap-input" type="${esc(inputType)}" placeholder="${esc(placeholder)}" value="${esc(initial)}"><div class="ap-btns"><button type="button" class="ap-cancel">${esc(cancelText)}</button><button type="button" class="ap-ok">${esc(okText)}</button></div></div>`;
+    const inp=ov.querySelector('.ap-input'), okB=ov.querySelector('.ap-ok'), caB=ov.querySelector('.ap-cancel');
+    function done(val){ov.classList.remove('show');setTimeout(()=>resolve(val),160);}
+    okB.onclick=()=>done(inp.value); caB.onclick=()=>done(null);
+    ov.onclick=e=>{if(e.target===ov)done(null);};
+    inp.onkeydown=e=>{if(e.key==='Enter')done(inp.value);};
+    requestAnimationFrame(()=>{ov.classList.add('show');setTimeout(()=>{try{inp.focus();}catch(e){}},60);});
+  });
+}
 function asgChoice(opts){
   opts=opts||{};
   const title=opts.title||'Choisir';
