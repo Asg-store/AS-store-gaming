@@ -5564,6 +5564,19 @@ async function payCartOrange(){
   }catch(e){showToast('❌ '+e.message);if(btn){btn.disabled=false;btn.textContent='Payer →';}}
 }
 /* Finalisation générique après vérification serveur */
+// 🚀 Auto-livraison après un paiement AUTOMATIQUE (carte / FedaPay / CinetPay / portefeuille).
+//    Lance FlashTopup sans intervention admin. Les articles sans "code service FlashTopup"
+//    sont ignorés par l'API (rien n'est livré pour eux → l'admin gère à la main).
+//    NON appelé pour Orange Money manuel (qui reste en attente de vérification admin).
+function autoDeliverOrder(orderId){
+  if(!orderId)return;
+  try{
+    fetch('/api/flashtopup-deliver',{
+      method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({orderId:orderId})
+    }).catch(function(){});
+  }catch(e){}
+}
 async function finalizeCartVerified(url,payload,total,playerId,methodName,ref){
   document.getElementById('cart-player-info').style.display='none';
   const st=document.getElementById('cart-pay-status');st.style.display='block';
@@ -5574,7 +5587,7 @@ async function finalizeCartVerified(url,payload,total,playerId,methodName,ref){
     if(data&&data.approved&&(data.amount>=total-0.05)){
       const oref=db.collection('orders').doc();
       await oref.set({items:cartCheckoutData.items,subtotal:cartCheckoutData.subtotal,deliveryFee:cartCheckoutData.deliveryFee||0,discount:cartCheckoutData.discount||0,promoCode:cartCheckoutData.promoCode||'',total:total,playerId:playerId,account:_accData,userId:currentUser.uid,userName:currentUser.displayName||(currentUser.email||'').split('@')[0],email:currentUser.email||'',paymentMethod:methodName,paymentRef:ref||'',status:'paid',createdAt:firebase.firestore.FieldValue.serverTimestamp()});
-      awardPurchasePoints(oref.id,total,cartCheckoutData.items);
+      awardPurchasePoints(oref.id,total,cartCheckoutData.items);autoDeliverOrder(oref.id);
       showCartPaymentSuccess({});
     }else{
       st.innerHTML='<div style="text-align:center;padding:18px"><div style="font-size:36px">⚠️</div><div style="font-weight:700;margin-top:8px">Paiement non confirmé</div><div style="font-size:12px;color:var(--text3);margin-top:6px">'+((data&&data.error)||'Contactez le support avec votre reçu.')+'</div><button class="btn-primary" style="margin-top:14px" onclick="goBack()">Retour</button></div>';
@@ -5938,7 +5951,7 @@ async function payCartWithWallet(){
         createdAt:firebase.firestore.FieldValue.serverTimestamp()
       });
     });
-    awardPurchasePoints(oref.id,total,cartCheckoutData.items);
+    awardPurchasePoints(oref.id,total,cartCheckoutData.items);autoDeliverOrder(oref.id);
     showCartPaymentSuccess({});
   }catch(e){
     showToast('❌ '+(e.message||'Paiement impossible'));
@@ -5994,7 +6007,7 @@ async function finalizeCartFedaPay(transactionId,total,playerId){
         email:currentUser.email||'',paymentMethod:'FedaPay',fedapayRef:transactionId,status:'paid',
         createdAt:firebase.firestore.FieldValue.serverTimestamp()
       });
-      awardPurchasePoints(oref.id,total,cartCheckoutData.items);
+      awardPurchasePoints(oref.id,total,cartCheckoutData.items);autoDeliverOrder(oref.id);
       showCartPaymentSuccess({});
     }else{
       document.getElementById('cart-pay-status').innerHTML='<div style="text-align:center;padding:18px"><div style="font-size:36px">⚠️</div><div style="font-weight:700;margin-top:8px">Paiement non confirmé</div><div style="font-size:12px;color:var(--text3);margin-top:6px">'+((data&&data.error)||'Contactez le support avec votre reçu.')+'</div><button class="btn-primary" style="margin-top:14px" onclick="goBack()">Retour</button></div>';
