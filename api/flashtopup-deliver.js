@@ -35,12 +35,23 @@ const admin = require('firebase-admin');
 const crypto = require('crypto');
 
 // Sortie via proxy à IP fixe si FT_PROXY_URL est défini (sinon fetch normal).
+// Ex FT_PROXY_URL : http://user:pass@31.59.20.176:6754  (Webshare, Fixie, etc.)
 let _ftAgent = null;
+function _buildFtAgent(proxy) {
+  const { ProxyAgent } = require('undici');
+  const u = new URL(proxy);
+  const cfg = { uri: u.protocol + '//' + u.host }; // endpoint du proxy, sans identifiants
+  if (u.username || u.password) {
+    const cred = decodeURIComponent(u.username) + ':' + decodeURIComponent(u.password);
+    cfg.token = 'Basic ' + Buffer.from(cred).toString('base64'); // auth proxy fiable
+  }
+  return new ProxyAgent(cfg);
+}
 async function doFetch(url, opts) {
   const proxy = process.env.FT_PROXY_URL;
   if (proxy) {
-    const { fetch: uFetch, ProxyAgent } = require('undici');
-    if (!_ftAgent) _ftAgent = new ProxyAgent(proxy);
+    const { fetch: uFetch } = require('undici');
+    if (!_ftAgent) _ftAgent = _buildFtAgent(proxy);
     return uFetch(url, Object.assign({}, opts, { dispatcher: _ftAgent }));
   }
   return fetch(url, opts);
@@ -228,3 +239,4 @@ module.exports = async (req, res) => {
     return res.status(500).json({ error: e.message });
   }
 };
+
