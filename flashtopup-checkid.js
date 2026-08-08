@@ -1,5 +1,4 @@
 // ════════════════════════════════════════════════════════════════
-
 //  ASG Store — /api/flashtopup-checkid
 //  Vérifie un ID joueur (PUBG, etc.) via FlashTopup /check-id et renvoie
 //  le PSEUDO du joueur → affichage "✅ Nom : XXXX" côté client.
