@@ -1226,8 +1226,14 @@ body.ios .pnotif .pn-ic{border-radius:11px}
       <span class="cat-count hidden" id="chat-badge-side">0</span>
     </div>
   </div>
-
-  <div class="sidebar-divider"></div>
+  
+  <div class="pubg-checker">
+  <label>Entrez votre ID PUBG</label>
+  <input type="number" id="pubgId" placeholder="Ex: IDjoueur">
+  <button type="button" onclick="checkPUBG()">Vérifier ID</button>
+  <div id="playerName" style="margin-top:10px; font-weight:bold;"></div>
+  </div>
+  
   <div class="sidebar-section">
     <div class="sidebar-label">Plus</div>
     <div class="cat-item" onclick="openScreen('settings');closeSidebar()">
@@ -2172,7 +2178,7 @@ body.ios .pnotif .pn-ic{border-radius:11px}
     <p style="text-align:center;font-size:11px;color:var(--text3);margin-top:8px">© 2026 ASG Store. Tous droits réservés.</p>
   </div>
 </div>
-
+<button id="btnAcheter" disabled>Acheter UC</button>
 <!-- Bannière mise à jour disponible -->
 <div id="update-banner">
   <b id="ub-text">🚀 Une nouvelle version est disponible !</b>
@@ -8180,5 +8186,42 @@ if('serviceWorker'in navigator){
 })();
 </script>
 
+<script>
+async function checkPUBG() {
+  const id = document.getElementById('pubgId').value;
+  const nameDiv = document.getElementById('playerName');
+  const btnAcheter = document.getElementById('btnAcheter');
+  
+  if(!id || id.length < 8) {
+    nameDiv.innerHTML = "❌ ID invalide";
+    nameDiv.style.color = "red";
+    btnAcheter.disabled = true;
+    return;
+  }
+
+  nameDiv.innerHTML = "⏳ Vérification...";
+  nameDiv.style.color = "orange";
+  btnAcheter.disabled = true;
+
+  try {
+    const res = await fetch(`/api/check-pubg?id=${id}`);
+    const data = await res.json();
+
+    if(data.status === "success") {
+      nameDiv.innerHTML = `✅ Nom trouvé: ${data.name}`;
+      nameDiv.style.color = "green";
+      btnAcheter.disabled = false; // Débloque le bouton
+    } else {
+      nameDiv.innerHTML = `❌ ${data.error}`;
+      nameDiv.style.color = "red";
+      btnAcheter.disabled = true;
+    }
+  } catch(e) {
+    nameDiv.innerHTML = "❌ Erreur serveur";
+    nameDiv.style.color = "red";
+    btnAcheter.disabled = true;
+  }
+}
+</script>
 </body>
-</html> 
+</html>
