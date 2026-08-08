@@ -3448,7 +3448,7 @@ async function buyWithPoints(id){
       });
     });
     showToast(`✅ Payé avec ${cost} points !`);
-    showDeliveryProgress({items:[{name:p.name,qty:1}],playerId:playerId,paymentMethod:'points'});
+    showDeliveryProgress({items:[{name:p.name,qty:1}],playerId:playerId,paymentMethod:'points',id:oref.id});
   }catch(e){showToast('❌ '+(e.message||'Achat impossible'));}
 }
 
@@ -6233,15 +6233,24 @@ function showDeliveryProgress(order){
   const titleEl=document.querySelector('#delivery-overlay .dlv-title');
   const etaEl=document.querySelector('#delivery-overlay .dlv-eta');
   // Progression : on complète les 4 étapes puis « livré » — l'écran ne reste JAMAIS bloqué
-  [0,1,2,3].forEach((si,k)=>{
-    _dlvTimers.push(setTimeout(()=>{
+  // Barre qui se remplit doucement sur ~1 min 30, puis « livré » + facture auto
+  try{fill.style.transition='width 87s linear';}catch(e){}
+  _dlvTimers.push(setTimeout(function(){fill.style.width='94%';},400));
+  const stepAt=[1000,25000,55000,90000]; // Paiement · Préparation · Livraison · Livré
+  stepAt.forEach(function(ms,si){
+    _dlvTimers.push(setTimeout(function(){
       const st=steps[si];if(st){st.classList.add('active');st.querySelector('.dlv-dot').innerHTML=check;}
-      fill.style.width=Math.round((k+1)/4*100)+'%';
       if(si===3){
+        try{fill.style.transition='width .4s ease';}catch(e){}
+        fill.style.width='100%';
         if(titleEl)titleEl.textContent='✅ C\'est livré !';
-        if(etaEl)etaEl.innerHTML='Suivez le détail dans <b>Mes commandes</b>';
+        if(etaEl)etaEl.innerHTML='Livraison effectuée';
+        // Ouvre automatiquement la facture (si on a l'ID de commande)
+        if(order&&order.id){
+          _dlvTimers.push(setTimeout(function(){ try{closeDelivery();}catch(e){} try{showInvoice(order.id);}catch(e){} },1500));
+        }
       }
-    }, 1000+k*2600));   // ~1s · 3.6s · 6.2s · 8.8s
+    },ms));
   });
 }
 function closeDelivery(){
