@@ -81,7 +81,7 @@ module.exports = async (req, res) => {
     const j = r.json || {};
     const ok = j.success === true || (j.data && (j.success !== false));
     const d = j.data || j;
-    const name = pick(d, ['username', 'name', 'nickname', 'player_name', 'user_name', 'ign', 'nick']);
+    const name = pick(d, ['account_name', 'accountName', 'username', 'name', 'nickname', 'player_name', 'user_name', 'ign', 'nick']);
     if (ok && name) return res.status(200).json({ ok: true, name: String(name) });
     const msg = (j.error && j.error.message) || j.message || 'ID introuvable';
     return res.status(200).json({ ok: false, error: String(msg).slice(0, 160) });
@@ -89,4 +89,3 @@ module.exports = async (req, res) => {
     return res.status(200).json({ ok: false, error: (e && e.message) ? e.message.slice(0, 160) : 'Erreur' });
   }
 };
-
