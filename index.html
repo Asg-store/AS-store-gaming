@@ -971,7 +971,8 @@ body.ios .pnotif .pn-ic{border-radius:11px}
 .dlv-info{font-size:12px;color:var(--text3);background:var(--bg3);border-radius:12px;padding:6px 12px;margin-bottom:16px;line-height:1.5;text-align:left}
 .dlv-info .dlv-row{display:flex;justify-content:space-between;align-items:center;gap:14px;padding:7px 0}
 .dlv-info .dlv-row+.dlv-row{border-top:1px solid var(--border)}
-.dlv-info .dlv-row span{color:var(--text3);white-space:nowrap}
+.dlv-info .dlv-row span{color:var(--text3);white-space:nowrap;display:inline-flex;align-items:center}
+.dlv-info .dlv-row span svg{width:15px;height:15px;margin-right:6px;stroke:currentColor;fill:none;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0}
 .dlv-info .dlv-row b{color:var(--text);text-align:right;font-weight:700}
 .dlv-close{width:100%;padding:13px;border:none;border-radius:14px;background:var(--bg3);
   color:var(--text);font-weight:700;font-size:14px;cursor:pointer;font-family:inherit}
@@ -6215,24 +6216,34 @@ function showDeliveryProgress(order){
   const items=(order.items||[]).map(i=>`${i.qty||1}× ${i.name}`).join(', ');
   const pay=order.paymentMethod==='points'?'Points':order.paymentMethod==='wallet'?'Portefeuille':'Carte';
   const _e=s=>(''+s).replace(/</g,'&lt;');
+  const ic={
+    user:'<svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="3.6"/><path d="M4.5 20.5c0-3.7 3.4-5.5 7.5-5.5s7.5 1.8 7.5 5.5"/></svg>',
+    id:'<svg viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="2.5"/><circle cx="8" cy="12" r="2.3"/><line x1="13" y1="10.5" x2="19" y2="10.5"/><line x1="13" y1="13.5" x2="17" y2="13.5"/></svg>',
+    box:'<svg viewBox="0 0 24 24"><path d="M21 8l-9-5-9 5 9 5 9-5z"/><path d="M3 8v8l9 5 9-5V8"/></svg>',
+    card:'<svg viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="2.5"/><line x1="2" y1="10" x2="22" y2="10"/></svg>',
+    ref:'<svg viewBox="0 0 24 24"><path d="M6 2h12v20l-3-2-3 2-3-2-3 2z"/><line x1="9.5" y1="8" x2="14.5" y2="8"/><line x1="9.5" y1="12" x2="14.5" y2="12"/></svg>'
+  };
   const rows=[];
-  if(order.playerName)rows.push(['🎮 Joueur',_e(order.playerName)]);
-  if(order.playerId)rows.push(['🆔 ID joueur',_e(order.playerId)]);
-  if(items)rows.push(['📦 Articles',_e(items)]);
-  rows.push(['💳 Paiement',pay]);
-  if(order.ref)rows.push(['🧾 Référence',_e(order.ref)]);
+  if(order.playerName)rows.push([ic.user+'Joueur',_e(order.playerName)]);
+  if(order.playerId)rows.push([ic.id+'ID joueur',_e(order.playerId)]);
+  if(items)rows.push([ic.box+'Articles',_e(items)]);
+  rows.push([ic.card+'Paiement',pay]);
+  if(order.ref)rows.push([ic.ref+'Référence',_e(order.ref)]);
   document.getElementById('dlv-info').innerHTML=rows.map(r=>`<div class="dlv-row"><span>${r[0]}</span><b>${r[1]}</b></div>`).join('');
   ov.classList.add('open');
-  // Étapes animées (~90 s) — la livraison réelle est validée par l'admin
-  const marks=[[0,0,8],[1,28,40],[2,55,82]];
-  marks.forEach(([si,w0,w1])=>{
+  const titleEl=document.querySelector('#delivery-overlay .dlv-title');
+  const etaEl=document.querySelector('#delivery-overlay .dlv-eta');
+  // Progression : on complète les 4 étapes puis « livré » — l'écran ne reste JAMAIS bloqué
+  [0,1,2,3].forEach((si,k)=>{
     _dlvTimers.push(setTimeout(()=>{
       const st=steps[si];if(st){st.classList.add('active');st.querySelector('.dlv-dot').innerHTML=check;}
-      fill.style.width=w1+'%';
-    }, si*1200));
+      fill.style.width=Math.round((k+1)/4*100)+'%';
+      if(si===3){
+        if(titleEl)titleEl.textContent='✅ C\'est livré !';
+        if(etaEl)etaEl.innerHTML='Suivez le détail dans <b>Mes commandes</b>';
+      }
+    }, 1000+k*2600));   // ~1s · 3.6s · 6.2s · 8.8s
   });
-  // maintient l'étape "livraison en cours" ; barre presque pleine
-  _dlvTimers.push(setTimeout(()=>{fill.style.width='92%';}, 4200));
 }
 function closeDelivery(){
   _dlvTimers.forEach(clearTimeout);_dlvTimers=[];
