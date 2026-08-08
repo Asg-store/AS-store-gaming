@@ -5527,7 +5527,7 @@ function renderCartLines(){
   cartCheckoutData.promoCode=appliedPromo.cart?appliedPromo.cart.code:'';
   document.getElementById('cart-pay-lines').innerHTML=
     `<div class="pl"><span>Sous-total</span><span>${fmtMoney(sub)}</span></div>`+
-    (fee>0?`<div class="pl"><span>Frais de livraison</span><span>+ ${fmtMoney(fee)}</span></div>`:'')+
+    (fee>0?`<div class="pl"><span>Frais</span><span>+ ${fmtMoney(fee)}</span></div>`:'')+
     (disc>0?`<div class="pl disc"><span>Réduction (${appliedPromo.cart.code})</span><span>- ${fmtMoney(disc)}</span></div>`:'')+
     (lvlDisc>0?`<div class="pl disc"><span>${currentLevel().icon} Fidélité ${currentLevel().name} (-${lvlPct}%)</span><span>- ${fmtMoney(lvlDisc)}</span></div>`:'')+
     `<div class="pl tot"><span>Total à payer</span><b>${fmtMoney(total)}</b></div>`;
@@ -5845,8 +5845,7 @@ function renderCheckoutFields(game){
   }else{
     el.innerHTML=''
       +'<div class="field"><label>🎮 ID Joueur *</label><input id="cc-playerid" inputmode="numeric" placeholder="Ex: 5123456789" oninput="onPidInput(this)"/></div>'
-      +'<div id="cc-playerid-name" style="font-size:12.5px;font-weight:700;margin:-6px 0 10px;min-height:16px"></div>'
-      +'<span class="hint" style="display:block;margin-bottom:14px">Entrez l\'ID du compte qui doit recevoir la commande (UC, Diamants…). La livraison se fait sur cet ID.</span>';
+      +'<div id="cc-playerid-name" style="font-size:12.5px;font-weight:700;margin:-6px 0 14px;min-height:16px"></div>';
   }
 }
 // Récupère + valide les identifiants saisis. Renvoie null si invalide (et signale).
