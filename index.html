@@ -968,8 +968,11 @@ body.ios .pnotif .pn-ic{border-radius:11px}
 .dlv-step.active{color:var(--text)}
 .dlv-step.active .dlv-dot{border-color:var(--accent);background:var(--accent);color:#fff}
 .dlv-step.active .dlv-dot svg{width:13px;height:13px}
-.dlv-info{font-size:12px;color:var(--text3);background:var(--bg3);border-radius:12px;padding:10px 12px;margin-bottom:16px;line-height:1.5}
-.dlv-info b{color:var(--text2)}
+.dlv-info{font-size:12px;color:var(--text3);background:var(--bg3);border-radius:12px;padding:6px 12px;margin-bottom:16px;line-height:1.5;text-align:left}
+.dlv-info .dlv-row{display:flex;justify-content:space-between;align-items:center;gap:14px;padding:7px 0}
+.dlv-info .dlv-row+.dlv-row{border-top:1px solid var(--border)}
+.dlv-info .dlv-row span{color:var(--text3);white-space:nowrap}
+.dlv-info .dlv-row b{color:var(--text);text-align:right;font-weight:700}
 .dlv-close{width:100%;padding:13px;border:none;border-radius:14px;background:var(--bg3);
   color:var(--text);font-weight:700;font-size:14px;cursor:pointer;font-family:inherit}
 
@@ -1370,7 +1373,7 @@ body.ios .pnotif .pn-ic{border-radius:11px}
   <div class="dlv-card">
     <div class="dlv-truck"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="6" width="13" height="10" rx="1"/><path d="M14 9h4l3 3v4h-7z"/><circle cx="6" cy="18" r="1.7"/><circle cx="17.5" cy="18" r="1.7"/></svg></div>
     <div class="dlv-title">Commande confirmée !</div>
-    <div class="dlv-eta">Livraison estimée : <b>1 à 2 minutes</b></div>
+    <div class="dlv-eta">Livraison estimée : <b>2 à 5 minutes</b></div>
     <div class="dlv-bar"><i id="dlv-bar-fill"></i></div>
     <div class="dlv-steps" id="dlv-steps">
       <div class="dlv-step" data-s="0"><span class="dlv-dot"></span><span>Paiement confirmé</span></div>
@@ -1887,7 +1890,7 @@ body.ios .pnotif .pn-ic{border-radius:11px}
 
     <div class="field toggle-field">
       <label class="toggle-row">
-        <span>⚡ Livraison automatique 1 minute</span>
+        <span>⚡ Livraison automatique 2 à 5 min</span>
         <label class="switch"><input type="checkbox" id="sell-instant" onchange="toggleInstantFields(this.checked)"><span class="slider"></span></label>
       </label>
       <span class="hint">Si activé, les identifiants ci-dessous sont envoyés automatiquement à l'acheteur dès que son paiement par carte (Adyen) est confirmé.</span>
@@ -5795,6 +5798,32 @@ function detectCheckoutGame(){
   if(isEfoot)return'efootball';
   return'id';
 }
+// 🔎 Vérification du pseudo d'un ID joueur via FlashTopup /check-id
+const FT_VALIDATION={pubg:'pubgm'}; // codes de validation FlashTopup par jeu (extensible)
+async function ftCheckId(userId,validationCode,serverId){
+  try{
+    const r=await fetch('/api/flashtopup-checkid',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({userId:userId,validationCode:validationCode,serverId:serverId||''})});
+    return await r.json();
+  }catch(e){return {ok:false};}
+}
+let _pidTimer=null;
+function onPidInput(inp){
+  const out=document.getElementById('cc-playerid-name');if(!out)return;
+  const id=(inp.value||'').trim();
+  out.dataset.name='';
+  const gk=(cart&&cart[0])?productGame(cart[0]):'';
+  const vcode=FT_VALIDATION[gk]||'';
+  if(!vcode){out.innerHTML='';return;}                 // vérif dispo seulement pour jeux supportés
+  if(id.length<6){out.innerHTML='';return;}
+  out.innerHTML='<span style="color:var(--text3)">⏳ Vérification…</span>';
+  clearTimeout(_pidTimer);
+  _pidTimer=setTimeout(async()=>{
+    const r=await ftCheckId(id,vcode);
+    if(r&&r.ok&&r.name){out.innerHTML='<span style="color:#00e676">✅ Nom : '+String(r.name).replace(/</g,'&lt;')+'</span>';out.dataset.name=r.name;}
+    else{out.innerHTML='<span style="color:#ff9800">⚠️ ID introuvable — vérifie ton ID joueur</span>';}
+  },600);
+}
 function renderCheckoutFields(game){
   var el=document.getElementById('cart-cred-fields');if(!el)return;
   if(game==='cod'){
@@ -5814,7 +5843,8 @@ function renderCheckoutFields(game){
       +'<span class="hint" style="display:block;margin-bottom:14px">🔒 Ces infos servent uniquement à livrer vos coins en nous connectant à votre compte. Vérifiez bien qu\'elles sont correctes.</span>';
   }else{
     el.innerHTML=''
-      +'<div class="field"><label>🎮 ID Joueur *</label><input id="cc-playerid" inputmode="numeric" placeholder="Ex: 5123456789"/></div>'
+      +'<div class="field"><label>🎮 ID Joueur *</label><input id="cc-playerid" inputmode="numeric" placeholder="Ex: 5123456789" oninput="onPidInput(this)"/></div>'
+      +'<div id="cc-playerid-name" style="font-size:12.5px;font-weight:700;margin:-6px 0 10px;min-height:16px"></div>'
       +'<span class="hint" style="display:block;margin-bottom:14px">Entrez l\'ID du compte qui doit recevoir la commande (UC, Diamants…). La livraison se fait sur cet ID.</span>';
   }
 }
@@ -5840,7 +5870,9 @@ function getCartAccount(){
   }
   var pid=val('cc-playerid');
   if(!pid){showToast('🎮 Entrez votre ID joueur');focus('cc-playerid');return null;}
-  return{game:'id',playerId:pid,account:null};
+  var _nm=document.getElementById('cc-playerid-name');
+  var pname=(_nm&&_nm.dataset&&_nm.dataset.name)||'';
+  return{game:'id',playerId:pid,playerName:pname,account:null};
 }
 async function openCartCheckout(){
   if(!currentUser){openAuthModal();showToast('🔐 Connectez-vous pour payer');return;}
@@ -6182,10 +6214,14 @@ function showDeliveryProgress(order){
   // Récap commande
   const items=(order.items||[]).map(i=>`${i.qty||1}× ${i.name}`).join(', ');
   const pay=order.paymentMethod==='points'?'Points':order.paymentMethod==='wallet'?'Portefeuille':'Carte';
-  document.getElementById('dlv-info').innerHTML=
-    (order.playerId?`ID joueur : <b>${(''+order.playerId).replace(/</g,'&lt;')}</b><br>`:'')+
-    (items?`Articles : <b>${items.replace(/</g,'&lt;')}</b><br>`:'')+
-    `Paiement : <b>${pay}</b>`;
+  const _e=s=>(''+s).replace(/</g,'&lt;');
+  const rows=[];
+  if(order.playerName)rows.push(['🎮 Joueur',_e(order.playerName)]);
+  if(order.playerId)rows.push(['🆔 ID joueur',_e(order.playerId)]);
+  if(items)rows.push(['📦 Articles',_e(items)]);
+  rows.push(['💳 Paiement',pay]);
+  if(order.ref)rows.push(['🧾 Référence',_e(order.ref)]);
+  document.getElementById('dlv-info').innerHTML=rows.map(r=>`<div class="dlv-row"><span>${r[0]}</span><b>${r[1]}</b></div>`).join('');
   ov.classList.add('open');
   // Étapes animées (~90 s) — la livraison réelle est validée par l'admin
   const marks=[[0,0,8],[1,28,40],[2,55,82]];
