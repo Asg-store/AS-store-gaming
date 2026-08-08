@@ -5152,6 +5152,7 @@ async function loadGames(){
     }
   }catch(e){}
   renderGamesStrip();
+  renderProducts();   // 🔄 rafraîchit la grille du catalogue avec TOUS les jeux chargés
 }
 function gameLogoHTML(g){
   if(g.logoUrl)return`<div class="game-logo"><img src="${g.logoUrl}" onerror="this.parentElement.innerHTML='<div class=game-badge style=\\'background:linear-gradient(135deg,${g.c1},${g.c2})\\'>${g.label}</div>'"></div>`;
@@ -5240,12 +5241,14 @@ function matchesSearch(p,q){
   return false;
 }
 function filterByGame(key){
+  const enteringGame=key&&key!=='all'&&(!currentGame||currentGame==='all');
   currentGame=key;currentCat='all';
   const g=GAMES.find(x=>x.key===key);
   document.getElementById('section-title').textContent=g?g.name:'Tous les produits';
   document.querySelectorAll('.cat-item').forEach(x=>x.classList.remove('active'));
   renderGamesStrip();renderProducts();
   window.scrollTo({top:0,behavior:'smooth'});
+  if(enteringGame){try{armBack();}catch(e){}}  // ⬅️ le bouton retour reviendra au catalogue
 }
 // étendre le filtre produits avec le jeu sélectionné
 const _origGetFiltered=getFiltered;
@@ -5328,6 +5331,7 @@ function closeTopOverlay(){
   if(filterSheet.classList.contains('open')){filterSheet.classList.remove('open');globalOverlay.classList.remove('open');return true;}
   if(document.getElementById('pay-history-sheet').classList.contains('open')){closePayHistory();return true;}
   if(sidebar.classList.contains('open')){closeSidebar();return true;}
+  if(currentGame&&currentGame!=='all'){backToCatalog();return true;}  // ⬅️ jeu ouvert → retour catalogue
   return false;
 }
 /* ═══════════ NAVIGATION RETOUR & SORTIE DE L'APPLICATION ═══════════
