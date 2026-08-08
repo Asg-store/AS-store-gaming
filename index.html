@@ -6513,7 +6513,7 @@ const CURRENCIES={
   usd:{sym:'$',rate:1.16,dec:2,pos:'before'},
   xof:{sym:'FCFA',rate:655.957,dec:0,pos:'after'}
 };
-function currentCurrency(){return localStorage.getItem('nex-currency')||'eur';}
+function currentCurrency(){return localStorage.getItem('nex-currency')||'xof';}
 function setCurrency(c){
   if(!CURRENCIES[c])c='eur';
   localStorage.setItem('nex-currency',c);
