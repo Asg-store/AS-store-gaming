@@ -5086,6 +5086,10 @@ async function loadUserPayments(){
   }
   window._invOrders={};
   userOrders.forEach(function(o){window._invOrders[o.id]=o;});
+  // 🚀 Auto-finalisation : les commandes payées en direct mais pas encore livrées se
+  //    vérifient toutes seules (appel idempotent → livraison + notif + statut « Livré »).
+  //    Aucune intervention admin nécessaire.
+  try{autoCompleteMyDeliveries(userOrders);}catch(e){}
   el.innerHTML=userOrders.map(o=>{
     const st=(o.status==='delivered'||o.ftStatus==='success')?'delivered':(o.status||'');
     let bTxt,bCls,bIco;
@@ -5117,6 +5121,35 @@ function formatPhDate(ts){
     const d=ts.toDate?ts.toDate():new Date(ts);
     return d.toLocaleDateString('fr-FR',{day:'2-digit',month:'short',year:'numeric'});
   }catch{return'—';}
+}
+// 🚀 Finalise automatiquement les livraisons des paiements DIRECTS (portefeuille, carte, FedaPay, CinetPay…).
+//    Rappelle l'API de livraison (idempotente : aucun risque de double livraison) pour les commandes payées
+//    mais pas encore livrées. Le serveur livre les UC, notifie le client et passe la commande en « Livré ».
+//    100% automatique : l'admin n'a rien à faire.
+var _ftAutoDone={};
+function autoCompleteMyDeliveries(orders){
+  if(!orders||!orders.length||!currentUser)return;
+  var now=Date.now();
+  var fired=0;
+  orders.forEach(function(o){
+    if(!o||_ftAutoDone[o.id])return;
+    // Déjà livré ou en échec définitif → on ne touche pas
+    if(o.status==='delivered'||o.ftStatus==='success'||o.ftStatus==='failed')return;
+    // Uniquement les commandes réellement payées, avec des articles à livrer
+    if(o.status!=='paid')return;
+    if(!o.items||!o.items.length)return;
+    // Exclut Orange Money manuel (vérif admin) et les paiements en points
+    var pm=(o.paymentMethod||'').toLowerCase();
+    if(pm.indexOf('manuel')>=0)return;
+    if(pm==='points'||o.pointsSpent)return;
+    // Seulement les commandes récentes (48 h) pour ne pas rappeler d'anciennes commandes
+    var t=(o.createdAt&&o.createdAt.toMillis)?o.createdAt.toMillis():0;
+    if(t&&(now-t)>48*3600*1000)return;
+    _ftAutoDone[o.id]=true;fired++;
+    try{fetch('/api/flashtopup-deliver',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({orderId:o.id})}).catch(function(){});}catch(e){}
+  });
+  // Si des vérifications ont été lancées, on rafraîchit une fois l'historique après la livraison serveur (~12 s)
+  if(fired>0){setTimeout(function(){try{if(document.getElementById('pay-hist-list'))loadUserPayments();}catch(e){}},15000);}
 }
 // ── Facture détaillée (clic sur une commande de l'historique) ──
 function showInvoice(id){

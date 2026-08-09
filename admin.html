@@ -2394,14 +2394,15 @@ function showAdminInvoice(id){
     // ✅ Livrée
     sancayBlock='<div style="margin-top:14px"><div style="display:inline-flex;align-items:center;gap:6px;background:rgba(0,200,83,.14);color:#00c853;font-size:12px;font-weight:800;padding:7px 12px;border-radius:99px">✅ Livré automatiquement via FlashTopup</div></div>';
   }else if(_isAutoPay){
-    // Paiement direct : les UC sont livrées automatiquement au paiement. AUCUN bouton « Auto-livrer »
-    // (protection anti-doublon : l'API refuse si déjà livrée + reference_id unique côté FlashTopup).
-    var stTxtA=o.ftStatus==='failed'?'⚠️ La livraison automatique a échoué — vérifiez le mapping produit ou livrez à la main.':'⏳ Livraison automatique en cours via FlashTopup…';
-    sancayBlock='<div style="margin-top:14px"><div style="font-size:11px;font-weight:800;letter-spacing:1px;color:var(--text3);text-transform:uppercase;margin-bottom:6px">🔗 Auto-livraison FlashTopup</div>'
-      +'<div style="font-size:11.5px;color:var(--text2);margin-bottom:8px">'+stTxtA+'</div>'
-      +'<button id="ft-btn-'+o.id+'" onclick="ftDeliver(\''+o.id+'\')" style="width:100%;padding:10px;border:1px solid var(--border);border-radius:10px;background:var(--bg3);color:var(--text);font-weight:700;cursor:pointer">🔄 Vérifier le statut de livraison</button>'
-      +'<div style="font-size:10.5px;color:var(--text3);margin-top:5px">✅ Les UC ont déjà été envoyées automatiquement au paiement. Ce bouton <b>vérifie seulement</b> l\'avancement — il ne relivre jamais (protégé contre les doublons).</div>'
-      +'</div>';
+    // Paiement direct : livraison 100% automatique au paiement. AUCUNE action admin requise, aucun bouton.
+    if(o.ftStatus==='failed'){
+      sancayBlock='<div style="margin-top:14px"><div style="font-size:11px;font-weight:800;letter-spacing:1px;color:var(--text3);text-transform:uppercase;margin-bottom:6px">🔗 Auto-livraison FlashTopup</div>'
+        +'<div style="display:inline-flex;align-items:center;gap:6px;background:rgba(255,59,92,.14);color:#ff3b5c;font-size:12px;font-weight:800;padding:7px 12px;border-radius:99px">⚠️ Échec de la livraison automatique</div>'
+        +'<div style="font-size:10.5px;color:var(--text3);margin-top:6px">Vérifiez le « code service FlashTopup » du produit, ou livrez à la main puis passez la commande en « Livré ».</div></div>';
+    }else{
+      sancayBlock='<div style="margin-top:14px"><div style="display:inline-flex;align-items:center;gap:6px;background:rgba(0,180,255,.14);color:#00b4ff;font-size:12px;font-weight:800;padding:7px 12px;border-radius:99px">⏳ Livraison automatique en cours…</div>'
+        +'<div style="font-size:10.5px;color:var(--text3);margin-top:6px">✅ Les UC sont envoyées automatiquement dès le paiement. Aucune action requise — le statut passera à « Livré » tout seul.</div></div>';
+    }
   }else{
     // Paiement MANUEL (Orange Money) : l'admin déclenche la livraison après vérification de la preuve
     var stTxt=o.ftStatus==='pending'?'⏳ En cours chez FlashTopup — retouchez pour vérifier':(o.ftStatus==='failed'?'⚠️ Échec FlashTopup — réessayez ou livrez à la main':'');
@@ -2434,10 +2435,6 @@ function showAdminInvoice(id){
    +'</div>'
    +'</div>';
   document.body.appendChild(host);
-  // 🚀 Paiement automatique non encore livré (et pas en échec) → vérifie/complète la livraison en arrière-plan
-  if(_isAutoPay && !_delivered && o.ftStatus!=='failed'){
-    setTimeout(function(){ftDeliver(o.id,true);},400);
-  }
 }
 function closeInvoice(){
   var h=document.getElementById('inv-host');if(h&&h.parentNode)h.parentNode.removeChild(h);
