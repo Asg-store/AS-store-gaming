@@ -5087,7 +5087,7 @@ async function loadUserPayments(){
   window._invOrders={};
   userOrders.forEach(function(o){window._invOrders[o.id]=o;});
   el.innerHTML=userOrders.map(o=>{
-    const st=o.status||'';
+    const st=(o.status==='delivered'||o.ftStatus==='success')?'delivered':(o.status||'');
     let bTxt,bCls,bIco;
     if(st==='delivered'){bTxt='📦 Livré';bCls='paid';bIco='📦';}
     else if(st==='shipped'){bTxt='🚚 En livraison';bCls='paid';bIco='🚚';}
@@ -5122,10 +5122,11 @@ function formatPhDate(ts){
 function showInvoice(id){
   var o=(window._invOrders||{})[id];if(!o)return;
   var _e=function(s){return String(s==null?'':s).replace(/</g,'&lt;');};
-  var isPaid=o.status==='paid';
+  var _delivered=(o.status==='delivered'||o.ftStatus==='success');
+  var isPaid=o.status==='paid'&&!_delivered;
   var ref='CMD-'+String(o.id).slice(0,6).toUpperCase();
-  var statusTxt=isPaid?'✅ Payé':(o.status==='pending'?'⏳ En attente':(o.status==='cancelled'?'❌ Annulé':(o.status==='delivered'?'📦 Livré':(o.status==='shipped'?'🚚 En livraison':(o.status||'—')))));
-  var statusCol=isPaid||o.status==='delivered'?'#00c853':(o.status==='pending'?'#ffb020':(o.status==='cancelled'?'#ff3b5c':'var(--text2)'));
+  var statusTxt=_delivered?'📦 Livré':(isPaid?'✅ Payé':(o.status==='pending'?'⏳ En attente':(o.status==='cancelled'?'❌ Annulé':(o.status==='shipped'?'🚚 En livraison':(o.status||'—')))));
+  var statusCol=isPaid||_delivered?'#00c853':(o.status==='pending'?'#ffb020':(o.status==='cancelled'?'#ff3b5c':'var(--text2)'));
   var items=(o.items||[]);
   var rows='';
   if(items.length){
