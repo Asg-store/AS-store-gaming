@@ -2366,6 +2366,8 @@ function showAdminInvoice(id){
   addMeta('Réf. paiement',o.paymentRef||o.fedapayRef||o.cinetpayRef||'');
   addMeta('ID joueur',o.playerId);
   addMeta('📱 N° Orange Money',o.payerPhone);
+  addMeta('🔖 N° transaction',o.txRef);
+  if(o.amountFcfa)addMeta('Payé (Orange Money)',(+o.amountFcfa).toLocaleString('fr-FR')+' FCFA');
   addMeta('ID commande',o.id);
   var proofBlock=o.proofUrl?('<div style="margin-top:14px"><div style="font-size:11px;font-weight:800;letter-spacing:1px;color:var(--text3);text-transform:uppercase;margin-bottom:6px">📸 Preuve de paiement</div><a href="'+aEsc(o.proofUrl)+'" target="_blank" rel="noopener"><img src="'+aEsc(o.proofUrl)+'" style="max-width:100%;border-radius:12px;border:1px solid var(--border);display:block"></a><div style="font-size:11px;color:var(--text3);margin-top:4px">Touchez l\'image pour l\'agrandir</div></div>'):'';
   var accountBlock='';

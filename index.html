@@ -2495,13 +2495,7 @@ body.ios .pnotif .pn-ic{border-radius:11px}
         <div class="rc-method" data-m="cinetpay" onclick="selectCartMethod('cinetpay')"><span class="rc-ic" style="font-weight:800;font-size:11px;color:#e84e0f">Cinet<span style="color:#2b2b2b">Pay</span></span><div class="rc-tx"><div class="rc-n">Orange Money Mali (CinetPay)</div><div class="rc-d">Orange · Moov Mali — automatique</div></div><span class="rc-chk"></span></div>
         <div class="rc-method" data-m="orange" onclick="selectCartMethod('orange')"><span class="rc-ic"><i style="width:22px;height:22px;border-radius:50%;background:linear-gradient(135deg,#ff7900,#ff4e00);display:inline-block"></i></span><div class="rc-tx"><div class="rc-n">Orange Money</div><div class="rc-d">Envoyez au <b>+223 82 13 14 18</b> puis validez — <span style="color:var(--accent);text-decoration:underline" onclick="event.stopPropagation();copyOMNumber()">copier le numéro</span></div></div><span class="rc-chk"></span></div>
       </div>
-      <div id="cart-om-proof" style="display:none;margin-top:12px;background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:12px">
-        <div style="font-weight:700;font-size:13px;margin-bottom:3px">📸 Preuve de paiement</div>
-        <div style="font-size:11.5px;color:var(--text3);margin-bottom:8px">Joignez la capture d'écran de votre paiement Orange Money.</div>
-        <input type="file" id="cart-om-file" accept="image/*" style="display:none" onchange="previewOMProof(event)"/>
-        <button type="button" style="width:100%;padding:11px;border:1px dashed var(--border);border-radius:10px;background:var(--bg3);color:var(--text);font-weight:700;cursor:pointer" onclick="document.getElementById('cart-om-file').click()">📎 Choisir la capture d'écran</button>
-        <div id="cart-om-preview" style="margin-top:8px"></div>
-      </div>
+      <div id="cart-om-proof" style="display:none;margin-top:12px"></div>
       <button class="btn-primary" id="cart-pay-btn" style="margin-top:14px" onclick="payCartGo()">Payer →</button>
     </div>
     <div id="adyen-cart-dropin" style="display:none"></div>
@@ -5598,20 +5592,99 @@ function renderCartLines(){
   });
   // 🔁 Le bouton de paiement est toujours réinitialisé → jamais bloqué sur « Paiement… »
   var _pb=document.getElementById('cart-pay-btn');
-  if(_pb){_pb.disabled=false;_pb.textContent='Payer →';}
+  if(_pb){_pb.disabled=false;_pb.textContent=(_cartMethod==='orange')?'📤 Envoyer ma preuve de paiement':'Payer →';}
+  // 🟠 Si le panneau Orange Money est ouvert, met à jour le montant FCFA/€ affiché
+  if(_cartMethod==='orange'){
+    var _xof=Math.round(total*(typeof EUR_XOF!=='undefined'?EUR_XOF:655.957));
+    var _f=document.getElementById('cart-om-fcfa');if(_f)_f.textContent=_xof.toLocaleString('fr-FR')+' FCFA';
+    var _e=document.getElementById('cart-om-eur');if(_e)_e.textContent='≈ '+fmtMoney(total);
+  }
 }
 let _cartMethod='';
 function selectCartMethod(m){
   _cartMethod=m;
   document.querySelectorAll('#cart-methods .rc-method').forEach(function(el){el.classList.toggle('sel',el.dataset.m===m);});
-  var op=document.getElementById('cart-om-proof');if(op)op.style.display=(m==='orange')?'block':'none';
+  var op=document.getElementById('cart-om-proof');
+  if(op){
+    if(m==='orange'){op.style.display='block';renderCartOrangePanel();}
+    else{op.style.display='none';op.innerHTML='';}
+  }
+  // Le bouton principal s'adapte à la méthode Orange Money
+  var pb=document.getElementById('cart-pay-btn');
+  if(pb){pb.textContent=(m==='orange')?'📤 Envoyer ma preuve de paiement':'Payer →';}
+}
+// 🟠 Panneau Orange Money du panier (même présentation que la recharge portefeuille)
+function renderCartOrangePanel(){
+  var op=document.getElementById('cart-om-proof');if(!op)return;
+  var total=(cartCheckoutData&&cartCheckoutData.total)||0;
+  var xof=Math.round(total*(typeof EUR_XOF!=='undefined'?EUR_XOF:655.957));
+  var xofStr=xof.toLocaleString('fr-FR');
+  op.innerHTML=`
+  <div style="background:var(--bg2);border:1px solid var(--border);border-radius:14px;padding:14px">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
+      <i style="width:26px;height:26px;border-radius:50%;background:linear-gradient(135deg,#ff7900,#ff4e00);display:inline-block;flex-shrink:0"></i>
+      <div><div style="font-weight:800;font-size:14px">Paiement par Orange Money</div><div style="font-size:11px;color:var(--text3)">Suivez ces 3 étapes — un administrateur validera la commande.</div></div>
+    </div>
+
+    <div style="display:flex;gap:10px;margin-bottom:12px">
+      <div style="flex-shrink:0;width:24px;height:24px;border-radius:50%;background:var(--accent);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:12px">1</div>
+      <div style="flex:1;min-width:0">
+        <div style="font-weight:700;font-size:13px;margin-bottom:6px">Envoyez le montant via Orange Money</div>
+        <div style="display:flex;align-items:center;gap:8px;background:var(--bg3);border:1px dashed var(--accent);border-radius:12px;padding:10px;margin-bottom:8px">
+          <div style="flex:1;min-width:0"><div style="font-size:11px;color:var(--text3)">Montant à envoyer</div><b id="cart-om-fcfa" style="font-family:Orbitron,monospace;font-size:17px;color:var(--accent)">${xofStr} FCFA</b><div id="cart-om-eur" style="font-size:11px;color:var(--text3)">≈ ${fmtMoney(total)}</div></div>
+          <button type="button" class="rw-btn" style="width:auto;padding:8px 11px;font-size:12px" onclick="copyText('${xof}','✓ Montant copié : ${xofStr} FCFA')">📋</button>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;background:var(--bg3);border:1px dashed var(--accent);border-radius:12px;padding:10px">
+          <div style="flex:1;min-width:0"><div style="font-size:11px;color:var(--text3)">Numéro Orange Money du marchand</div><b style="font-family:Orbitron,monospace;letter-spacing:1px;font-size:14px">+223 82 13 14 18</b></div>
+          <button type="button" class="rw-btn" style="width:auto;padding:8px 11px;font-size:12px" onclick="copyOMNumber()">📋</button>
+        </div>
+      </div>
+    </div>
+
+    <div style="display:flex;gap:10px;margin-bottom:12px">
+      <div style="flex-shrink:0;width:24px;height:24px;border-radius:50%;background:var(--accent);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:12px">2</div>
+      <div style="flex:1;min-width:0">
+        <div style="font-weight:700;font-size:13px;margin-bottom:6px">Votre numéro (celui qui a payé)</div>
+        <div style="display:flex;gap:8px;margin-bottom:10px">
+          <select id="cart-om-indicatif" class="set-select" style="width:106px;flex-shrink:0"><option value="+223">🇲🇱 +223</option><option value="+225">🇨🇮 +225</option><option value="+221">🇸🇳 +221</option><option value="+226">🇧🇫 +226</option><option value="+227">🇳🇪 +227</option><option value="+224">🇬🇳 +224</option><option value="+229">🇧🇯 +229</option><option value="+228">🇹🇬 +228</option></select>
+          <input id="cart-om-phone" type="tel" inputmode="numeric" placeholder="Ex : 82131418" oninput="this.value=this.value.replace(/[^0-9]/g,'')" style="flex:1;min-width:0;padding:11px;border-radius:12px;border:1px solid var(--border);background:var(--bg3);color:var(--text);font-size:13px"/>
+        </div>
+        <div style="font-weight:700;font-size:13px;margin-bottom:6px">N° de transaction <span style="color:var(--text3);font-weight:500;font-size:11px">(recommandé)</span></div>
+        <input id="cart-om-txref" type="text" placeholder="Ex : PP240612.1430.A12345" style="width:100%;padding:11px;border-radius:12px;border:1px solid var(--border);background:var(--bg3);color:var(--text);font-size:13px"/>
+        <div style="font-size:11px;color:var(--text3);margin-top:5px;line-height:1.5">📩 Dans le SMS de confirmation Orange Money. Il accélère la vérification.</div>
+      </div>
+    </div>
+
+    <div style="display:flex;gap:10px">
+      <div style="flex-shrink:0;width:24px;height:24px;border-radius:50%;background:var(--accent);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:12px">3</div>
+      <div style="flex:1;min-width:0">
+        <div style="font-weight:700;font-size:13px;margin-bottom:3px">📸 Capture d'écran du reçu <span style="color:#ff5252">*</span></div>
+        <div style="font-size:11.5px;color:var(--text3);margin-bottom:8px">Obligatoire — joignez la capture du message de confirmation Orange Money.</div>
+        <input type="file" id="cart-om-file" accept="image/*" style="display:none" onchange="previewOMProof(event)"/>
+        <button type="button" id="cart-om-btn" style="width:100%;padding:11px;border:1px dashed var(--border);border-radius:10px;background:var(--bg3);color:var(--text);font-weight:700;cursor:pointer" onclick="document.getElementById('cart-om-file').click()">📎 Choisir la capture d'écran</button>
+        <div id="cart-om-preview" style="margin-top:8px"></div>
+      </div>
+    </div>
+  </div>`;
+  // Restaure l'aperçu si une preuve était déjà choisie
+  if(_omProofFile){var ev={target:{files:[_omProofFile]}};previewOMProof(ev);}
 }
 var _omProofFile=null;
 function previewOMProof(e){
   var f=(e.target.files||[])[0];_omProofFile=f||null;
   var pv=document.getElementById('cart-om-preview');if(!pv)return;
-  if(f){var url=URL.createObjectURL(f);pv.innerHTML='<img src="'+url+'" style="max-width:100%;max-height:190px;border-radius:10px;border:1px solid var(--border);display:block"><div style="font-size:11.5px;color:#00c853;margin-top:5px;font-weight:700">✅ Capture jointe</div>';}
-  else pv.innerHTML='';
+  var btn=document.getElementById('cart-om-btn');
+  if(f){
+    var url=URL.createObjectURL(f);
+    pv.innerHTML='<div style="position:relative;display:inline-block;max-width:100%"><img src="'+url+'" style="max-width:100%;max-height:190px;border-radius:10px;border:1px solid var(--border);display:block"><button type="button" onclick="clearCartProof()" style="position:absolute;top:6px;right:6px;width:28px;height:28px;border-radius:50%;border:0;background:rgba(0,0,0,.65);color:#fff;font-size:15px;cursor:pointer;line-height:1">✕</button></div><div style="font-size:11.5px;color:#00c853;margin-top:5px;font-weight:700">✅ Capture jointe</div>';
+    if(btn)btn.textContent='🔄 Changer la capture';
+  } else { pv.innerHTML=''; if(btn)btn.textContent='📎 Choisir la capture d\'écran'; }
+}
+function clearCartProof(){
+  _omProofFile=null;
+  var inp=document.getElementById('cart-om-file');if(inp)inp.value='';
+  var pv=document.getElementById('cart-om-preview');if(pv)pv.innerHTML='';
+  var btn=document.getElementById('cart-om-btn');if(btn)btn.textContent='📎 Choisir la capture d\'écran';
 }
 // Compresse une image en JPEG (réduit la taille pour l'upload / le stockage)
 function compressImage(file,maxDim,quality){
@@ -5664,45 +5737,45 @@ function payCartCinetPay(){
 /* Orange Money manuel pour le panier : commande en attente de vérification */
 async function payCartOrange(){
   const _a=getCartAccount();if(!_a)return;const playerId=_a.playerId,_accData=_a.account||null;if(cartCheckoutData){cartCheckoutData.playerId=playerId;cartCheckoutData.playerName=_a.playerName||"";}
-  
+
   if(!cartCheckoutData)return;
   const total=cartCheckoutData.total||0;
-  if(!_omProofFile){ if(!await asgConfirm({icon:'📸',title:'Preuve de paiement',message:'Aucune capture jointe. On te conseille de joindre la preuve du paiement. Continuer quand même ?',okText:'Continuer',cancelText:'Annuler'}))return; }
-  if(!await asgConfirm({icon:'🟠',title:'Paiement Orange Money',message:'Envoie '+fmtMoney(total)+' au +223 82 13 14 18 (Orange Money), puis confirme. Un administrateur vérifiera le paiement.',okText:'J\'ai payé',cancelText:'Annuler'}))return;
-  const payerPhone=((await asgPrompt({icon:'📱',title:'Ton numéro Orange Money',message:'Indique le numéro (avec indicatif) depuis lequel tu as payé, pour la vérification :',placeholder:'Ex : +223 70 12 34 56',okText:'Confirmer',inputType:'tel'}))||'').trim();
-  if(!payerPhone){showToast('📱 Numéro requis pour vérifier ton paiement.');return;}
-  const btn=document.getElementById('cart-pay-btn');if(btn){btn.disabled=true;btn.textContent='⏳ Envoi…';}
+  // Lecture des champs inline (panneau 3 étapes)
+  var ind=((document.getElementById('cart-om-indicatif')||{}).value)||'+223';
+  var ph=(((document.getElementById('cart-om-phone')||{}).value)||'').replace(/[^0-9]/g,'');
+  var txref=(((document.getElementById('cart-om-txref')||{}).value)||'').trim();
+  if(ph.length<8){showToast('❌ Entrez votre numéro Orange Money (8 chiffres min.)');return;}
+  if(!_omProofFile){showToast('❌ Ajoutez la capture d\'écran du reçu (obligatoire)');return;}
+  var payerPhone=ind+' '+ph;
+  const btn=document.getElementById('cart-pay-btn');if(btn){if(btn.disabled)return;btn.disabled=true;btn.textContent='⏳ Envoi de la preuve…';}
   try{
+    showToast('⏳ Envoi de la preuve…');
     // 📸 Preuve de paiement : hébergée via ImgBB (clé admin), sinon intégrée à la commande.
     let proofUrl='';
-    if(_omProofFile){
-      var comp=await compressImage(_omProofFile,1400,0.7);
-      var toSend=(comp&&comp.blob)?comp.blob:_omProofFile;
-      try{
-        proofUrl=await imgbbUploadClient(toSend);   // ImgBB (clé partagée gérée par l'admin)
-      }catch(e){proofUrl='';}
-      // Repli : image intégrée à la commande (aucune dépendance externe)
-      if(!proofUrl&&comp&&comp.dataUrl&&comp.dataUrl.length<720000){proofUrl=comp.dataUrl;}
-      if(!proofUrl){showToast('⚠️ La preuve n\'a pas pu être enregistrée. Commande envoyée sans preuve.');}
-    }
+    var comp=await compressImage(_omProofFile,1400,0.7);
+    var toSend=(comp&&comp.blob)?comp.blob:_omProofFile;
+    try{proofUrl=await imgbbUploadClient(toSend);}catch(e){proofUrl='';}
+    if(!proofUrl&&comp&&comp.dataUrl&&comp.dataUrl.length<720000){proofUrl=comp.dataUrl;}
+    if(!proofUrl){showToast('❌ La preuve n\'a pas pu être enregistrée, réessayez');if(btn){btn.disabled=false;btn.textContent='📤 Envoyer ma preuve de paiement';}return;}
+    var xof=Math.round(total*(typeof EUR_XOF!=='undefined'?EUR_XOF:655.957));
     await db.collection('orders').add({
       items:cartCheckoutData.items,subtotal:cartCheckoutData.subtotal,
       deliveryFee:cartCheckoutData.deliveryFee||0,discount:cartCheckoutData.discount||0,
-      promoCode:cartCheckoutData.promoCode||'',total:total,playerId:playerId,playerName:(cartCheckoutData.playerName||""),account:_accData,
+      promoCode:cartCheckoutData.promoCode||'',total:total,amountFcfa:xof,playerId:playerId,playerName:(cartCheckoutData.playerName||""),account:_accData,
       userId:currentUser.uid,userName:currentUser.displayName||(currentUser.email||'').split('@')[0],
       email:currentUser.email||'',paymentMethod:'Orange Money (manuel)',status:'pending',
-      proofUrl:proofUrl,payerPhone:payerPhone,
+      proofUrl:proofUrl,payerPhone:payerPhone,txRef:txref,
       createdAt:firebase.firestore.FieldValue.serverTimestamp()
     });
     _omProofFile=null;
     var _f=document.getElementById('cart-om-file');if(_f)_f.value='';
-    var _pv=document.getElementById('cart-om-preview');if(_pv)_pv.innerHTML='';
+    var _op=document.getElementById('cart-om-proof');if(_op){_op.style.display='none';_op.innerHTML='';}
     cart=[];saveCart();renderCart();
     document.getElementById('cart-player-info').style.display='none';
     const st=document.getElementById('cart-pay-status');st.style.display='block';
-    st.innerHTML='<div style="text-align:center;padding:18px"><div style="font-size:42px">⏳</div><div style="font-weight:800;margin-top:8px">Commande envoyée !</div><div style="font-size:12px;color:var(--text3);margin-top:6px">Un administrateur va vérifier votre paiement Orange Money (+223 82 13 14 18)'+(proofUrl?' avec votre preuve jointe':'')+' puis livrer votre commande. Vous recevrez une notification.</div><button class="btn-primary" style="margin-top:16px" onclick="goToMyOrders()">Voir mes commandes</button></div>';
+    st.innerHTML='<div style="text-align:center;padding:18px"><div style="font-size:42px">✅</div><div style="font-weight:800;margin-top:8px">Commande envoyée !</div><div style="font-size:12px;color:var(--text3);margin-top:6px">Un administrateur va vérifier votre paiement Orange Money ('+payerPhone+')'+(txref?(' · transaction <b>'+txref+'</b>'):'')+' avec votre preuve jointe, puis livrer votre commande. Vous recevrez une notification.</div><button class="btn-primary" style="margin-top:16px" onclick="goToMyOrders()">Voir mes commandes</button></div>';
     showToast('✅ Commande envoyée');
-  }catch(e){showToast('❌ '+e.message);if(btn){btn.disabled=false;btn.textContent='Payer →';}}
+  }catch(e){showToast('❌ '+e.message);if(btn){btn.disabled=false;btn.textContent='📤 Envoyer ma preuve de paiement';}}
 }
 /* Finalisation générique après vérification serveur */
 // 🚀 Auto-livraison après un paiement AUTOMATIQUE (carte / FedaPay / CinetPay / portefeuille).
