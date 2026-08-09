@@ -1777,6 +1777,8 @@ body.ios .pnotif .pn-ic{border-radius:11px}
         <div id="adyen-recharge-dropin"></div>
         <div id="recharge-pay-status" style="display:none"></div>
       </div>
+      <!-- Étape 2b : Orange Money manuel (conteneur dédié, visible) -->
+      <div id="recharge-orange" style="display:none"></div>
     </div>
   </div>
 </div>
@@ -3568,6 +3570,7 @@ function openRecharge(){
   document.getElementById('recharge-error').classList.remove('show');
   document.getElementById('recharge-step1').style.display='block';
   document.getElementById('recharge-adyen').style.display='none';
+  var _ro=document.getElementById('recharge-orange');if(_ro){_ro.style.display='none';_ro.innerHTML='';}
   document.getElementById('recharge-amount').value='';
   document.getElementById('adyen-recharge-dropin').innerHTML='';
   document.getElementById('recharge-pay-status').style.display='none';
@@ -3842,7 +3845,8 @@ function rechargeNext(){
 /* ─── Orange Money manuel : montant FCFA + numéro + n° transaction + preuve ─── */
 function startRechargeOrange(amt){
   document.getElementById('recharge-step1').style.display='none';
-  const box=document.getElementById('recharge-pay-status');
+  var ad=document.getElementById('recharge-adyen');if(ad)ad.style.display='none';
+  const box=document.getElementById('recharge-orange');
   const xof=Math.round((+amt||0)*(typeof EUR_XOF!=='undefined'?EUR_XOF:655.957));
   const xofStr=xof.toLocaleString('fr-FR');
   box.style.display='block';
@@ -3949,7 +3953,7 @@ async function confirmOrangeSent(amt){
       senderPhone:ind+' '+ph,txRef:txref,proofImage:proof,status:'pending',
       createdAt:firebase.firestore.FieldValue.serverTimestamp()
     });
-    const box=document.getElementById('recharge-pay-status');
+    const box=document.getElementById('recharge-orange');
     box.innerHTML='<div style="text-align:center;padding:18px"><div style="font-size:42px">✅</div><div style="font-weight:800;margin-top:8px">Preuve envoyée !</div><div style="font-size:12px;color:var(--text3);margin-top:6px">Un administrateur va vérifier votre paiement Orange Money ('+ind+' '+ph+')'+(txref?(' · transaction <b>'+txref+'</b>'):'')+' et créditer <b style="color:var(--accent)">'+fmtMoney(amt)+'</b> sur votre Portefeuille ASG. Vous recevrez une notification.</div><button class="rw-btn" style="margin-top:16px" onclick="closeRecharge()">Terminer</button></div>';
     showToast('✅ Demande envoyée à l\'admin');
   }catch(e){showToast('❌ '+e.message);if(sendBtn){sendBtn.disabled=false;sendBtn.textContent='📤 Envoyer ma preuve de paiement';}}
