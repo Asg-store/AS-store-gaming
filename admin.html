@@ -3776,14 +3776,14 @@ async function loadWalletRequests(){
       const phone=r.senderPhone?aEsc(r.senderPhone):'';
       const txref=r.txRef?aEsc(r.txRef):'';
       const proofOk=!!r.proofImage;
-      return `<div class="order-summary" style="margin-bottom:12px;border:1px solid var(--border);border-radius:14px;padding:12px">
+      return `<div class="order-summary" style="display:block;margin-bottom:12px;border:1px solid var(--border);border-radius:14px;padding:12px">
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
         <span style="width:30px;height:30px;border-radius:50%;background:linear-gradient(135deg,#ff7900,#ff4e00);flex-shrink:0"></span>
         <div style="flex:1;min-width:0">
           <div style="font-weight:800;font-size:14px">${aEsc(r.userName||r.email||'Client')}</div>
-          <div style="font-size:11px;color:var(--text3)">${aEsc(r.email||'')} · ${fmtDateTime(r.createdAt)}</div>
+          <div style="font-size:11px;color:var(--text3);word-break:break-word">${aEsc(r.email||'')} · ${fmtDateTime(r.createdAt)}</div>
         </div>
-        <span style="background:rgba(255,153,0,.15);color:#ff9900;font-size:10px;font-weight:800;padding:4px 9px;border-radius:99px;white-space:nowrap">🟠 ${aEsc(r.method||'Orange Money')}</span>
+        <span style="background:rgba(255,153,0,.15);color:#ff9900;font-size:10px;font-weight:800;padding:4px 9px;border-radius:99px;white-space:nowrap;flex-shrink:0">🟠 ${aEsc(r.method||'Orange Money')}</span>
       </div>
 
       <div style="background:var(--bg2);border-radius:10px;padding:10px;margin-bottom:8px">
