@@ -1,5 +1,5 @@
 // ════════════════════════════════════════════════════════════════
-//  ASG Store — /api/flashtopup-deliver  (Fonction serverless Vercel)
+//  LootR — /api/flashtopup-deliver  (Fonction serverless Vercel)
 //  Livraison AUTOMATIQUE d'une commande via l'API FlashTopup Reseller v2.
 //
 //  Body attendu (POST JSON) : { "orderId": "<id commande Firestore>" }
