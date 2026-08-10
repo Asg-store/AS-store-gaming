@@ -16,14 +16,14 @@
 <meta property="og:description" content="Rechargez UC, Diamants, achetez/vendez des comptes gaming, cartes cadeaux et VPN au Mali. Paiement Orange Money & Wave. Rapide et sécurisé."/>
 <link rel="icon" type="image/png" href="/favicon.png?v=3"/>
 <link rel="apple-touch-icon" href="/icon-192.png?v=3"/>
-<meta property="og:image" content="https://as-store-gaming.vercel.app/og-image.png"/>
+<meta property="og:image" content="https://lootr.cc/og-image.png"/>
 <meta property="og:image:width" content="1200"/>
 <meta property="og:image:height" content="630"/>
-<meta property="og:url" content="https://as-store-gaming.vercel.app/"/>
-<link rel="canonical" href="https://as-store-gaming.vercel.app/"/>
+<meta property="og:url" content="https://lootr.cc/"/>
+<link rel="canonical" href="https://lootr.cc/"/>
 <meta property="og:site_name" content="LootR"/>
 <meta name="twitter:card" content="summary_large_image"/>
-<meta name="twitter:image" content="https://as-store-gaming.vercel.app/og-image.png"/>
+<meta name="twitter:image" content="https://lootr.cc/og-image.png"/>
 <meta name="twitter:title" content="LootR Mali — Recharge UC, Diamants, Comptes Gaming & VPN"/>
 <meta name="twitter:description" content="Recharge UC PUBG, Diamants Free Fire, comptes gaming vérifiés, cartes cadeaux & VPN au Mali."/>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
@@ -2769,7 +2769,7 @@ function isAppInstalled(){
 }
 // Partager la boutique (WhatsApp/partage natif) puis valider la mission « partage »
 async function shareShop(){
-  var url='https://as-store-gaming.vercel.app/';
+  var url='https://lootr.cc/';
   var txt='🎮 Découvre LootR Mali ! Recharge UC PUBG, Diamants Free Fire, comptes & VPN : '+url;
   try{
     if(navigator.share){await navigator.share({title:'LootR Mali',text:txt,url:url});}
@@ -3366,7 +3366,7 @@ function openSocial(){
 }
 /* ✨ NOUVEAU : partager la boutique (natif Android, sinon copie du lien) */
 function shareShop(){
-  var url='https://as-store-gaming.vercel.app/';
+  var url='https://lootr.cc/';
   var txt='🎮 LootR Mali — Recharge UC PUBG, Diamants Free Fire, comptes gaming et VPN.\nCommandez en quelques secondes 👉 ';
   if(navigator.share){
     navigator.share({title:'LootR Mali',text:txt,url:url}).catch(function(){});
@@ -4177,7 +4177,7 @@ async function redeemGiftCard(){
 // Partager son profil
 async function shareProfile(){
   const name=currentUser?(currentUser.displayName||currentUser.email.split('@')[0]):'moi';
-  const url=location.origin+location.pathname;
+  const url='https://lootr.cc/';
   const text=`Rejoins-moi sur LootR 🎮 — recharges de jeux, comptes & récompenses !`;
   try{
     if(navigator.share){await navigator.share({title:'LootR',text,url});}
@@ -6060,7 +6060,7 @@ function ptCoin(size){size=size||18;return '<i class="pt-coin-bg" style="width:'
 function ptCoinInline(){return '<i class="pt-coin-bg" style="width:1.05em;height:1.05em;vertical-align:-0.18em"></i>';}
 function ptBody(t){return String(t==null?'':t).replace(/</g,'&lt;').replace(/⭐/g,ptCoinInline());}
 // 💬 Fenêtre de confirmation personnalisée (remplace le confirm() natif du
-//    navigateur qui affichait « as-store-gaming.vercel.app indique »).
+//    navigateur qui affichait « lootr.cc indique »).
 //    Retourne une Promise<boolean>. Utilisation : if(!await asgConfirm({...}))return;
 function asgConfirm(opts){
   opts=opts||{};
@@ -6610,7 +6610,7 @@ function renderInviteLabels(){
 function openInvite(){
   renderInviteLabels();
   if(!currentUser){openAuthModal();showToast('🔐 Connectez-vous pour inviter');return;}
-  var link='https://as-store-gaming.vercel.app/?ref='+currentUser.uid;
+  var link='https://lootr.cc/?ref='+currentUser.uid;
   var ov=document.getElementById('invite-overlay');
   document.getElementById('invite-link').value=link;
   var pel=document.getElementById('iv-progress');
