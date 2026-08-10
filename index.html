@@ -4156,17 +4156,22 @@ async function redeemGiftCard(){
   const code=(document.getElementById('gift-code').value||'').trim().toUpperCase();
   const msg=document.getElementById('gift-msg');msg.style.display='block';
   if(!code){msg.className='promo-msg err';msg.textContent='Entrez un code.';return;}
+  msg.className='promo-msg';msg.textContent='⏳ Vérification…';
   try{
-    const ref=db.collection('giftcards').doc(code);
-    const snap=await ref.get();
-    if(!snap.exists){msg.className='promo-msg err';msg.textContent='❌ Code invalide.';return;}
-    const g=snap.data();
-    if(g.redeemed){msg.className='promo-msg err';msg.textContent='❌ Code déjà utilisé.';return;}
-    await ref.update({redeemed:true,redeemedBy:currentUser.uid,redeemedAt:firebase.firestore.FieldValue.serverTimestamp()});
-    await db.collection('users').doc(currentUser.uid).set({walletBalance:firebase.firestore.FieldValue.increment(+g.value||0)},{merge:true});
-    msg.className='promo-msg ok';msg.textContent=`✓ ${fmtMoney(g.value)} ajoutés à votre portefeuille !`;
+    // 🔒 Échange 100% côté serveur : le client ne crédite plus lui-même le portefeuille.
+    const token=await currentUser.getIdToken();
+    const r=await fetch('/api/redeem-giftcard',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},
+      body:JSON.stringify({code:code})
+    });
+    let d={};try{d=await r.json();}catch(e){}
+    if(d.error){msg.className='promo-msg err';msg.textContent='❌ '+d.error;return;}
+    if(!r.ok||!d.ok){msg.className='promo-msg err';msg.textContent='❌ Échec, réessayez.';return;}
+    // Le portefeuille se met à jour tout seul via le listener temps réel du compte.
+    msg.className='promo-msg ok';msg.textContent='✓ '+fmtMoney(d.value)+' ajoutés à votre portefeuille !';
     document.getElementById('gift-code').value='';
-  }catch(e){msg.className='promo-msg err';msg.textContent='❌ '+e.message;}
+  }catch(e){msg.className='promo-msg err';msg.textContent='❌ '+(e.message||'Erreur réseau');}
 }
 
 // Partager son profil
