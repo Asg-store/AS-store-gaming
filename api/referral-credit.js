@@ -1,5 +1,5 @@
 // ════════════════════════════════════════════════════════════════
-//  ASG Store — /api/referral-credit  (Fonction serverless Vercel)
+//  LootR — /api/referral-credit  (Fonction serverless Vercel)
 //  Crédite le PARRAIN (et le filleul) en points quand un nouvel
 //  utilisateur s'inscrit via un lien d'invitation ?ref=<uid>.
 //  Envoie aussi une notification (in-app + push FCM) au parrain.
