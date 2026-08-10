@@ -549,7 +549,7 @@ body{font-family:'Exo 2',sans-serif;background:var(--bg);color:var(--text);
 <div id="login-screen">
   <div class="login-card">
     <div class="login-logo" id="login-logo-ico"><span>N</span></div>
-    <div class="login-title" id="login-logo-name">NexShop</div>
+    <div class="login-title" id="login-logo-name">LootR</div>
     <div class="login-sub">Espace Administration — Connexion requise</div>
     <div class="login-field">
       <input type="email" id="login-email" placeholder="Adresse email" autocomplete="email" autocapitalize="none"/>
@@ -646,7 +646,7 @@ body{font-family:'Exo 2',sans-serif;background:var(--bg);color:var(--text);
   </button>
   <div class="logo-box">
     <div class="logo-ico" id="topbar-logo-ico"><span>N</span></div>
-    <span class="logo-name" id="topbar-logo-name">NexShop</span>
+    <span class="logo-name" id="topbar-logo-name">LootR</span>
     <span class="logo-sub">/ Admin</span>
   </div>
   <div class="top-actions">
@@ -890,15 +890,15 @@ body{font-family:'Exo 2',sans-serif;background:var(--bg);color:var(--text);
   <div class="logo-preview">
     <small>Aperçu live</small>
     <div class="logo-big" id="logo-big"><span>N</span></div>
-    <div class="logo-shopname" id="logo-shopname">NexShop</div>
+    <div class="logo-shopname" id="logo-shopname">LootR</div>
   </div>
   <div class="panel">
     <div class="panel-top"><span class="panel-title">⚙️ Paramètres boutique</span></div>
     <div style="padding:16px">
       <div class="form-grp">
         <label>Nom de la boutique</label>
-        <input class="inp" id="cfg-name" placeholder="Ex: NexShop"
-          oninput="document.getElementById('logo-shopname').textContent=this.value||'NexShop';document.getElementById('topbar-logo-name').textContent=this.value||'NexShop'"/>
+        <input class="inp" id="cfg-name" placeholder="Ex: LootR"
+          oninput="document.getElementById('logo-shopname').textContent=this.value||'LootR';document.getElementById('topbar-logo-name').textContent=this.value||'LootR'"/>
       </div>
       <div class="form-grp">
         <label>Logo de l'application</label>
@@ -2842,7 +2842,7 @@ async function saveConfig(){
   const feeType=document.getElementById('cfg-fee-type')?document.getElementById('cfg-fee-type').value:'none';
   const feeVal=parseFloat(document.getElementById('cfg-fee-value')?document.getElementById('cfg-fee-value').value:'')||0;
   const data={
-    shopName:document.getElementById('cfg-name').value.trim()||'NexShop',
+    shopName:document.getElementById('cfg-name').value.trim()||'LootR',
     logoUrl:document.getElementById('cfg-logo').value.trim()||'',
     bannerTitle:document.getElementById('cfg-bt').value.trim()||'',
     bannerSub:document.getElementById('cfg-bs').value.trim()||'',
