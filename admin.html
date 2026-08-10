@@ -1045,11 +1045,11 @@ body{font-family:'Exo 2',sans-serif;background:var(--bg);color:var(--text);
     <div class="osumm"><div class="osumm-n n-green" id="ac-approved">0</div><div class="osumm-l">Validés</div></div>
     <div class="osumm"><div class="osumm-n" style="color:var(--red)" id="ac-rejected">0</div><div class="osumm-l">Refusés</div></div>
   </div>
-  <!-- ══ PUBLIER UN COMPTE OFFICIEL ASG (vendeur = la boutique) ══ -->
+  <!-- ══ PUBLIER UN COMPTE OFFICIEL LootR (vendeur = la boutique) ══ -->
   <div class="panel" style="margin-bottom:14px">
-    <div class="panel-top"><span class="panel-title">🏪 Publier un compte ASG officiel</span></div>
+    <div class="panel-top"><span class="panel-title">🏪 Publier un compte LootR officiel</span></div>
     <div style="padding:16px">
-      <div class="upload-tip" style="margin-bottom:14px">💡 Les annonces publiées ici sont <b>validées automatiquement</b> et affichées tout de suite dans la Marketplace avec le badge « ASG Officiel ».</div>
+      <div class="upload-tip" style="margin-bottom:14px">💡 Les annonces publiées ici sont <b>validées automatiquement</b> et affichées tout de suite dans la Marketplace avec le badge « LootR Officiel ».</div>
       <div class="f-row">
         <div class="form-grp"><label>Jeu *</label><select class="inp" id="ao-game"></select></div>
         <div class="form-grp"><label>Prix (€) *</label><input class="inp" type="number" id="ao-price" step="0.01" min="0" placeholder="25.00"/></div>
@@ -2083,7 +2083,7 @@ async function applyWalletAdjust(sign){
     document.getElementById('wadj-balance').textContent=(cur+delta).toFixed(2)+' €';
     document.getElementById('wadj-amount').value='';document.getElementById('wadj-note').value='';
     notifyUser(id,{icon:'💰',title:sign>0?'Portefeuille crédité':'Portefeuille ajusté',
-      body:(sign>0?'Vous avez reçu '+amt.toFixed(2)+' € sur votre portefeuille ASG.':amt.toFixed(2)+' € ont été retirés de votre portefeuille.')+(note?' ('+note+')':''),
+      body:(sign>0?'Vous avez reçu '+amt.toFixed(2)+' € sur votre portefeuille LootR.':amt.toFixed(2)+' € ont été retirés de votre portefeuille.')+(note?' ('+note+')':''),
       type:'wallet',link:'wallet'});
     toast(sign>0?'✓ Portefeuille crédité':'✓ Portefeuille débité');
     loadWalletHistory(id);renderClients();
@@ -2096,7 +2096,7 @@ async function toggleSeller(id,make){
     const isSeller=(make===true||make==='true');
     await db.collection('users').doc(id).set({role:isSeller?'vendeur':'client'},{merge:true});
     const c=clients.find(x=>x.id===id);if(c)c.role=isSeller?'vendeur':'client';
-    if(isSeller)notifyUser(id,{icon:'🛍️',title:'Vous êtes maintenant vendeur !',body:'Votre compte peut désormais publier des annonces sur la Marketplace ASG Store.',type:'info',link:'marketplace'});
+    if(isSeller)notifyUser(id,{icon:'🛍️',title:'Vous êtes maintenant vendeur !',body:'Votre compte peut désormais publier des annonces sur la Marketplace LootR.',type:'info',link:'marketplace'});
     toast(isSeller?'✓ Ce client est maintenant vendeur':'✓ Statut vendeur retiré');
     closeClientDetail();renderClients();
   }catch(e){toast('❌ '+e.message,true);}
@@ -2967,7 +2967,7 @@ async function testPush(){
   try{
     const r=await fetch('/api/send-push',{
       method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({title:'🔔 ASG Store',body:'Notification de test — tout fonctionne !',url:'/'})
+      body:JSON.stringify({title:'🔔 LootR',body:'Notification de test — tout fonctionne !',url:'/'})
     });
     const d=await r.json().catch(()=>({}));
     if(!r.ok){st.style.color='var(--orange)';st.innerHTML='⚠️ La fonction <b>send-push</b> n\'est pas déployée.<br>Ce n\'est nécessaire QUE pour notifier les clients qui ont <b>fermé complètement l\'app</b>. Les clients qui ont l\'app ouverte ou en arrière-plan reçoivent déjà les annonces sur leur téléphone.';return;}
@@ -3088,10 +3088,10 @@ async function delPromo(id){
 /* ══ COMPTES À VENDRE (MARKETPLACE) ══ */
 let allAccounts=[],accFilter='pending';
 
-/* ══════════ PUBLIER UN COMPTE OFFICIEL ASG (marketplace) ══════════
+/* ══════════ PUBLIER UN COMPTE OFFICIEL LootR (marketplace) ══════════
    L'admin publie ses propres comptes à vendre. Contrairement aux annonces
    clients (status:'pending'), elles sont publiées en 'approved' → visibles
-   immédiatement, avec le drapeau isOfficial pour le badge « ASG Officiel ». */
+   immédiatement, avec le drapeau isOfficial pour le badge « LootR Officiel ». */
 
 /* ══════════ CLÉ IMGBB PARTAGÉE (logo, produits points, comptes, support) ══════════
    Une seule clé pour toute l'application. Stockée dans config/shop.imgbbKey. */
@@ -3274,9 +3274,9 @@ async function publishOfficialAccount(){
   if(!me){toast('❌ Reconnectez-vous',true);return;}
   var data={
     userId:me,
-    userName:'ASG Store',
+    userName:'LootR',
     userEmail:'',
-    isOfficial:true,                 // → badge « ASG Officiel » côté client
+    isOfficial:true,                 // → badge « LootR Officiel » côté client
     game:v('ao-game')||'autre',
     title:title,
     price:price,
@@ -3516,7 +3516,7 @@ async function sendReply(){
     await c.set({lastMsg:text,updatedAt:firebase.firestore.FieldValue.serverTimestamp(),
       unreadUser:firebase.firestore.FieldValue.increment(1),unreadAdmin:0},{merge:true});
     // 🔔 Notification ciblée + message dans la liste de notifications du client
-    notifyUser(curConvUid,{icon:'💬',title:'Message du support ASG',body:text,type:'message',link:'message'});
+    notifyUser(curConvUid,{icon:'💬',title:'Message du support LootR',body:text,type:'message',link:'message'});
   }catch(e){toast('❌ '+e.message,true);inp.value=text;}
 }
 // Envoie une notification push : userId fourni = ciblé ; sinon = diffusion à tous
@@ -3535,7 +3535,7 @@ function notifyUser(uid,n){
   if(!uid||!n)return;
   var doc={
     icon:n.icon||'🔔',
-    title:n.title||'ASG Store',
+    title:n.title||'LootR',
     body:n.body||'',
     type:n.type||'info',
     link:n.link||n.type||'detail',
@@ -3546,7 +3546,7 @@ function notifyUser(uid,n){
   };
   try{ db.collection('users').doc(uid).collection('notifications').add(doc).catch(function(){}); }catch(e){}
   // push système (app fermée / arrière-plan)
-  pushNotif((n.icon?n.icon+' ':'')+(n.title||'ASG Store'),n.body||'',uid);
+  pushNotif((n.icon?n.icon+' ':'')+(n.title||'LootR'),n.body||'',uid);
 }
 // Admin envoie une photo / vidéo / fichier au client
 async function sendReplyMedia(e){
@@ -3562,7 +3562,7 @@ async function sendReplyMedia(e){
     await c.collection('messages').add({from:'admin',text:'',media,createdAt:firebase.firestore.FieldValue.serverTimestamp()});
     await c.set({lastMsg:label,updatedAt:firebase.firestore.FieldValue.serverTimestamp(),
       unreadUser:firebase.firestore.FieldValue.increment(1),unreadAdmin:0},{merge:true});
-    notifyUser(curConvUid,{icon:'💬',title:'Message du support ASG',body:label,type:'message',link:'message'});
+    notifyUser(curConvUid,{icon:'💬',title:'Message du support LootR',body:label,type:'message',link:'message'});
     toast('✅ Envoyé');
   }catch(err){toast('❌ Envoi impossible',true);}
 }
@@ -3599,7 +3599,7 @@ async function uploadAdminVoice(blob){
     const media={type:'audio',url,name:'Message vocal'};
     await c.collection('messages').add({from:'admin',text:'',media,createdAt:firebase.firestore.FieldValue.serverTimestamp()});
     await c.set({lastMsg:'🎤 Message vocal',updatedAt:firebase.firestore.FieldValue.serverTimestamp(),unreadUser:firebase.firestore.FieldValue.increment(1),unreadAdmin:0},{merge:true});
-    notifyUser(curConvUid,{icon:'💬',title:'Message du support ASG',body:'🎤 Message vocal',type:'message',link:'message'});
+    notifyUser(curConvUid,{icon:'💬',title:'Message du support LootR',body:'🎤 Message vocal',type:'message',link:'message'});
     toast('✅ Vocal envoyé');
   }catch(e){toast('❌ Envoi impossible',true);}
 }
@@ -4547,7 +4547,7 @@ async function publishScreenAd(){
       }catch(e){}
     }
     await db.collection('screenAds').add({title:title,body:body,image:image,targetType:target,targetId:accId||'',seconds:secs,active:true,createdAt:firebase.firestore.FieldValue.serverTimestamp()});
-    if(document.getElementById('sad-notif').checked)pushNotif('📢 '+title,body||'Nouvelle publicité sur ASG Store');
+    if(document.getElementById('sad-notif').checked)pushNotif('📢 '+title,body||'Nouvelle publicité sur LootR');
     ['sad-title','sad-body','sad-secs','sad-accid'].forEach(function(id){document.getElementById(id).value='';});
     document.getElementById('sad-img').value='';
     toast('✓ Publicité publiée !');
@@ -4892,7 +4892,7 @@ async function bumpPlatformVersion(){
     toast('✓ Version '+label+' publiée');loadVersionInfo();
     // 🔔 Notification système « mise à jour disponible » à tous les clients
     fetch('/api/send-push',{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({title:'🚀 Mise à jour '+label+' disponible',body:(notes||'Une nouvelle version d\'ASG Store est disponible.')+' Ouvrez l\'app pour mettre à jour.'})}).catch(()=>{});
+      body:JSON.stringify({title:'🚀 Mise à jour '+label+' disponible',body:(notes||'Une nouvelle version d\'LootR est disponible.')+' Ouvrez l\'app pour mettre à jour.'})}).catch(()=>{});
   }catch(e){toast('❌ '+e.message,true);}
 }
 
