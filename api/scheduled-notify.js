@@ -1,5 +1,5 @@
 // ════════════════════════════════════════════════════════════════
-//  ASG Store — /api/scheduled-notify   (CRON Vercel)
+//  LootR — /api/scheduled-notify   (CRON Vercel)
 //
 //  C'est LA pièce qui manquait : l'admin programme une notification
 //  (collection Firestore « scheduledNotifs »), mais PERSONNE ne venait
