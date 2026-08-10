@@ -1,5 +1,5 @@
 // ════════════════════════════════════════════════════════════════
-//  ASG Store — /api/reset-password  (Fonction serverless Vercel, Node.js)
+//  LootR — /api/reset-password  (Fonction serverless Vercel, Node.js)
 //
 //  Réinitialisation du mot de passe client avec un CODE À 4 CHIFFRES
 //  envoyé par e-mail.
