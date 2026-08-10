@@ -548,7 +548,7 @@ body{font-family:'Exo 2',sans-serif;background:var(--bg);color:var(--text);
 <!-- ══ LOGIN SCREEN ══ -->
 <div id="login-screen">
   <div class="login-card">
-    <div class="login-logo" id="login-logo-ico"><span>N</span></div>
+    <div class="login-logo" id="login-logo-ico"><span>◈</span></div>
     <div class="login-title" id="login-logo-name">LootR</div>
     <div class="login-sub">Espace Administration — Connexion requise</div>
     <div class="login-field">
@@ -645,7 +645,7 @@ body{font-family:'Exo 2',sans-serif;background:var(--bg);color:var(--text);
     <span class="bar"></span>
   </button>
   <div class="logo-box">
-    <div class="logo-ico" id="topbar-logo-ico"><span>N</span></div>
+    <div class="logo-ico" id="topbar-logo-ico"><span>◈</span></div>
     <span class="logo-name" id="topbar-logo-name">LootR</span>
     <span class="logo-sub">/ Admin</span>
   </div>
@@ -889,7 +889,7 @@ body{font-family:'Exo 2',sans-serif;background:var(--bg);color:var(--text);
   </div>
   <div class="logo-preview">
     <small>Aperçu live</small>
-    <div class="logo-big" id="logo-big"><span>N</span></div>
+    <div class="logo-big" id="logo-big"><span>◈</span></div>
     <div class="logo-shopname" id="logo-shopname">LootR</div>
   </div>
   <div class="panel">
@@ -1753,6 +1753,8 @@ body{font-family:'Exo 2',sans-serif;background:var(--bg);color:var(--text);
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-storage-compat.js"></script>
 <script>
+function brandName(n){return (!n||['ASG Store','ASG','NexShop',''].indexOf(String(n).trim())>=0)?'LootR':n;}
+
 firebase.initializeApp({apiKey:"AIzaSyDsWdTbAm4q1FC5opeKXFFd_PaqlnbdMHw",authDomain:"shop-7ddd7.firebaseapp.com",projectId:"shop-7ddd7",storageBucket:"shop-7ddd7.firebasestorage.app",messagingSenderId:"744435807868",appId:"1:744435807868:web:44c7b0b27e15cb00f43bf9"});
 const db=firebase.firestore();
 const auth=firebase.auth();
@@ -1789,10 +1791,10 @@ async function loadConfigForLogin(){
     const doc=await db.collection('config').doc('shop').get();
     if(doc.exists){
       const d=doc.data();
-      if(d.shopName)document.getElementById('login-logo-name').textContent=d.shopName;
+      document.getElementById('login-logo-name').textContent=brandName(d.shopName);
       if(d.logoUrl){
         const li=document.getElementById('login-logo-ico');
-        li.innerHTML=`<img src="${d.logoUrl}" onerror="this.parentElement.innerHTML='<span>N</span>'">`;
+        li.innerHTML=`<img src="${d.logoUrl}" onerror="this.parentElement.innerHTML='<span>◈</span>'">`;
       }
     }
   }catch(e){}
@@ -2811,10 +2813,11 @@ async function loadConfig(){
     const doc=await db.collection('config').doc('shop').get();
     if(!doc.exists)return;
     const d=doc.data();
-    if(d.shopName){
-      document.getElementById('cfg-name').value=d.shopName;
-      document.getElementById('logo-shopname').textContent=d.shopName;
-      document.getElementById('topbar-logo-name').textContent=d.shopName;
+    {
+      var _bn=brandName(d.shopName);
+      document.getElementById('cfg-name').value=_bn;
+      document.getElementById('logo-shopname').textContent=_bn;
+      document.getElementById('topbar-logo-name').textContent=_bn;
     }
     if(d.logoUrl){document.getElementById('cfg-logo').value=d.logoUrl;previewLogo();}
     if(d.bannerTitle){document.getElementById('cfg-bt').value=d.bannerTitle;document.getElementById('bp-t').textContent=d.bannerTitle;}
@@ -2830,7 +2833,7 @@ function previewLogo(){
   const url=document.getElementById('cfg-logo').value.trim();
   const big=document.getElementById('logo-big');
   const pic=document.getElementById('logo-prev-img');
-  const name=(document.getElementById('cfg-name').value||'N')[0].toUpperCase();
+  const name=(document.getElementById('cfg-name').value||'◈')[0];
   if(url){
     big.innerHTML=`<img src="${url}" onerror="this.parentElement.innerHTML='<span>${name}</span>'">`;
     pic.innerHTML=`<img src="${url}" onerror="this.parentElement.innerHTML='❌'">`;
