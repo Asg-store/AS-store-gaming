@@ -1,7 +1,7 @@
 /* ════════════════════════════════════════════════════════════════
-   ASG Store — Service Worker des notifications push (FCM)
+   LootR — Service Worker des notifications push (FCM)
    Ce fichier DOIT être à la racine du site (même niveau que index.html),
-   accessible à l'adresse : https://as-store-gaming.vercel.app/firebase-messaging-sw.js
+   accessible à l'adresse : https://lootr.cc/firebase-messaging-sw.js
    C'est lui qui affiche la notification dans la barre du téléphone
    QUAND L'APP EST FERMÉE ou en arrière-plan (comme WhatsApp / Telegram / TikTok).
    ════════════════════════════════════════════════════════════════ */
@@ -26,7 +26,7 @@ messaging.onBackgroundMessage(function(payload){
   // On accepte les deux formats : message "data" (envoyé par send-push) ET "notification"
   var data = (payload && payload.data) || {};
   var n    = (payload && payload.notification) || {};
-  var title = data.title || n.title || '📢 ASG Store';
+  var title = data.title || n.title || '📢 LootR;
   var body  = data.body  || n.body  || 'Vous avez une nouvelle notification';
   var image = data.image || n.image || undefined;
 
