@@ -59,7 +59,7 @@ module.exports = async (req, res) => {
     // ── Message "data" (construit côté service worker → fiable en arrière-plan) ──
     const base = {
       data: {
-        title: String(title || 'ASG Store'),
+        title: String(title || 'LootR'),
         body: String(body || ''),
         url: String(url || '/'),
         icon: '/notif-logo.png'
