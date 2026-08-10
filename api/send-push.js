@@ -1,5 +1,5 @@
 // ════════════════════════════════════════════════════════════════
-//  ASG Store — /api/send-push  (Fonction serverless Vercel, Node.js)
+//  LootR — /api/send-push  (Fonction serverless Vercel, Node.js)
 //  Envoie une VRAIE notification push FCM aux appareils d'un client,
 //  même quand l'application est complètement fermée.
 //
