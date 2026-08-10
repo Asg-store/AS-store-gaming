@@ -2795,10 +2795,11 @@ function renderMissions(){
     ];
   }
   var claimed=(userData&&userData.claimedMissions)||[];
+  var lc=_lcGet();
   el.innerHTML=list.map(function(m,i){
     var prog=missionProgress(m);var goal=+m.goal||1;
     var done=prog>=goal;var pct=Math.min(100,Math.round(prog/goal*100));
-    var got=claimed.indexOf(m.id)>=0;
+    var got=claimed.indexOf(m.id)>=0||lc.indexOf(m.id)>=0;
     var unit=m.type==='spend'?'':'';
     var progTxt=m.type==='spend'?(fmtMoney(prog)+' / '+fmtMoney(goal)):(prog+'/'+goal);
     return '<div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--border)">'
@@ -2848,13 +2849,18 @@ function goMission(i){
   }
 }
 var _claimingMissions={};   // verrou anti double-clic par mission
+// 🔒 Verrou LOCAL (par appareil/compte) des missions déjà réclamées — filet de sécurité
+//    en plus de la transaction serveur : le bouton « Réclamer » ne peut pas revenir.
+function _lcKey(){return 'lootr-claimed:'+((currentUser&&currentUser.uid)||'anon');}
+function _lcGet(){try{var v=JSON.parse(localStorage.getItem(_lcKey())||'[]');return Array.isArray(v)?v:[];}catch(e){return [];}}
+function _lcAdd(id){try{var a=_lcGet();if(a.indexOf(id)<0){a.push(id);localStorage.setItem(_lcKey(),JSON.stringify(a));}}catch(e){}}
+function _isClaimed(id){var s=(userData&&userData.claimedMissions)||[];return s.indexOf(id)>=0||_lcGet().indexOf(id)>=0;}
 async function claimMission(i){
   var m=(window.__missList||[])[i];if(!m||!currentUser)return;
   if(_claimingMissions[m.id])return;                 // clic déjà en cours → on ignore
   var prog=missionProgress(m),goal=+m.goal||1;
   if(prog<goal){showToast('Mission non terminée');return;}
-  var claimed=(userData&&userData.claimedMissions)||[];
-  if(claimed.indexOf(m.id)>=0){showToast('✓ Déjà réclamé');return;}  // 1 seule fois
+  if(_isClaimed(m.id)){showToast('✓ Déjà réclamé');renderMissions();return;}  // 1 seule fois (serveur OU local)
   _claimingMissions[m.id]=true;
   // Marque tout de suite comme réclamé en local et rafraîchit l'affichage
   // (le bouton « Réclamer » devient « ✓ Reçu » immédiatement)
@@ -2876,14 +2882,17 @@ async function claimMission(i){
         claimedMissions:srv.concat([m.id])
       },{merge:true});
     });
+    _lcAdd(m.id);   // ✅ confirmé → verrou local permanent (le bouton ne reviendra plus)
     showToast('🎉 Mission accomplie ! +'+(+m.reward||0)+' points');
   }catch(e){
     if(e&&e.message==='__ALREADY__'){
+      _lcAdd(m.id);   // déjà pris côté serveur → on verrouille aussi en local
       showToast('✓ Mission déjà réclamée');
       delete _claimingMissions[m.id];
-      return;   // on GARDE le marquage local : le bouton reste « ✓ Reçu »
+      renderMissions();
+      return;   // on GARDE le marquage : le bouton reste « ✓ Reçu »
     }
-    // Échec : on annule le marquage local pour permettre un nouvel essai
+    // Échec réel (réseau, etc.) : on annule le marquage local pour permettre un nouvel essai
     userData.claimedMissions=(userData.claimedMissions||[]).filter(function(x){return x!==m.id;});
     renderMissions();
     showToast('❌ '+e.message);
