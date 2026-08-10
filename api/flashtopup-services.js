@@ -1,5 +1,5 @@
 // ════════════════════════════════════════════════════════════════
-//  ASG Store — /api/flashtopup-services  (OUTIL de diagnostic)
+//  LootR — /api/flashtopup-services  (OUTIL de diagnostic)
 //  Liste les vrais `service_code` de ton catalogue FlashTopup, pour
 //  remplir correctement le champ "Code service FlashTopup" des produits.
 //
