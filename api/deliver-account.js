@@ -1,5 +1,5 @@
 // ════════════════════════════════════════════════════════════════
-//  ASG Store — /api/deliver-account
+//  LootR — /api/deliver-account
 //
 //  Le client NE PEUT PAS lire accounts/{id}/private/credentials
 //  (règles Firestore) → d'où « Missing or insufficient permissions ».
