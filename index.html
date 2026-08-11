@@ -1767,6 +1767,7 @@ body.ios .pnotif .pn-ic{border-radius:11px}
           <div class="rc-method" data-m="applepay" onclick="selectRcMethod('applepay')"><span class="rc-ic" style="font-weight:600;font-size:16px;color:#000"> Pay</span><div class="rc-tx"><div class="rc-n">Apple Pay</div><div class="rc-d">Pay with Apple Pay</div></div><span class="rc-chk"></span></div>
           <div class="rc-method" data-m="fedapay" onclick="selectRcMethod('fedapay')"><span class="rc-ic" style="font-size:21px">📱</span><div class="rc-tx"><div class="rc-n">Mobile Money (FedaPay)</div><div class="rc-d">MTN · Moov · Wave CI — crédité automatiquement</div></div><span class="rc-chk"></span></div>
           <div class="rc-method" data-m="cinetpay" onclick="selectRcMethod('cinetpay')"><span class="rc-ic" style="font-weight:800;font-size:11px;color:#e84e0f">Cinet<span style="color:#2b2b2b">Pay</span></span><div class="rc-tx"><div class="rc-n">Orange Money Mali (CinetPay)</div><div class="rc-d">Orange · Moov Mali — crédité automatiquement</div></div><span class="rc-chk"></span></div>
+          <div class="rc-method" data-m="paytech" style="display:none" onclick="selectRcMethod('paytech')"><span class="rc-ic" style="font-weight:800;font-size:12px;color:#0a7d3b">Pay<span style="color:#111">Tech</span></span><div class="rc-tx"><div class="rc-n">PayTech (Orange Money · Wave · Free)</div><div class="rc-d">Mobile Money & carte — crédité automatiquement</div></div><span class="rc-chk"></span></div>
           <div class="rc-method" data-m="orange" onclick="selectRcMethod('orange')"><span class="rc-ic" style="font-size:21px"><i style="width:22px;height:22px;border-radius:50%;background:linear-gradient(135deg,#ff7900,#ff4e00);display:inline-block"></i></span><div class="rc-tx"><div class="rc-n">Orange Money</div><div class="rc-d">Envoyez au <b>+223 82 13 14 18</b> puis validez — <span style="color:var(--accent);text-decoration:underline" onclick="event.stopPropagation();copyOMNumber()">copier le numéro</span></div></div><span class="rc-chk"></span></div>
         </div>
         <button class="btn-auth-submit" id="recharge-next-btn" style="margin-top:16px" onclick="rechargeNext()">Continuer →</button>
@@ -3537,6 +3538,7 @@ function refreshPayMethodsVisibility(){
     var m=el.dataset.m;
     var hidden=(pm[m]===false)
       ||(m==='paypal'&&!PAYPAL_CLIENT_ID)
+      ||(m==='paytech'&&pm.paytech!==true)
       ||(m==='cinetpay'&&(!CINETPAY_SITE_ID||!CINETPAY_API_KEY));
     el.style.display=hidden?'none':'flex';
   });
@@ -3548,6 +3550,7 @@ function openRecharge(){
   document.querySelectorAll('#recharge-overlay .rc-method').forEach(function(el){
     var m=el.dataset.m;
     if(pm[m]===false)el.style.display='none';
+    else if(m==='paytech')el.style.display=(pm.paytech===true)?'flex':'none';
     else if(!(m==='paypal'&&!PAYPAL_CLIENT_ID)&&!(m==='cinetpay'&&(!CINETPAY_SITE_ID||!CINETPAY_API_KEY)))el.style.display='flex';
   });
   if(!currentUser){openAuthModal();return;}
@@ -3823,9 +3826,35 @@ function rechargeNext(){
   if(_rcMethod==='fedapay'){startRechargeFedaPay(amt);return;}
   if(_rcMethod==='paypal'){startRechargePayPal(amt);return;}
   if(_rcMethod==='cinetpay'){startRechargeCinetPay(amt);return;}
+  if(_rcMethod==='paytech'){startRechargePayTech(amt);return;}
   if(_rcMethod==='adyen'||_rcMethod==='gpay'||_rcMethod==='applepay'){startRechargeAdyen(amt);return;}
   if(_rcMethod==='orange'){startRechargeOrange(amt);return;}
   submitRechargeRequest(amt,_rcMethod);
+}
+/* ─── PayTech.sn : recharge par redirection (Orange Money, Wave, Free, carte…) ─── */
+async function startRechargePayTech(amtEuro){
+  if(!currentUser){openAuthModal();return;}
+  const btn=document.getElementById('recharge-next-btn');
+  if(btn){btn.disabled=true;btn.textContent='⏳ Redirection vers PayTech…';}
+  try{
+    const token=await currentUser.getIdToken();
+    const r=await fetch('/api/paytech-request',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},
+      body:JSON.stringify({amountEur:amtEuro,purpose:'wallet'})
+    });
+    const d=await r.json().catch(function(){return {};});
+    if(d&&d.redirect_url){
+      // Redirection vers la page de paiement PayTech. Le portefeuille sera crédité via l'IPN.
+      window.location.href=d.redirect_url;
+      return;
+    }
+    rechargeErr((d&&d.error)||'PayTech indisponible pour le moment.');
+    if(btn){btn.disabled=false;btn.textContent='Continuer →';}
+  }catch(e){
+    rechargeErr('❌ '+(e.message||'Erreur réseau'));
+    if(btn){btn.disabled=false;btn.textContent='Continuer →';}
+  }
 }
 /* ─── Orange Money manuel : montant FCFA + numéro + n° transaction + preuve ─── */
 function startRechargeOrange(amt){
@@ -6592,6 +6621,20 @@ async function spinWheel(){
     var p=new URLSearchParams(location.search);
     var r=p.get('ref');
     if(r&&r.length>5)localStorage.setItem('asg-ref',r);
+    // 💳 Retour de paiement PayTech : message de confirmation (le crédit se fait via l'IPN serveur)
+    var pt=p.get('paytech');
+    if(!pt){
+      if(location.pathname.indexOf('/payment/success')>=0)pt='success';
+      else if(location.pathname.indexOf('/payment/cancel')>=0)pt='cancel';
+    }
+    if(pt){
+      setTimeout(function(){
+        if(pt==='success'){ if(typeof showToast==='function')showToast('✅ Paiement PayTech reçu ! Votre portefeuille sera crédité dans un instant.'); }
+        else if(pt==='cancel'){ if(typeof showToast==='function')showToast('Paiement PayTech annulé.'); }
+      },1200);
+      // Nettoie l'URL (revient à l'accueil)
+      try{history.replaceState(null,'','/');}catch(e){}
+    }
   }catch(e){}
 })();
 /* 🎁 Objectif et récompense de parrainage — réglables par l'admin
