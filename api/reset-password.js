@@ -12,12 +12,12 @@
 //  ⚙️ Variables d'environnement REQUISES sur Vercel :
 //    FIREBASE_SERVICE_ACCOUNT = contenu JSON complet de la clé de compte
 //                               de service Firebase
-//    GMAIL_USER               = ton adresse Gmail (ex : asgstore82@gmail.com)
+//    GMAIL_USER               = ton adresse Gmail (ex : abgstored@gmail.com)
 //    GMAIL_APP_PASSWORD       = "mot de passe d'application" Google (16 caractères)
 //                               → Google → Sécurité → Validation en 2 étapes →
 //                                 Mots de passe des applications
-//    MAIL_FROM (optionnel)    = expéditeur affiché, ex : "ASG Store <asgstore82@gmail.com>"
-//                               (par défaut : "ASG Store <GMAIL_USER>")
+//    MAIL_FROM (optionnel)    = expéditeur affiché, ex : "LootR <abgstored@gmail.com>"
+//                               (par défaut : "LootR <GMAIL_USER>")
 // ════════════════════════════════════════════════════════════════
 const admin  = require('firebase-admin');
 const crypto = require('crypto');
@@ -56,7 +56,7 @@ function emailHtml(code, name) {
     <tr><td align="center">
       <table width="100%" cellpadding="0" cellspacing="0" style="max-width:460px;background:#0b1224;border:1px solid #1e2d4a;border-radius:20px;overflow:hidden">
         <tr><td style="padding:24px 26px 8px;text-align:center">
-          <div style="font-size:22px;font-weight:800;color:#ffc83d;font-family:Arial,Helvetica,sans-serif">ASG STORE</div>
+          <div style="font-size:22px;font-weight:800;color:#ffc83d;font-family:Arial,Helvetica,sans-serif">LOOTR</div>
           <div style="font-size:12px;color:#8ea0c0;font-family:Arial,Helvetica,sans-serif;margin-top:4px">Boutique gaming</div>
         </td></tr>
         <tr><td style="padding:14px 26px 0;text-align:center">
@@ -77,7 +77,7 @@ function emailHtml(code, name) {
           </p>
         </td></tr>
       </table>
-      <div style="font-size:11px;color:#5c6c8a;margin-top:14px;font-family:Arial,Helvetica,sans-serif">© ASG Store · Mali</div>
+      <div style="font-size:11px;color:#5c6c8a;margin-top:14px;font-family:Arial,Helvetica,sans-serif">© LootR · Mali</div>
     </td></tr>
   </table></body></html>`;
 }
@@ -100,12 +100,12 @@ function getMailer() {
 
 async function sendMail(to, code, name) {
   const user = process.env.GMAIL_USER;
-  const from = process.env.MAIL_FROM || ('ASG Store <' + user + '>');
+  const from = process.env.MAIL_FROM || ('LootR <' + user + '>');
   try {
     await getMailer().sendMail({
       from,
       to,
-      subject: `${code} — votre code de vérification ASG Store`,
+      subject: `${code} — votre code de vérification LootR`,
       html: emailHtml(code, name)
     });
   } catch (e) {
@@ -203,4 +203,3 @@ module.exports = async (req, res) => {
     return res.status(500).json({ error: e.message || 'Erreur serveur.' });
   }
 };
-
