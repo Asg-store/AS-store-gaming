@@ -4,6 +4,9 @@
       "path": "/api/scheduled-notify",
       "schedule": "0 8 * * *"
     }
+  ],
+  "rewrites": [
+    { "source": "/payment/success", "destination": "/index.html" },
+    { "source": "/payment/cancel", "destination": "/index.html" }
   ]
 }
-
