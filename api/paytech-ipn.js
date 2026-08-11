@@ -52,38 +52,58 @@ module.exports = async (req, res) => {
     const FieldValue = admin.firestore.FieldValue;
     const payRef = db.collection('paytechPayments').doc(refCommand);
 
-    // 3) Crédit atomique + anti-doublon
-    let credited = 0, target = '';
+    // 3) Traitement atomique + anti-doublon
+    let credited = 0, target = '', kind = '', paidOrderId = '';
     await db.runTransaction(async (tx) => {
       const snap = await tx.get(payRef);
       const d = snap.exists ? (snap.data() || {}) : {};
-      if (d.status === 'credited') return;               // déjà traité → on ne recrédite pas
+      if (d.status === 'credited' || d.status === 'paid') return;   // déjà traité
 
-      // Récupère uid/montant depuis notre enregistrement, sinon depuis custom_field
-      let uid = d.uid, amountEur = +d.amountEur || 0;
+      // uid / montant / but / commande (depuis notre enregistrement, sinon custom_field)
+      let uid = d.uid, amountEur = +d.amountEur || 0, purpose = d.purpose || 'wallet', orderId = d.orderId || '';
       if (!uid || !amountEur) {
-        try { const cf = JSON.parse(b.custom_field || '{}'); uid = uid || cf.uid; amountEur = amountEur || (+cf.amountEur || 0); } catch (e) {}
+        try { const cf = JSON.parse(b.custom_field || '{}'); uid = uid || cf.uid; amountEur = amountEur || (+cf.amountEur || 0); purpose = purpose || cf.purpose; orderId = orderId || cf.orderId; } catch (e) {}
       }
-      if (!uid || amountEur <= 0) throw new Error('Données de paiement incomplètes');
+      if (!uid) throw new Error('Données de paiement incomplètes');
 
-      tx.set(db.collection('users').doc(uid), { walletBalance: FieldValue.increment(amountEur) }, { merge: true });
-      tx.set(db.collection('users').doc(uid).collection('walletHistory').doc(), {
-        amount: amountEur, type: 'credit', note: 'Recharge PayTech', method: 'PayTech',
-        ref: refCommand, createdAt: FieldValue.serverTimestamp()
-      });
-      tx.set(payRef, { status: 'credited', paymentMethod: b.payment_method || '', clientPhone: b.client_phone || '', creditedAt: FieldValue.serverTimestamp() }, { merge: true });
-      credited = amountEur; target = uid;
+      if (purpose === 'order' && orderId) {
+        // 💳 Paiement d'une COMMANDE → on la passe en "payée" (la livraison auto se fait ensuite)
+        tx.set(db.collection('orders').doc(orderId), {
+          status: 'paid', paymentMethod: 'PayTech', paymentRef: refCommand, paidAt: FieldValue.serverTimestamp()
+        }, { merge: true });
+        tx.set(payRef, { status: 'paid', paymentMethod: b.payment_method || '', creditedAt: FieldValue.serverTimestamp() }, { merge: true });
+        kind = 'order'; paidOrderId = orderId; target = uid;
+      } else {
+        // 💰 Recharge du PORTEFEUILLE
+        if (amountEur <= 0) throw new Error('Montant invalide');
+        tx.set(db.collection('users').doc(uid), { walletBalance: FieldValue.increment(amountEur) }, { merge: true });
+        tx.set(db.collection('users').doc(uid).collection('walletHistory').doc(), {
+          amount: amountEur, type: 'credit', note: 'Recharge PayTech', method: 'PayTech',
+          ref: refCommand, createdAt: FieldValue.serverTimestamp()
+        });
+        tx.set(payRef, { status: 'credited', paymentMethod: b.payment_method || '', clientPhone: b.client_phone || '', creditedAt: FieldValue.serverTimestamp() }, { merge: true });
+        kind = 'wallet'; credited = amountEur; target = uid;
+      }
     });
 
-    // 4) Notifie le client (hors transaction)
-    if (credited > 0 && target) {
+    // 4) Après paiement d'une commande : déclenche la livraison automatique (FlashTopup)
+    if (kind === 'order' && paidOrderId) {
       try {
-        await db.collection('users').doc(target).collection('notifications').add({
-          icon: '💰', title: 'Portefeuille rechargé',
-          body: 'Votre recharge de ' + credited.toFixed(2) + ' € (PayTech) a été créditée.',
-          type: 'wallet', link: 'wallet', read: false,
-          createdAt: FieldValue.serverTimestamp()
-        });
+        const base = (process.env.PUBLIC_BASE_URL || 'https://lootr.cc').replace(/\/+$/, '');
+        await fetch(base + '/api/flashtopup-deliver', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ orderId: paidOrderId })
+        }).catch(() => {});
+      } catch (e) {}
+    }
+    // 5) Notifie le client
+    if (target) {
+      try {
+        const note = (kind === 'order')
+          ? { icon: '✅', title: 'Paiement reçu', body: 'Votre commande est payée (PayTech). Livraison en cours.', type: 'order', link: 'orders' }
+          : { icon: '💰', title: 'Portefeuille rechargé', body: 'Votre recharge de ' + credited.toFixed(2) + ' € (PayTech) a été créditée.', type: 'wallet', link: 'wallet' };
+        note.read = false; note.createdAt = FieldValue.serverTimestamp();
+        await db.collection('users').doc(target).collection('notifications').add(note);
       } catch (e) {}
     }
     return res.status(200).json({ ok: true });
@@ -91,4 +111,3 @@ module.exports = async (req, res) => {
     return res.status(500).json({ error: e.message });
   }
 };
-
