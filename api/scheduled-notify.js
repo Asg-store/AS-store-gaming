@@ -60,11 +60,11 @@ module.exports = async (req, res) => {
 
       if (tokens.length) {
         const base = {
-          notification: { title: n.title || 'ASG Store', body: n.body || '' },
+          notification: { title: n.title || 'LootR', body: n.body || '' },
           data: { type: 'scheduled', notifId: doc.id },
           webpush: {
             notification: { icon: '/icon-192.png', badge: '/notif-badge.png' },
-            fcmOptions: { link: 'https://as-store-gaming.vercel.app/' }
+            fcmOptions: { link: 'https://lootr.cc/' }
           }
         };
         for (let i = 0; i < tokens.length; i += 500) {
@@ -102,4 +102,3 @@ module.exports = async (req, res) => {
     return res.status(500).json({ error: e.message || 'Erreur serveur' });
   }
 };
-
