@@ -2603,7 +2603,7 @@ async function loadConfig(){
         const el=document.getElementById('logo-img');el.innerHTML=`<img src="${d.logoUrl}" onerror="this.parentElement.innerHTML='◈'">` ;
         applyAppIcon(d.logoUrl); // 🖼️ le logo de l'admin devient aussi l'icône de l'application
       }
-      var _bn=(!d.shopName||['ASG Store','ASG','NexShop'].indexOf(String(d.shopName).trim())>=0)?'LootR':d.shopName;
+      var _bn=(!d.shopName||['ASG Store','Abg Store','Abg','ASG','NexShop'].indexOf(String(d.shopName).trim())>=0)?'LootR':d.shopName;
       document.getElementById('logo-text').textContent=_bn;document.title=_bn;
       if(d.bannerTitle)document.getElementById('banner-title').textContent=d.bannerTitle;
       if(d.bannerSub)document.getElementById('banner-sub').textContent=d.bannerSub;
@@ -7535,9 +7535,14 @@ async function sendChat(){
     await db.collection('chats').doc(uid).collection('messages').add({from:'user',text,createdAt:firebase.firestore.FieldValue.serverTimestamp()});
     // 🤖 L'IA répond au client AVANT que l'admin ne le contacte (tant qu'aucun admin n'a répondu)
     if(!_adminJoined){
-      const reply=aiAutoReply(text);
-      setTimeout(async()=>{
-        try{await db.collection('chats').doc(uid).collection('messages').add({from:'bot',text:reply,createdAt:firebase.firestore.FieldValue.serverTimestamp()});}catch(e){}
+      var reply;
+      try{ reply=aiAutoReply(text); }catch(err){ reply=''; }
+      if(!reply)reply="Merci pour votre message ✅ Un administrateur va vous répondre très vite. Vous pouvez me demander : prix, paiement, livraison, ID joueur, VPN, points, portefeuille.";
+      setTimeout(function(){
+        db.collection('chats').doc(uid).collection('messages').add({from:'bot',text:reply,createdAt:firebase.firestore.FieldValue.serverTimestamp()}).catch(function(e){
+          // Nouvel essai unique en cas d'échec réseau, pour ne jamais laisser le client sans réponse
+          setTimeout(function(){db.collection('chats').doc(uid).collection('messages').add({from:'bot',text:reply,createdAt:firebase.firestore.FieldValue.serverTimestamp()}).catch(function(){});},1500);
+        });
       },700);
     }
   }catch(e){showToast('❌ '+e.message);}
