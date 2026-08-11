@@ -55,30 +55,32 @@ module.exports = async (req, res) => {
     // 2) Montant + but
     let p = req.body; if (typeof p === 'string') { try { p = JSON.parse(p); } catch (e) { p = {}; } }
     const amountEur = Math.round(((+p.amountEur || 0)) * 100) / 100;
-    const purpose = (p.purpose || 'wallet').toString();       // 'wallet' pour l'instant
+    const purpose = (p.purpose || 'wallet').toString();       // 'wallet' | 'order'
+    const orderId = (p.orderId || '').toString();
     if (amountEur < 0.5) return res.status(400).json({ error: 'Montant trop faible.' });
+    if (purpose === 'order' && !orderId) return res.status(400).json({ error: 'Commande introuvable.' });
     const xof = Math.max(100, Math.round(amountEur * EUR_XOF)); // PayTech = FCFA (XOF)
 
     // 3) Référence unique + enregistrement "pending" (pour l'IPN)
     const refCommand = 'LOOTR-' + uid.slice(0, 6) + '-' + Date.now();
     const db = admin.firestore();
     await db.collection('paytechPayments').doc(refCommand).set({
-      uid, email, amountEur, xof, purpose, status: 'pending',
+      uid, email, amountEur, xof, purpose, orderId: orderId || null, status: 'pending',
       createdAt: admin.firestore.FieldValue.serverTimestamp()
     });
 
     // 4) Appel PayTech
     const params = {
-      item_name: 'Recharge Portefeuille LootR',
+      item_name: purpose === 'order' ? 'Commande LootR' : 'Recharge Portefeuille LootR',
       item_price: xof,
       currency: 'XOF',
       ref_command: refCommand,
-      command_name: 'Recharge LootR',
+      command_name: purpose === 'order' ? 'Commande LootR' : 'Recharge LootR',
       env: ENV,
       ipn_url: BASE + '/api/paytech-ipn',
       success_url: BASE + '/payment/success',
       cancel_url: BASE + '/payment/cancel',
-      custom_field: JSON.stringify({ uid, amountEur, purpose, ref: refCommand })
+      custom_field: JSON.stringify({ uid, amountEur, purpose, orderId: orderId || '', ref: refCommand })
     };
 
     const r = await fetch('https://paytech.sn/api/payment/request-payment', {
