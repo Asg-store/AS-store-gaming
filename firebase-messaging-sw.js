@@ -26,7 +26,7 @@ messaging.onBackgroundMessage(function(payload){
   // On accepte les deux formats : message "data" (envoyé par send-push) ET "notification"
   var data = (payload && payload.data) || {};
   var n    = (payload && payload.notification) || {};
-  var title = data.title || n.title || '📢 LootR;
+  var title = data.title || n.title || '📢 LootR';
   var body  = data.body  || n.body  || 'Vous avez une nouvelle notification';
   var image = data.image || n.image || undefined;
 
