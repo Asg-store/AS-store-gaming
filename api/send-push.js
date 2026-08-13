@@ -64,7 +64,20 @@ module.exports = async (req, res) => {
         url: String(url || '/'),
         icon: '/notif-logo.png'
       },
-      android: { priority: 'high' }
+      // Priorité HAUTE pour l'app Android native (WebView / FCM natif)
+      android: { priority: 'high' },
+      // ⚠️ INDISPENSABLE POUR LE WEB / PWA : le bloc "android" ci-dessus est
+      // IGNORÉ par le Web Push. Sans l'en-tête Urgency, le navigateur reçoit
+      // la notif en priorité « normale » → le téléphone (mode veille / Doze /
+      // navigateur fermé) la MET EN FILE et ne l'affiche qu'à la réouverture
+      // de l'app. C'était la cause du « reçu seulement quand j'ouvre l'app ».
+      webpush: {
+        headers: {
+          Urgency: 'high',   // livraison immédiate même quand l'appareil dort
+          TTL: '86400'       // garde le message 24 h si l'appareil est hors ligne
+        },
+        fcmOptions: { link: String(url || '/') }
+      }
     };
 
     let success = 0, failure = 0; const stale = [];
