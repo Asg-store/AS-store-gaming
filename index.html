@@ -1760,7 +1760,16 @@ body.ios .pnotif .pn-ic{border-radius:11px}
       <div class="auth-error" id="recharge-error"></div>
       <!-- Étape 1 : montant + méthode -->
       <div id="recharge-step1">
-        <div class="auth-field"><label>Montant à recharger (€)</label><input type="number" step="0.01" min="0" id="recharge-amount" placeholder="Ex : 10" inputmode="decimal"/></div>
+        <div class="auth-field"><label>Montant à recharger (<span id="rc-cur-sym">€</span>)</label>
+          <div style="display:flex;gap:8px">
+            <input type="number" step="0.01" min="0" id="recharge-amount" placeholder="Ex : 10" inputmode="decimal" style="flex:1"/>
+            <select id="recharge-currency" onchange="onRcCurrencyChange()" style="width:96px;border-radius:12px;border:1px solid var(--border);background:var(--bg3);color:var(--text);font-weight:700;padding:0 8px;font-size:13px">
+              <option value="eur">€ EUR</option>
+              <option value="usd">$ USD</option>
+              <option value="xof">XOF</option>
+            </select>
+          </div>
+        </div>
         <div class="rc-quick" id="recharge-quick"></div>
         <label style="display:block;font-size:12px;color:var(--text2);font-weight:700;margin:14px 0 8px">Méthode de paiement</label>
         <div class="rc-methods">
@@ -3570,12 +3579,28 @@ function openRecharge(){
   document.getElementById('adyen-recharge-dropin').innerHTML='';
   document.getElementById('recharge-pay-status').style.display='none';
   // boutons montants rapides
-  const q=document.getElementById('recharge-quick');
-  q.innerHTML=RC_QUICK.map(function(v){return '<button type="button" onclick="document.getElementById(\'recharge-amount\').value='+v+'">'+v+' €</button>';}).join('');
+  // devise de recharge = devise choisie par le client (modifiable dans le modal)
+  var _rcSel=document.getElementById('recharge-currency');if(_rcSel)_rcSel.value=currentCurrency();
+  renderRcQuick();
   // réinitialise la sélection de méthode
   document.querySelectorAll('#recharge-step1 .rc-method').forEach(function(m){m.classList.remove('sel');});
   document.getElementById('recharge-overlay').classList.add('open');
 }
+// Devise choisie dans le modal de recharge (par défaut = devise du client)
+function rcCurrency(){var s=document.getElementById('recharge-currency');return (s&&CURRENCIES[s.value])?s.value:currentCurrency();}
+// Affiche les boutons rapides (5/10/20/50 en base €) dans la devise choisie
+function renderRcQuick(){
+  var c=CURRENCIES[rcCurrency()]||CURRENCIES.eur;
+  var q=document.getElementById('recharge-quick');if(!q)return;
+  var sym=document.getElementById('rc-cur-sym');if(sym)sym.textContent=c.sym;
+  q.innerHTML=RC_QUICK.map(function(v){
+    var disp=c.dec>0?(Math.round(v*c.rate*100)/100):Math.round(v*c.rate);
+    var lbl=(c.pos==='before'?(c.sym+' '+disp):(disp+' '+c.sym));
+    return '<button type="button" onclick="document.getElementById(\'recharge-amount\').value='+disp+'">'+lbl+'</button>';
+  }).join('');
+}
+// Changement de devise dans le modal : maj symbole + boutons, on vide le champ
+function onRcCurrencyChange(){document.getElementById('recharge-amount').value='';renderRcQuick();}
 function closeRecharge(){
   document.getElementById('recharge-overlay').classList.remove('open');
   if(_rcUnsub){_rcUnsub();_rcUnsub=null;}
@@ -3827,7 +3852,11 @@ function copyOMNumber(){try{navigator.clipboard.writeText(OM_NUMBER);showToast('
 function copyText(txt,msg){try{navigator.clipboard.writeText(String(txt));showToast(msg||('✓ Copié : '+txt));}catch(e){showToast(String(txt));}}
 function rechargeNext(){
   rechargeErr('');
-  const amt=parseFloat((document.getElementById('recharge-amount').value||'').replace(',','.'));
+  var raw=parseFloat((document.getElementById('recharge-amount').value||'').replace(',','.'));
+  if(!raw||raw<=0){rechargeErr('Entrez un montant valide.');return;}
+  // Reconversion vers la base € (les paiements en aval travaillent en EUR)
+  var _rate=(CURRENCIES[rcCurrency()]||CURRENCIES.eur).rate||1;
+  const amt=Math.round((raw/_rate)*100)/100;
   if(!amt||amt<=0){rechargeErr('Entrez un montant valide.');return;}
   if(!_rcMethod){rechargeErr('Choisissez une méthode de paiement.');return;}
   if(_rcMethod==='fedapay'){startRechargeFedaPay(amt);return;}

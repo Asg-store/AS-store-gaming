@@ -658,6 +658,11 @@ body{font-family:'Exo 2',sans-serif;background:var(--bg);color:var(--text);
       <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
       Quitter
     </button>
+    <select id="admin-currency" onchange="setAdminCurrency(this.value)" title="Devise d'affichage" style="border-radius:10px;border:1px solid var(--border);background:var(--bg3,#1a1a22);color:var(--text,#eee);font-weight:700;padding:6px 8px;font-size:13px;cursor:pointer">
+      <option value="eur">€ EUR</option>
+      <option value="usd">$ USD</option>
+      <option value="xof">XOF</option>
+    </select>
     <button class="top-btn icon" id="theme-btn">
       <svg id="t-ico" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
     </button>
@@ -1995,7 +2000,7 @@ function openClientDetail(id){
 
   const isGoogle=c.provider==='google';
   const rows=[
-    {l:'💰 Portefeuille',v:`<b style="color:var(--green)">${(+c.walletBalance||0).toFixed(2)} €</b>`},
+    {l:'💰 Portefeuille',v:`<b style="color:var(--green)">${amoney(+c.walletBalance||0)}</b>`},
     {l:'⭐ Points',v:`<b style="color:var(--gold)">${(+c.points||0)} pts</b>`},
     {l:'Rôle',v:c.role==='vendeur'?'🛍️ <b style="color:var(--accent)">Vendeur</b>':'👤 Client'},
     {l:'Méthode',v:isGoogle?'🔵 Google':'✉️ Email / Mot de passe'},
@@ -2064,7 +2069,7 @@ function openWalletAdjust(id){
   closeClientDetail();
   const name=c.name&&c.name.trim()?c.name:(c.email?c.email.split('@')[0]:'Client');
   document.getElementById('wadj-clientname').textContent=name;
-  document.getElementById('wadj-balance').textContent=(+c.walletBalance||0).toFixed(2)+' €';
+  document.getElementById('wadj-balance').textContent=amoney(+c.walletBalance||0);
   document.getElementById('wadj-amount').value='';
   document.getElementById('wadj-note').value='';
   document.getElementById('wadj-msg').textContent='';
@@ -2099,7 +2104,7 @@ async function applyWalletAdjust(sign){
       by:'admin',createdAt:firebase.firestore.FieldValue.serverTimestamp()
     });
     if(c)c.walletBalance=cur+delta;
-    document.getElementById('wadj-balance').textContent=(cur+delta).toFixed(2)+' €';
+    document.getElementById('wadj-balance').textContent=amoney(cur+delta);
     document.getElementById('wadj-amount').value='';document.getElementById('wadj-note').value='';
     notifyUser(id,{icon:'💰',title:sign>0?'Portefeuille crédité':'Portefeuille ajusté',
       body:(sign>0?'Vous avez reçu '+amt.toFixed(2)+' € sur votre portefeuille LootR.':amt.toFixed(2)+' € ont été retirés de votre portefeuille.')+(note?' ('+note+')':''),
@@ -2181,7 +2186,7 @@ async function loadWalletHistory(id){
     el.innerHTML=snap.docs.map(function(d){const h=d.data();const pos=(+h.amount||0)>=0;
       return '<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--border)">'+
         '<span style="font-size:11px;color:var(--text2);flex:1;min-width:0">'+aEsc(h.note||'')+'<br><span style="color:var(--text3)">'+formatDate(h.createdAt)+'</span></span>'+
-        '<b style="font-size:13px;color:'+(pos?'var(--green)':'var(--red)')+'">'+(pos?'+':'')+(+h.amount||0).toFixed(2)+' €</b>'+
+        '<b style="font-size:13px;color:'+(pos?'var(--green)':'var(--red)')+'">'+(pos?'+':'')+amoney(+h.amount||0)+'</b>'+
       '</div>';}).join('');
   }catch(e){el.innerHTML='<span style="font-size:11px;color:var(--red)">'+aEsc(e.message)+'</span>';}
 }
@@ -2229,7 +2234,7 @@ async function loadDashboard(){
     // 💰 REVENUS = commandes payées + en livraison + livrées (PAS en attente / en cours / annulée)
     const paid=orders.filter(o=>o.status==='paid'||o.status==='shipped'||o.status==='delivered');
     const revenue=paid.reduce((s,o)=>s+(o.total||o.amount||0),0);
-    document.getElementById('d-revenue').textContent=revenue.toFixed(2)+' €';
+    document.getElementById('d-revenue').textContent=amoney(revenue);
     document.getElementById('d-orders').textContent=orders.length;
     // 📊 Stats jour / semaine + top produits
     const now=Date.now(),DAY=864e5;
@@ -2247,11 +2252,11 @@ async function loadDashboard(){
         '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px">'
         +'<div style="background:var(--bg3);border:1px solid var(--border);border-radius:14px;padding:14px 12px;text-align:center">'
           +'<div style="font-size:11px;color:var(--text3);margin-bottom:6px">📅 Aujourd\'hui</div>'
-          +'<div style="font-family:Orbitron,monospace;font-weight:800;font-size:19px;color:var(--green);line-height:1.1;white-space:nowrap">'+rev(today).toFixed(2)+' €</div>'
+          +'<div style="font-family:Orbitron,monospace;font-weight:800;font-size:19px;color:var(--green);line-height:1.1;white-space:nowrap">'+amoney(rev(today))+'</div>'
           +'<div style="font-size:11px;color:var(--text3);margin-top:4px">'+today.length+' commande'+(today.length>1?'s':'')+'</div></div>'
         +'<div style="background:var(--bg3);border:1px solid var(--border);border-radius:14px;padding:14px 12px;text-align:center">'
           +'<div style="font-size:11px;color:var(--text3);margin-bottom:6px">🗓️ 7 derniers jours</div>'
-          +'<div style="font-family:Orbitron,monospace;font-weight:800;font-size:19px;color:var(--accent);line-height:1.1;white-space:nowrap">'+rev(week).toFixed(2)+' €</div>'
+          +'<div style="font-family:Orbitron,monospace;font-weight:800;font-size:19px;color:var(--accent);line-height:1.1;white-space:nowrap">'+amoney(rev(week))+'</div>'
           +'<div style="font-size:11px;color:var(--text3);margin-top:4px">'+week.length+' commande'+(week.length>1?'s':'')+'</div></div>'
         +'</div>'
         +'<div style="font-weight:700;font-size:13px;margin-bottom:10px">🏆 Produits les plus vendus</div>'
@@ -2268,7 +2273,7 @@ async function loadDashboard(){
           <div class="act-title">${o.customerName||o.email||'Client'}</div>
           <div class="act-time">${formatDate(o.createdAt)}</div>
         </div>
-        <div class="act-amount">${(o.total||o.amount||0).toFixed(2)} €</div>
+        <div class="act-amount">${amoney(o.total||o.amount||0)}</div>
       </div>`;
     }).join('');
   }catch(e){
@@ -2299,9 +2304,29 @@ async function loadOrders(){
   renderOrderStats();
   renderOrders();
 }
+/* ═══ DEVISE ADMIN : € / $ / XOF (affichage, base = €) ═══ */
+const ADMIN_CURRENCIES={
+  eur:{sym:'€',rate:1,dec:2,pos:'after'},
+  usd:{sym:'$',rate:1.16,dec:2,pos:'before'},
+  xof:{sym:'XOF',rate:655.957,dec:0,pos:'after'}
+};
+function adminCurrency(){return localStorage.getItem('lootr-admin-currency')||'eur';}
+function amoney(n){
+  var c=ADMIN_CURRENCIES[adminCurrency()]||ADMIN_CURRENCIES.eur;
+  var v=(+n||0)*c.rate;
+  var s=c.dec>0?(Math.round(v*100)/100).toFixed(c.dec):String(Math.round(v)).replace(/\B(?=(\d{3})+(?!\d))/g,' ');
+  return c.pos==='before'?(c.sym+' '+s):(s+' '+c.sym);
+}
+function setAdminCurrency(c){
+  if(!ADMIN_CURRENCIES[c])c='eur';
+  localStorage.setItem('lootr-admin-currency',c);
+  location.reload(); // recharge tous les affichages avec la nouvelle devise
+}
+function syncAdminCurrencyUI(){var s=document.getElementById('admin-currency');if(s)s.value=adminCurrency();}
+
 function renderOrderStats(){
   document.getElementById('o-pending').textContent=allOrders.filter(o=>o.status==='pending').length;
-  document.getElementById('o-paid').textContent=allOrders.filter(o=>o.status==='paid').length;
+  document.getElementById('o-paid').textContent=allOrders.filter(o=>o.status==='paid'||o.status==='shipped'||o.status==='delivered').length;
   document.getElementById('o-cancelled').textContent=allOrders.filter(o=>o.status==='cancelled').length;
 }
 function filterOrders(status){
@@ -2342,7 +2367,7 @@ function renderOrders(){
         ${o.account?`<div style="margin-top:6px"><span style="display:inline-flex;align-items:center;gap:5px;background:rgba(124,58,237,.16);color:#a78bfa;font-size:11px;font-weight:800;padding:5px 11px;border-radius:99px">🔑 Identifiants du compte joints</span></div>`:''}
       </div>
       <div style="flex-shrink:0;text-align:right">
-        <div class="order-amount">${(o.paymentMethod==='points'||o.pointsSpent)?((o.pointsSpent||0)+' pts'):((o.total||o.amount||0).toFixed(2)+' €')}</div>
+        <div class="order-amount">${(o.paymentMethod==='points'||o.pointsSpent)?((o.pointsSpent||0)+' pts'):(amoney(o.total||o.amount||0))}</div>
         <div class="order-date">${formatDate(o.createdAt)}</div>
         <select class="inp inp-sm inp-sel" style="margin-top:6px;font-size:10px;padding:4px 8px;height:auto" onclick="event.stopPropagation()" onchange="updateOrderStatus('${o.id}',this.value)">
           <option value="pending" ${o.status==='pending'?'selected':''}>⏳ En attente</option>
@@ -2577,7 +2602,7 @@ async function loadPayments(){
 }
 function renderPaymentStats(){
   const totalIn=allPayments.filter(p=>p.status==='paid').reduce((s,p)=>s+(p.amount||0),0);
-  document.getElementById('pay-total-in').textContent=totalIn.toFixed(2)+' €';
+  document.getElementById('pay-total-in').textContent=amoney(totalIn);
   document.getElementById('pay-count').textContent=allPayments.length;
 }
 function renderPayments(){
@@ -2607,7 +2632,7 @@ function renderPayments(){
         </div>
       </div>
       <div class="pay-right">
-        <div class="pay-amount ${isPaid?'in':'out'}">+${(p.amount||0).toFixed(2)} €</div>
+        <div class="pay-amount ${isPaid?'in':'out'}">+${amoney(p.amount||0)}</div>
         <div class="pay-date">${formatDate(p.createdAt)}</div>
       </div>
     </div>`;
@@ -2639,6 +2664,7 @@ function applyTheme(){
     :'<circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>';
 }
 applyTheme();
+try{syncAdminCurrencyUI();}catch(e){}
 document.getElementById('theme-btn').onclick=()=>{dark=!dark;localStorage.setItem('nex-theme',dark?'dark':'light');applyTheme()};
 
 /* ══ TABS ══ */
@@ -3097,7 +3123,7 @@ async function loadPromos(){
     el.innerHTML=list.map(p=>{
       const exp=p.expiresAt&&p.expiresAt.toDate?p.expiresAt.toDate():null;
       const expired=exp&&exp<new Date();
-      const val=p.type==='percent'?('-'+p.value+'%'):('-'+(+p.value).toFixed(2)+' €');
+      const val=p.type==='percent'?('-'+p.value+'%'):('-'+amoney(+p.value));
       return`<div class="order-summary" style="display:flex;gap:12px;align-items:center;margin-bottom:10px">
         <div style="font-size:22px;flex-shrink:0">🎟️</div>
         <div style="flex:1;min-width:0">
