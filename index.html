@@ -5175,7 +5175,7 @@ function autoCompleteMyDeliveries(orders){
     try{fetch('/api/flashtopup-deliver',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({orderId:o.id})}).catch(function(){});}catch(e){}
   });
   // Si des vérifications ont été lancées, on rafraîchit une fois l'historique après la livraison serveur (~12 s)
-  if(fired>0){setTimeout(function(){try{if(document.getElementById('pay-hist-list'))loadUserPayments();}catch(e){}},15000);}
+  if(fired>0){setTimeout(function(){try{if(document.getElementById('pay-hist-list'))loadUserPayments();}catch(e){}},62000);}
 }
 // ── Facture détaillée (clic sur une commande de l'historique) ──
 function showInvoice(id){
