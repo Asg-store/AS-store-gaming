@@ -5,6 +5,9 @@
       "schedule": "0 8 * * *"
     }
   ],
+  "functions": {
+    "api/flashtopup-deliver.js": { "maxDuration": 60 }
+  },
   "rewrites": [
     { "source": "/payment/success", "destination": "/index.html" },
     { "source": "/payment/cancel", "destination": "/index.html" }
