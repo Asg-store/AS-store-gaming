@@ -102,9 +102,11 @@ module.exports = async (req, res) => {
         type: 'account', link: 'account', read: false, createdAt: admin.firestore.FieldValue.serverTimestamp()
       }).catch(() => {});
       try {
-        const snap = await db.collection('fcmTokens').where('userId', '==', userId).get();
-        const tokens = []; snap.forEach(function (dd) { const t = (dd.data() && dd.data().token) || dd.id; if (t) tokens.push(t); });
-        if (tokens.length) await admin.messaging().sendEachForMulticast({ notification: { title: '🎁 Compte livré', body: 'Vos identifiants sont prêts.' }, data: { url: '/' }, android: { priority: 'high' }, tokens: Array.from(new Set(tokens)) });
+        const BASE = (process.env.PUBLIC_BASE_URL || 'https://lootr.cc').replace(/\/+$/, '');
+        await fetch(BASE + '/api/send-push', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId: userId, title: '🎁 Compte livré', body: 'Vos identifiants sont prêts.', url: '/' })
+        });
       } catch (e) {}
     } catch (e) {}
 
