@@ -8100,7 +8100,7 @@ async function initFCM(){
   try{
     const reg=await navigator.serviceWorker.register('firebase-messaging-sw.js');
     const token=await messaging.getToken({vapidKey:FCM_VAPID_KEY,serviceWorkerRegistration:reg});
-    if(!token){showToast('⚠️ Jeton push non obtenu (getToken vide)');return;}
+    if(!token)return;
     // Sauvegarde le jeton (clé = jeton pour dédoublonner par appareil)
     await db.collection('fcmTokens').doc(token).set({
       token,
@@ -8109,18 +8109,13 @@ async function initFCM(){
       platform:(navigator.userAgent||'').slice(0,120),
       updatedAt:firebase.firestore.FieldValue.serverTimestamp()
     },{merge:true});
-    showToast('✅ Notifications prêtes (jeton enregistré)');
     // Notification reçue pendant que l'app est ouverte (premier plan)
     messaging.onMessage(payload=>{
       const d=(payload&&payload.data)||{};
       const n=(payload&&payload.notification)||{};
       notifyPhone(d.title||n.title||'📢 LootR',d.body||n.body||'Nouvelle annonce');
     });
-  }catch(e){
-    // 🔎 Diagnostic : on affiche la vraie raison de l'échec (clé VAPID, service worker…)
-    showToast('❌ Push : '+((e&&e.message)?e.message:'erreur inconnue'));
-    console.error('[LootR] initFCM error:',e);
-  }
+  }catch(e){/* clé invalide / navigateur non compatible */}
 }
 function pushEnabled(){return localStorage.getItem('nex-push')==='on'&&('Notification'in window)&&Notification.permission==='granted';}
 
