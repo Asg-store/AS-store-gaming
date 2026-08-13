@@ -40,7 +40,22 @@ module.exports = async (req, res) => {
 
     let payload = req.body;
     if (typeof payload === 'string') { try { payload = JSON.parse(payload); } catch (e) { payload = {}; } }
-    const { userId, token, title, body, url } = payload || {};
+    payload = payload || {};
+    const { userId, token, title, body, url } = payload;
+
+    // ── 📧 Envoi email OPTIONNEL (indépendant du push) ──────────────
+    // Si le body contient email:{to,subject,html}, on envoie aussi un
+    // email via le helper _email.js (Gmail/Resend). Utilisé notamment
+    // quand l'admin change le statut d'une commande (livrée, annulée…).
+    let emailSent = false;
+    if (payload.email && payload.email.to) {
+      try {
+        const { sendEmail } = require('./_email.js');
+        emailSent = await sendEmail(payload.email.to, payload.email.subject || 'LootR', payload.email.html || '');
+      } catch (e) { emailSent = false; }
+    }
+    // Mode "email seul" : pas de push, on répond tout de suite.
+    if (payload.emailOnly) return res.status(200).json({ ok: true, emailSent: emailSent });
 
     // ── Collecte des jetons cibles ──
     let tokens = [];
