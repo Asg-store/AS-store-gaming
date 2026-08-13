@@ -2514,7 +2514,24 @@ async function updateOrderStatus(id,status){
       };
       if(map[status]){
         var m=map[status];
-        notifyUser(o.userId,{icon:m[0],title:m[1],body:m[2],type:'order',link:'order',refId:id});
+        // 📧 Email au client (même contenu que la notif). o.email = adresse enregistrée sur la commande.
+        var _cref='CMD-'+String(id).slice(0,6).toUpperCase();
+        var _email=o.email?{
+          to:o.email,
+          subject:m[1]+' ('+_cref+') — LootR',
+          html:'<div style="font-family:Arial,Helvetica,sans-serif;max-width:560px;margin:0 auto;background:#0b0b0d;color:#eee;border-radius:14px;overflow:hidden">'
+            +'<div style="background:linear-gradient(135deg,#1c1c22,#0b0b0d);padding:20px;text-align:center"><div style="font-size:26px;font-weight:800;color:#e8c766;letter-spacing:2px">◈ LOOTR</div></div>'
+            +'<div style="padding:22px;font-size:14px;line-height:1.7;color:#ddd">'
+            +'<h2 style="color:#e8c766;margin:0 0 10px">'+m[0]+' '+m[1]+'</h2>'
+            +'<p>Bonjour '+((o.userName||'').replace(/</g,''))+',</p>'
+            +'<p>'+m[2]+'</p>'
+            +'<div style="background:#141418;border-radius:10px;padding:14px;margin:12px 0"><b>Référence :</b> '+_cref
+            +(o.productName?('<br><b>Produit :</b> '+String(o.productName).replace(/</g,'')):'')
+            +((o.total||o.amount)?('<br><b>Total :</b> '+(((+o.total||+o.amount)||0).toFixed(2))+' €'):'')+'</div>'
+            +'</div>'
+            +'<div style="padding:14px;text-align:center;font-size:11px;color:#888;border-top:1px solid #222">LootR — https://lootr.cc</div></div>'
+        }:null;
+        notifyUser(o.userId,{icon:m[0],title:m[1],body:m[2],type:'order',link:'order',refId:id,email:_email});
       }
     }
   }catch(e){toast('❌ '+e.message,true);}
@@ -3540,11 +3557,13 @@ async function sendReply(){
   }catch(e){toast('❌ '+e.message,true);inp.value=text;}
 }
 // Envoie une notification push : userId fourni = ciblé ; sinon = diffusion à tous
-function pushNotif(title,body,userId){
+function pushNotif(title,body,userId,email){
   try{
+    var payload={title:title,body:body,url:'/',userId:userId||null};
+    if(email&&email.to)payload.email=email; // 📧 email optionnel (même appel)
     fetch('/api/send-push',{
       method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({title:title,body:body,url:'/',userId:userId||null})
+      body:JSON.stringify(payload)
     }).catch(function(){});
   }catch(e){}
 }
@@ -3565,8 +3584,8 @@ function notifyUser(uid,n){
     createdAt:firebase.firestore.FieldValue.serverTimestamp()
   };
   try{ db.collection('users').doc(uid).collection('notifications').add(doc).catch(function(){}); }catch(e){}
-  // push système (app fermée / arrière-plan)
-  pushNotif((n.icon?n.icon+' ':'')+(n.title||'LootR'),n.body||'',uid);
+  // push système (app fermée / arrière-plan) + email optionnel (n.email)
+  pushNotif((n.icon?n.icon+' ':'')+(n.title||'LootR'),n.body||'',uid,n.email||null);
 }
 // Admin envoie une photo / vidéo / fichier au client
 async function sendReplyMedia(e){
