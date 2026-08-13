@@ -8,7 +8,7 @@
 //    - ou GMAIL_USER + GMAIL_APP_PASSWORD (+ MAIL_FROM optionnel)
 // ════════════════════════════════════════════════════════════════
 let _mailer = null;
-
+ 
 async function sendEmail(to, subject, html) {
   if (!to) return false;
 
