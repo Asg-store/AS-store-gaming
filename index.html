@@ -8193,14 +8193,13 @@ async function initFCM(){
     // Récupérez-la : Firebase Console → ⚙️ Paramètres du projet → Cloud Messaging
     // → « Certificats push Web » → Paire de clés → collez-la dans FCM_VAPID_KEY.
     console.warn('[ASG] Clé VAPID non configurée → notifications en arrière-plan désactivées.');
-    showToast('⚠️ Notifications en arrière-plan non configurées (clé VAPID manquante)');
     return;
   }
   if(Notification.permission!=='granted')return;
   try{
     const reg=await navigator.serviceWorker.register('firebase-messaging-sw.js');
     const token=await messaging.getToken({vapidKey:FCM_VAPID_KEY,serviceWorkerRegistration:reg});
-    if(!token){showToast('⚠️ Jeton push non obtenu (getToken vide)');return;}
+    if(!token){console.warn('[LootR] getToken vide');return;}
     // Sauvegarde le jeton (clé = jeton pour dédoublonner par appareil)
     await db.collection('fcmTokens').doc(token).set({
       token,
@@ -8209,7 +8208,7 @@ async function initFCM(){
       platform:(navigator.userAgent||'').slice(0,120),
       updatedAt:firebase.firestore.FieldValue.serverTimestamp()
     },{merge:true});
-    showToast('✅ Notifications prêtes (jeton enregistré)');
+    console.log('[LootR] ✅ Notifications prêtes (jeton enregistré)');
     // Notification reçue pendant que l'app est ouverte (premier plan)
     messaging.onMessage(payload=>{
       const d=(payload&&payload.data)||{};
@@ -8217,9 +8216,15 @@ async function initFCM(){
       notifyPhone(d.title||n.title||'📢 LootR',d.body||n.body||'Nouvelle annonce');
     });
   }catch(e){
-    // 🔎 Diagnostic : on affiche la vraie raison de l'échec (clé VAPID, service worker…)
-    showToast('❌ Push : '+((e&&e.message)?e.message:'erreur inconnue'));
-    console.error('[LootR] initFCM error:',e);
+    // 🔇 Erreur silencieuse : l'enregistrement FCM échoue parfois au tout premier
+    // chargement (FCM/App Check pas encore prêts) puis réussit au 2e essai.
+    // On NE montre PLUS de toast rouge à l'utilisateur — juste un log discret.
+    console.warn('[LootR] initFCM (essai '+((initFCM._try||0)+1)+') :',(e&&e.message)?e.message:e);
+    // 🔁 Un seul nouvel essai, en silence, 3 s plus tard.
+    if(!initFCM._retried){
+      initFCM._retried=true;
+      setTimeout(function(){ try{initFCM();}catch(_){}} ,3000);
+    }
   }
 }
 function pushEnabled(){return localStorage.getItem('nex-push')==='on'&&('Notification'in window)&&Notification.permission==='granted';}
