@@ -110,6 +110,28 @@ const DONE = ['completed', 'success', 'delivered', 'done'];
 const FAILED = ['failed', 'error', 'cancelled', 'canceled', 'refunded'];
 const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 
+// 📲 Envoie un push FCM à tous les appareils d'un client (même app fermée)
+async function pushToUser(db, uid, title, body) {
+  try {
+    const snap = await db.collection('fcmTokens').where('userId', '==', uid).get();
+    const tokens = [];
+    snap.forEach(function (d) { const t = (d.data() && d.data().token) || d.id; if (t) tokens.push(t); });
+    if (!tokens.length) return;
+    const message = {
+      notification: { title: title, body: body },
+      data: { title: String(title), body: String(body), url: '/' },
+      android: { priority: 'high' },
+      tokens: Array.from(new Set(tokens))
+    };
+    await admin.messaging().sendEachForMulticast(message);
+  } catch (e) {}
+}
+// 📧 Email (Resend ou Gmail) — via le helper partagé
+let _mailMod = null;
+function mailMod() { if (!_mailMod) { try { _mailMod = require('./_email.js'); } catch (e) { _mailMod = { sendEmail: async () => false, wrap: (x) => x }; } } return _mailMod; }
+async function sendMail(to, subject, html) { return mailMod().sendEmail(to, subject, html); }
+function mailWrap(inner) { return mailMod().wrap(inner); }
+
 module.exports = async (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -177,10 +199,10 @@ module.exports = async (req, res) => {
       refs.push({ ref: tasks[t].reference_id, ok: r.ok, status: st, code: r.code || '', msg: r.message });
     }
 
-    // 2) Sonde le statut quelques fois (≈12s) pour capter une livraison instantanée
+    // 2) Sonde le statut jusqu'à ~1 minute pour laisser le temps à la livraison d'aboutir
     let allDone = false;
-    for (let attempt = 0; attempt < 4 && !allDone; attempt++) {
-      await sleep(3000);
+    for (let attempt = 0; attempt < 19 && !allDone; attempt++) {
+      await sleep(3000);   // 19 × 3s ≈ 57s
       allDone = true;
       for (let k = 0; k < refs.length; k++) {
         if (DONE.indexOf(refs[k].status) >= 0) continue;
@@ -217,13 +239,35 @@ module.exports = async (req, res) => {
 
     if (allSuccess && order.userId) {
       const cref = 'CMD-' + String(orderId).slice(0, 6).toUpperCase();
+      const bodyTxt = 'Votre recharge (' + cref + ') a été livrée automatiquement sur l\'ID ' + target + '.';
       try {
         await db.collection('users').doc(order.userId).collection('notifications').add({
           icon: '✅', title: 'Commande livrée !',
-          body: 'Votre recharge (' + cref + ') a été livrée automatiquement sur l\'ID ' + target + '.',
+          body: bodyTxt,
           type: 'order', link: 'payments', refId: orderId, read: false,
           createdAt: FieldValue.serverTimestamp()
         });
+      } catch (e) {}
+      // 📲 Push téléphone (même app fermée)
+      try { await pushToUser(db, order.userId, '✅ Commande livrée !', bodyTxt); } catch (e) {}
+      // 📧 Email récapitulatif au client
+      try {
+        const em = order.email || '';
+        if (em) {
+          const items = (order.items || []).map(function (it) { return '• ' + (it.qty || 1) + '× ' + (it.name || '') ; }).join('<br>');
+          const html = mailWrap(
+            '<h2 style="color:#e8c766;margin:0 0 10px">✅ Commande livrée</h2>'
+            + '<p>Bonjour ' + (order.userName || '') + ',</p>'
+            + '<p>Votre commande <b>' + cref + '</b> a été livrée automatiquement.</p>'
+            + '<div style="background:#141418;border-radius:10px;padding:14px;margin:12px 0">'
+            + (items ? ('<b>Articles :</b><br>' + items + '<br><br>') : '')
+            + '<b>ID joueur :</b> ' + target + '<br>'
+            + '<b>Total :</b> ' + ((+order.total || 0).toFixed(2)) + ' €'
+            + '</div>'
+            + '<p>Merci pour votre confiance ! 🎮</p>'
+          );
+          await sendMail(em, 'Commande ' + cref + ' livrée — LootR', html);
+        }
       } catch (e) {}
     }
 
@@ -239,4 +283,3 @@ module.exports = async (req, res) => {
     return res.status(500).json({ error: e.message });
   }
 };
-
