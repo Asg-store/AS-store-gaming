@@ -110,20 +110,15 @@ const DONE = ['completed', 'success', 'delivered', 'done'];
 const FAILED = ['failed', 'error', 'cancelled', 'canceled', 'refunded'];
 const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 
-// 📲 Envoie un push FCM à tous les appareils d'un client (même app fermée)
+// 📲 Envoie un push FCM à tous les appareils d'un client — via /api/send-push
+//    (format "data" fiable en arrière-plan, géré par le service worker)
 async function pushToUser(db, uid, title, body) {
   try {
-    const snap = await db.collection('fcmTokens').where('userId', '==', uid).get();
-    const tokens = [];
-    snap.forEach(function (d) { const t = (d.data() && d.data().token) || d.id; if (t) tokens.push(t); });
-    if (!tokens.length) return;
-    const message = {
-      notification: { title: title, body: body },
-      data: { title: String(title), body: String(body), url: '/' },
-      android: { priority: 'high' },
-      tokens: Array.from(new Set(tokens))
-    };
-    await admin.messaging().sendEachForMulticast(message);
+    const BASE = (process.env.PUBLIC_BASE_URL || 'https://lootr.cc').replace(/\/+$/, '');
+    await fetch(BASE + '/api/send-push', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId: uid, title: title, body: body, url: '/' })
+    });
   } catch (e) {}
 }
 // 📧 Email (Resend ou Gmail) — via le helper partagé
