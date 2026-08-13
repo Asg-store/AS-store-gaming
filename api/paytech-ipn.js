@@ -104,18 +104,13 @@ module.exports = async (req, res) => {
           : { icon: '💰', title: 'Portefeuille rechargé', body: 'Votre recharge de ' + credited.toFixed(2) + ' € (PayTech) a été créditée.', type: 'wallet', link: 'wallet' };
         note.read = false; note.createdAt = FieldValue.serverTimestamp();
         await db.collection('users').doc(target).collection('notifications').add(note);
-        // 📲 Push téléphone (même app fermée)
+        // 📲 Push téléphone (même app fermée) — via /api/send-push (format data fiable)
         try {
-          const snap = await db.collection('fcmTokens').where('userId', '==', target).get();
-          const tokens = []; snap.forEach(function (dd) { const t = (dd.data() && dd.data().token) || dd.id; if (t) tokens.push(t); });
-          if (tokens.length) {
-            await admin.messaging().sendEachForMulticast({
-              notification: { title: (note.icon || '🔔') + ' ' + note.title, body: note.body },
-              data: { title: note.title, body: note.body, url: '/' },
-              android: { priority: 'high' },
-              tokens: Array.from(new Set(tokens))
-            });
-          }
+          const BASE = (process.env.PUBLIC_BASE_URL || 'https://lootr.cc').replace(/\/+$/, '');
+          await fetch(BASE + '/api/send-push', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ userId: target, title: (note.icon || '🔔') + ' ' + note.title, body: note.body, url: '/' })
+          });
         } catch (e) {}
       } catch (e) {}
     }
