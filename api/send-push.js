@@ -32,58 +32,6 @@ module.exports = async (req, res) => {
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
   if (req.method === 'OPTIONS') return res.status(200).end();
-
-  // ── 🔧 MODE DIAGNOSTIC EMAIL (temporaire) ─────────────────────────
-  // Ouvre dans le navigateur :  /api/send-push?testEmail=ton@email.com
-  // Essaie Resend PUIS Gmail et affiche l'erreur exacte. Aucune 13ᵉ
-  // fonction créée : on réutilise ce fichier existant.
-  if (req.method === 'GET' && req.query && req.query.testEmail) {
-    const to = String(req.query.testEmail);
-    const out = {
-      destinataire: to,
-      variables: {
-        RESEND_API_KEY: !!process.env.RESEND_API_KEY,
-        RESEND_FROM: process.env.RESEND_FROM || process.env.MAIL_FROM || '(non défini → onboarding@resend.dev)',
-        GMAIL_USER: process.env.GMAIL_USER || '(non défini)',
-        GMAIL_APP_PASSWORD: process.env.GMAIL_APP_PASSWORD ? '(défini)' : '(non défini)'
-      },
-      resend: null, gmail: null, conclusion: ''
-    };
-    // Resend
-    if (process.env.RESEND_API_KEY) {
-      try {
-        const from = process.env.RESEND_FROM || process.env.MAIL_FROM || 'LootR <onboarding@resend.dev>';
-        const r = await fetch('https://api.resend.com/emails', {
-          method: 'POST',
-          headers: { 'Authorization': 'Bearer ' + process.env.RESEND_API_KEY, 'Content-Type': 'application/json' },
-          body: JSON.stringify({ from: from, to: to, subject: 'Test LootR (Resend)', html: '<p>✅ Test Resend OK.</p>' })
-        });
-        let b = null; try { b = await r.json(); } catch (e) {}
-        out.resend = { statut: r.status, ok: r.ok, from: from, reponse: b };
-      } catch (e) { out.resend = { erreur: (e && e.message) || String(e) }; }
-    } else { out.resend = { ignore: 'RESEND_API_KEY absent' }; }
-    // Gmail
-    if (process.env.GMAIL_USER && process.env.GMAIL_APP_PASSWORD) {
-      try {
-        const nodemailer = require('nodemailer');
-        const t = nodemailer.createTransport({ service: 'gmail', auth: { user: process.env.GMAIL_USER, pass: process.env.GMAIL_APP_PASSWORD.replace(/\s+/g, '') } });
-        const info = await t.sendMail({ from: process.env.MAIL_FROM || ('LootR <' + process.env.GMAIL_USER + '>'), to: to, subject: 'Test LootR (Gmail)', html: '<p>✅ Test Gmail OK.</p>' });
-        out.gmail = { ok: true, accepted: info.accepted };
-      } catch (e) { out.gmail = { ok: false, erreur: (e && e.message) || String(e) }; }
-    } else { out.gmail = { ignore: 'GMAIL_USER / GMAIL_APP_PASSWORD absents' }; }
-    // Conclusion
-    if ((out.resend && out.resend.ok) || (out.gmail && out.gmail.ok)) {
-      out.conclusion = '✅ Un service a accepté. Vérifie ta boîte de réception ET le dossier SPAM.';
-    } else {
-      let m = '❌ Aucun envoi. ';
-      if (out.resend && out.resend.reponse && out.resend.reponse.message) m += 'Resend : "' + out.resend.reponse.message + '". ';
-      if (out.gmail && out.gmail.erreur) m += 'Gmail : "' + out.gmail.erreur + '". ';
-      out.conclusion = m + 'Causes fréquentes : domaine Resend non vérifié, ou mot de passe Gmail ≠ mot de passe d\'application.';
-    }
-    res.setHeader('Content-Type', 'application/json; charset=utf-8');
-    return res.status(200).end(JSON.stringify(out, null, 2));
-  }
-
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
   try {
