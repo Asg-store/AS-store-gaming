@@ -75,6 +75,39 @@ module.exports = async (req, res) => {
       soldAt: admin.firestore.FieldValue.serverTimestamp()
     }, { merge: true }).catch(() => {});
 
+    // 5. 📧 Email des identifiants au client + 📲 push
+    try {
+      let email = b.email || '';
+      let name = b.userName || '';
+      if (!email) { try { const u = await db.collection('users').doc(userId).get(); const ud = u.data() || {}; email = ud.email || ''; name = name || ud.name || ''; } catch (e) {} }
+      const title = (b.accountName || b.name || 'Votre compte') ;
+      if (email) {
+        const M = require('./_email.js');
+        const html = M.wrap(
+          '<h2 style="color:#e8c766;margin:0 0 10px">🎁 Votre compte est prêt</h2>'
+          + '<p>Bonjour ' + (name || '') + ',</p>'
+          + '<p>Voici les identifiants de votre achat : <b>' + title + '</b></p>'
+          + '<div style="background:#141418;border-radius:10px;padding:14px;margin:12px 0;font-size:15px">'
+          + '<b>Identifiant :</b> ' + (c.login || '—') + '<br>'
+          + '<b>Mot de passe :</b> ' + (c.password || '—')
+          + (c.notes ? ('<br><br><b>Notes :</b><br>' + String(c.notes).replace(/\n/g, '<br>')) : '')
+          + '</div>'
+          + '<p style="color:#ff9">⚠️ Changez le mot de passe dès votre première connexion, et ne partagez ces informations avec personne.</p>'
+        );
+        await M.sendEmail(email, '🎁 Identifiants de votre compte — LootR', html);
+      }
+      // Notification in-app + push
+      await db.collection('users').doc(userId).collection('notifications').add({
+        icon: '🎁', title: 'Compte livré', body: 'Les identifiants de « ' + title + ' » sont disponibles (et envoyés par email).',
+        type: 'account', link: 'account', read: false, createdAt: admin.firestore.FieldValue.serverTimestamp()
+      }).catch(() => {});
+      try {
+        const snap = await db.collection('fcmTokens').where('userId', '==', userId).get();
+        const tokens = []; snap.forEach(function (dd) { const t = (dd.data() && dd.data().token) || dd.id; if (t) tokens.push(t); });
+        if (tokens.length) await admin.messaging().sendEachForMulticast({ notification: { title: '🎁 Compte livré', body: 'Vos identifiants sont prêts.' }, data: { url: '/' }, android: { priority: 'high' }, tokens: Array.from(new Set(tokens)) });
+      } catch (e) {}
+    } catch (e) {}
+
     return res.status(200).json({
       ok: true,
       login: c.login || '',
@@ -85,4 +118,3 @@ module.exports = async (req, res) => {
     return res.status(500).json({ error: e.message || 'Erreur serveur' });
   }
 };
-
