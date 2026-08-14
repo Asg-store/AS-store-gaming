@@ -2828,25 +2828,27 @@ function _missionRawCounter(m){
 // 🎯 Enregistre la « ligne de départ » des missions cumulatives que le client découvre.
 //    Appelé quand les missions sont affichées. Une mission déjà réclamée n'est pas ré-enregistrée.
 async function ensureMissionBaselines(){
-  if(!currentUser||!_userLoaded)return;
-  var d=userData||{};
-  var baselines=d.missionBaselines||{};
-  var claimed=(d.claimedMissions||[]);
-  var toSave={};var changed=false;
-  (_adminMissions||[]).forEach(function(m){
-    if(!m||!m.id)return;
-    var raw=_missionRawCounter(m);
-    if(raw===null)return;                 // mission non cumulative → ignorer
-    if(baselines[m.id]!=null)return;      // baseline déjà posée
-    if(claimed.indexOf(m.id)>=0)return;   // déjà réclamée → ne pas toucher
-    baselines[m.id]=raw;                  // point de départ = compteur actuel
-    toSave['missionBaselines.'+m.id]=raw;
-    changed=true;
-  });
-  if(changed){
-    userData.missionBaselines=baselines;
-    try{await db.collection('users').doc(currentUser.uid).update(toSave);}catch(e){}
-  }
+  try{
+    if(!currentUser||!_userLoaded)return;
+    var d=userData||{};
+    var baselines=Object.assign({},d.missionBaselines||{});
+    var claimed=(d.claimedMissions||[]);
+    var changed=false;
+    (_adminMissions||[]).forEach(function(m){
+      if(!m||!m.id)return;
+      var raw=_missionRawCounter(m);
+      if(raw===null)return;                 // mission non cumulative → ignorer
+      if(baselines[m.id]!=null)return;      // baseline déjà posée
+      if(claimed.indexOf(m.id)>=0)return;   // déjà réclamée → ne pas toucher
+      baselines[m.id]=raw;                  // point de départ = compteur actuel
+      changed=true;
+    });
+    if(changed){
+      userData.missionBaselines=baselines;
+      // .set(merge) plutôt que .update() → fonctionne même si des champs manquent.
+      await db.collection('users').doc(currentUser.uid).set({missionBaselines:baselines},{merge:true});
+    }
+  }catch(e){/* silencieux : ne doit jamais bloquer l'affichage */}
 }
 // L'application est-elle installée / ouverte en mode standalone (PWA) ?
 function isAppInstalled(){
@@ -2874,16 +2876,10 @@ async function shareShop(){
 }
 function renderMissions(){
   var el=document.getElementById('missions-list');if(!el)return;
-  // 🎯 Pose la « ligne de départ » des nouvelles missions cumulatives, puis rafraîchit.
-  //    Le drapeau évite une boucle infinie (baseline → render → baseline…).
-  if(!renderMissions._basePending){
-    renderMissions._basePending=true;
-    ensureMissionBaselines().then(function(){
-      renderMissions._basePending=false;
-      // Si des baselines ont été posées, on ré-affiche une fois pour refléter 0/goal.
-      renderMissions();
-    }).catch(function(){renderMissions._basePending=false;});
-  }
+  // 🎯 Pose la « ligne de départ » des nouvelles missions cumulatives (une seule fois, en arrière-plan).
+  //    Aucun re-render forcé ici → pas de risque de boucle. L'affichage se met à jour au prochain
+  //    snapshot Firestore (userData change quand les baselines sont écrites).
+  try{ensureMissionBaselines();}catch(_){}
   var list=_adminMissions.slice();
   // Missions par défaut si l'admin n'en a créé aucune
   if(!list.length){
