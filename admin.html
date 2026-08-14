@@ -934,6 +934,16 @@ body{font-family:'Exo 2',sans-serif;background:var(--bg);color:var(--text);
       <button class="save-btn" style="margin-top:12px" onclick="saveConfig()">💾 Enregistrer les frais</button>
     </div>
   </div>
+  <div class="panel">
+    <div class="panel-top"><span class="panel-title">📞 Contacts (pied de page client)</span></div>
+    <div style="padding:16px">
+      <p style="font-size:12px;color:var(--text2);margin-bottom:12px">Ces contacts s'affichent en bas de la boutique côté client. Modifiez-les puis enregistrez.</p>
+      <div class="form-grp"><label>📱 Numéro WhatsApp</label><input class="inp" id="cfg-wa" type="tel" placeholder="Ex : +223 82 13 14 18"/><span class="hint">Avec l'indicatif. Les espaces sont ignorés.</span></div>
+      <div class="form-grp"><label>✉️ E-mail de contact</label><input class="inp" id="cfg-mail" type="email" placeholder="Ex : contact@lootr.cc"/></div>
+      <div class="form-grp"><label>✈️ Telegram</label><input class="inp" id="cfg-tg" type="text" placeholder="Ex : @LootR ou +223821314 18 ou https://t.me/LootR"/><span class="hint">Pseudo (@nom), numéro, ou lien complet t.me.</span></div>
+      <button class="save-btn" onclick="saveContacts()">💾 Enregistrer les contacts</button>
+    </div>
+  </div>
 </div>
 
 <!-- PAGE: BANNIÈRE -->
@@ -1316,8 +1326,9 @@ body{font-family:'Exo 2',sans-serif;background:var(--bg);color:var(--text);
       <div class="form-grp" id="ms-prodwrap" style="display:none"><label>Nom du produit (ex : 325 UC)</label><input class="inp" id="ms-prod" placeholder="Nom exact du produit"/></div>
       <div class="f-row" style="gap:8px">
         <div class="form-grp" style="flex:1"><label>Objectif (nombre ou €)</label><input class="inp" id="ms-goal" type="number" min="1" placeholder="3"/></div>
-        <div class="form-grp" style="flex:1"><label>Récompense (points)</label><input class="inp" id="ms-reward" type="number" min="0" placeholder="200"/></div>
+        <div class="form-grp" style="flex:1"><label>Récompense (points)</label><input class="inp" id="ms-reward" type="number" min="0" placeholder="200" oninput="msRewardHint()"/></div>
       </div>
+      <div class="hint" id="ms-reward-hint" style="margin:-4px 0 8px">💰 1 point = 0,01 € — récompense ≈ 0,00 €</div>
       <button class="save-btn" style="background:linear-gradient(135deg,#7c4dff,#00b0ff);margin-bottom:8px" onclick="iaMission()">🤖 IA — Proposer une mission</button>
       <button class="save-btn" onclick="addMission()">➕ Créer la mission</button>
       <div id="ms-list" style="margin-top:14px;display:flex;flex-direction:column;gap:8px"></div>
@@ -1572,7 +1583,10 @@ body{font-family:'Exo 2',sans-serif;background:var(--bg);color:var(--text);
       <div class="form-grp"><label>Stock</label><input class="inp" id="f-stock" type="number" min="0" placeholder="100"/></div>
     </div>
     <div class="form-grp">
-      <label>URL Image</label>
+      <label>Photo du produit</label>
+      <button type="button" class="save-btn" style="margin:0 0 8px;background:var(--bg3);color:var(--text);border:1px solid var(--border)" onclick="document.getElementById('f-file').click()">📁 Importer depuis la galerie</button>
+      <input type="file" id="f-file" accept="image/*" style="display:none" onchange="uploadProductImg(event)"/>
+      <label>…ou coller une URL</label>
       <input class="inp" id="f-img" type="url" placeholder="https://…" oninput="prevFormImg()"/>
       <div class="img-prev" id="f-img-prev">Aperçu image</div>
     </div>
@@ -1593,6 +1607,10 @@ body{font-family:'Exo 2',sans-serif;background:var(--bg);color:var(--text);
       <div class="form-grp"><label>Coût en points</label><input class="inp" id="f-pts-cost" type="number" min="1" placeholder="700" disabled/></div>
     </div>
     <span class="hint">Si activé, les clients verront un bouton « Payer X pts » sur ce produit. La livraison se fait via Commandes (ID joueur fourni).</span>
+    <div class="f-row" style="margin-top:12px">
+      <div class="form-grp"><label>⭐ Remise max (points) par article</label><input class="inp" id="f-maxpts" type="number" min="0" placeholder="4"/></div>
+    </div>
+    <span class="hint">Nombre MAX de points qu'un client peut utiliser en remise sur CE produit (1 point = 0,01 €). Ex : 60 UC → 4. Le client ne peut pas cocher plus que cette limite. Laisser 0 = pas de remise par points sur ce produit.</span>
   </div>
   <div class="sh-foot">
     <button class="btn-ghost" onclick="closeForm()">Annuler</button>
@@ -2790,8 +2808,20 @@ function clearForm(){
   document.getElementById('f-pts-on').value='false';
   document.getElementById('f-pts-cost').value='';
   document.getElementById('f-pts-cost').disabled=true;
+  var _mp=document.getElementById('f-maxpts');if(_mp)_mp.value='';
   document.getElementById('f-img-prev').innerHTML='Aperçu image';
   document.getElementById('sh-title').textContent='Ajouter un produit';
+}
+/* 📁 Importer la photo d'un produit depuis la galerie (upload ImgBB, comme le logo) */
+async function uploadProductImg(e){
+  const file=(e.target.files||[])[0];if(!file)return;e.target.value='';
+  toast('⏳ Envoi de la photo…');
+  try{
+    const url=await uploadImageImgbb(file);   // ImgBB (clé partagée)
+    document.getElementById('f-img').value=url;
+    prevFormImg();
+    toast('✅ Photo importée');
+  }catch(err){toast('❌ '+(err.message||'Envoi impossible'),true);}
 }
 function prevFormImg(){
   const u=document.getElementById('f-img').value.trim();
@@ -2819,6 +2849,7 @@ function editProd(id){
   document.getElementById('f-pts-on').value=p.pointsBuyable?'true':'false';
   document.getElementById('f-pts-cost').value=(p.pointsCost!=null&&p.pointsCost>0?p.pointsCost:'');
   document.getElementById('f-pts-cost').disabled=!p.pointsBuyable;
+  var _mp=document.getElementById('f-maxpts');if(_mp)_mp.value=(p.maxPointsDiscount!=null&&p.maxPointsDiscount>0?p.maxPointsDiscount:'');
   prevFormImg();openForm();
 }
 async function saveProduct(){
@@ -2839,6 +2870,7 @@ async function saveProduct(){
     status:document.getElementById('f-status').value||'active',
     pointsBuyable:document.getElementById('f-pts-on').value==='true',
     pointsCost:parseInt(document.getElementById('f-pts-cost').value)||0,
+    maxPointsDiscount:parseInt(document.getElementById('f-maxpts').value)||0,
     game:document.getElementById('f-game').value||'',
     ftServiceCode:document.getElementById('f-sancay').value.trim()||''};
   const id=document.getElementById('f-id').value;
@@ -2887,6 +2919,9 @@ async function loadConfig(){
     if(_bv){_bv.checked=!d.bannerHidden;var _st=document.getElementById('banner-vis-state');if(_st)_st.textContent=d.bannerHidden?'❌ Bannière actuellement masquée':'✅ Bannière visible';}
     if(d.deliveryFeeType)document.getElementById('cfg-fee-type').value=d.deliveryFeeType;
     if(d.deliveryFeeValue!=null)document.getElementById('cfg-fee-value').value=d.deliveryFeeValue;
+    var _cwa=document.getElementById('cfg-wa');if(_cwa&&d.contactWhatsapp!=null)_cwa.value=d.contactWhatsapp;
+    var _cml=document.getElementById('cfg-mail');if(_cml&&d.contactEmail!=null)_cml.value=d.contactEmail;
+    var _ctg=document.getElementById('cfg-tg');if(_ctg&&d.contactTelegram!=null)_ctg.value=d.contactTelegram;
     toggleFeeHint();
   }catch(e){}
 }
@@ -2916,6 +2951,19 @@ async function saveConfig(){
   };
   try{await db.collection('config').doc('shop').set(data,{merge:true});toast('✓ Configuration sauvegardée !');}
   catch(e){toast('❌ '+e.message,true);}
+}
+/* 📞 Enregistre les contacts (WhatsApp / e-mail / Telegram) affichés côté client */
+async function saveContacts(){
+  const wa=(document.getElementById('cfg-wa').value||'').trim();
+  const mail=(document.getElementById('cfg-mail').value||'').trim();
+  const tg=(document.getElementById('cfg-tg').value||'').trim();
+  try{
+    await db.collection('config').doc('shop').set({
+      contactWhatsapp:wa,contactEmail:mail,contactTelegram:tg,
+      updatedAt:firebase.firestore.FieldValue.serverTimestamp()
+    },{merge:true});
+    toast('✅ Contacts enregistrés !');
+  }catch(e){toast('❌ '+e.message,true);}
 }
 function toggleFeeHint(){
   const t=document.getElementById('cfg-fee-type');if(!t)return;
@@ -4409,6 +4457,14 @@ async function saveMission(){
 // 🤖 Générateur de missions « IA » (local, sans clé API ni coût).
 // Propose une mission complète dans le formulaire. L'admin GARDE le contrôle :
 // il peut ajuster les points, l'objectif, le titre… avant de cliquer « Créer ».
+// 💰 Valeur d'un point côté admin (cohérente avec le client) : 1 point = 0,01 €
+var ADMIN_POINT_EUR=0.01;
+function ptEurStr(p){return ((+p||0)*ADMIN_POINT_EUR).toFixed(2).replace('.',',')+' €';}
+function msRewardHint(){
+  var h=document.getElementById('ms-reward-hint');if(!h)return;
+  var r=+((document.getElementById('ms-reward')||{}).value)||0;
+  h.textContent='💰 1 point = 0,01 € — récompense ≈ '+ptEurStr(r);
+}
 function iaMission(){
   var bank=[
     {icon:"🛒",type:"firstBuy",title:"Faire son premier achat",goal:1,reward:100},
@@ -4489,7 +4545,7 @@ function loadMissionsAdmin(){
       return '<div style="display:flex;align-items:center;gap:10px;padding:8px;border:1px solid var(--border);border-radius:10px">'
         +'<span style="font-size:20px">'+(m.icon||'🎯')+'</span>'
         +'<div style="flex:1;min-width:0"><div style="font-weight:700;font-size:12px">'+aEsc(m.title||'')+'</div>'
-        +'<div style="font-size:10px;color:var(--text3)">'+(typeLbl[m.type]||m.type)+(m.productName?' ('+aEsc(m.productName)+')':'')+' · but '+(m.goal||1)+' · 🎁 '+(m.reward||0)+' pts · '+(m.active?'✅ active':'⏸ off')+'</div></div>'
+        +'<div style="font-size:10px;color:var(--text3)">'+(typeLbl[m.type]||m.type)+(m.productName?' ('+aEsc(m.productName)+')':'')+' · but '+(m.goal||1)+' · 🎁 '+(m.reward||0)+' pts (≈ '+ptEurStr(m.reward||0)+') · '+(m.active?'✅ active':'⏸ off')+'</div></div>'
         +'<button style="padding:6px 9px;border:1px solid var(--border);border-radius:8px;background:transparent;color:var(--text);cursor:pointer" onclick="toggleMission(\''+d.id+'\','+(m.active?'false':'true')+')">'+(m.active?'⏸':'▶')+'</button>'
         +'<button style="padding:6px 9px;border:1px solid var(--border);border-radius:8px;background:transparent;color:#00b0ff;cursor:pointer" onclick="editMissionPoints(\''+d.id+'\','+(m.reward||0)+','+(m.goal||1)+')">✏️</button>'
         +'<button style="padding:6px 9px;border:1px solid var(--border);border-radius:8px;background:transparent;color:#ff5a5a;cursor:pointer" onclick="delMission(\''+d.id+'\')">🗑</button></div>';
