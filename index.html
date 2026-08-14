@@ -2072,9 +2072,8 @@ body.ios .pnotif .pn-ic{border-radius:11px}
   </div>
   <div class="screen-body">
     <div class="wallet-cards">
-      <div class="wallet-card points" style="flex:1"><span class="wc-ico" style="opacity:.9"><i class="pt-coin-bg" style="width:28px;height:28px"></i></span><div class="wc-lbl">Mes points</div><div class="wc-val" id="w-points">0</div><div class="wc-lbl" id="w-points-eur" style="opacity:.85;font-size:11px;margin-top:2px">≈ 0.00 €</div></div>
+      <div class="wallet-card points" style="flex:1"><span class="wc-ico" style="opacity:.9"><i class="pt-coin-bg" style="width:28px;height:28px"></i></span><div class="wc-lbl">Mes points</div><div class="wc-val" id="w-points">0</div></div>
     </div>
-    <p class="sub" style="text-align:center;margin:-4px 0 10px;font-size:11.5px">💡 1 point = <b id="pt-unit-val">—</b> · utilisables en remise sur vos achats</p>
     <div class="reward-sec" id="loyalty-card" style="text-align:center"></div>
 
     <div class="reward-sec" id="missions-sec">
@@ -2501,12 +2500,6 @@ body.ios .pnotif .pn-ic{border-radius:11px}
         <button onclick="applyPromo('cart')">Appliquer</button>
       </div>
       <div class="promo-msg" id="cart-promo-msg" style="display:none"></div>
-      <div id="cart-pts-box" style="display:none;margin:12px 0 0;background:var(--bg2);border:1px solid var(--border);border-radius:14px;padding:12px 14px">
-        <label style="display:flex;align-items:center;gap:12px;cursor:pointer;margin:0">
-          <input type="checkbox" id="cart-use-pts" onchange="renderCartLines()" style="width:20px;height:20px;flex-shrink:0;accent-color:var(--gold)"/>
-          <span style="flex:1;min-width:0"><b style="font-size:13.5px">⭐ Utiliser mes points (remise)</b><br><span id="cart-pts-desc" style="font-size:11.5px;color:var(--text3)"></span></span>
-        </label>
-      </div>
       <div class="pay-lines" id="cart-pay-lines"></div>
       <div style="font-weight:800;font-size:14px;margin:16px 0 8px">Méthode de paiement</div>
       <div class="rc-methods" id="cart-methods">
@@ -2637,34 +2630,28 @@ async function loadConfig(){
       checkMissionReset&&checkMissionReset();
       renderMissions&&renderMissions();
       renderLoyalty&&renderLoyalty(); // 🥉 la carte niveau reflète les seuils admin en direct
-      applyContacts&&applyContacts(); // 📞 contacts WhatsApp / email / Telegram gérés par l'admin
+      try{refreshFooterContacts();}catch(_){}  // 📞 contacts du pied de page (WhatsApp/email/Telegram) gérés par l'admin
     }
   },()=>{});
 }
-// 📞 Applique les contacts définis par l'admin (config/shop) au pied de page + réglages.
-//    Les valeurs par défaut restent utilisées tant que l'admin n'a rien changé.
-function applyContacts(){
-  var d=shopConfig||{};
-  // WhatsApp : on garde seulement les chiffres du numéro
-  var wa=(d.contactWhatsapp||'').replace(/[^0-9]/g,'');
-  var mail=(d.contactEmail||'').trim();
-  var tg=(d.contactTelegram||'').trim();
-  var elWa=document.getElementById('ft-wa');
-  if(elWa&&wa){elWa.href='https://wa.me/'+wa+'?text=Bonjour%20LootR,%20je%20veux%20des%20infos%20sur%20un%20produit';}
-  var elMail=document.getElementById('ft-mail');
-  if(elMail&&mail){elMail.href='mailto:'+mail;}
-  var elTg=document.getElementById('ft-tg');
-  if(elTg&&tg){
-    // Accepte un @pseudo, un lien complet, ou un numéro
-    var tgHref=tg;
-    if(/^https?:\/\//i.test(tg)){tgHref=tg;}
-    else if(tg.charAt(0)==='@'){tgHref='https://t.me/'+tg.slice(1);}
-    else if(/^\+?[0-9]/.test(tg)){tgHref='https://t.me/'+(tg.charAt(0)==='+'?tg:('+'+tg.replace(/[^0-9]/g,'')));}
-    else{tgHref='https://t.me/'+tg;}
-    elTg.href=tgHref;
+// 📞 Met à jour les liens de contact du pied de page depuis la config admin.
+//    L'admin peut définir shopConfig.contactWhatsapp / contactEmail / contactTelegram.
+function refreshFooterContacts(){
+  var wa=document.getElementById('ft-wa'),ml=document.getElementById('ft-mail'),tg=document.getElementById('ft-tg');
+  var cw=(shopConfig.contactWhatsapp||'').toString().replace(/[^0-9]/g,'');
+  var ce=(shopConfig.contactEmail||'').toString().trim();
+  var ct=(shopConfig.contactTelegram||'').toString().trim();
+  if(wa&&cw)wa.href='https://wa.me/'+cw+'?text=Bonjour%20LootR,%20je%20veux%20des%20infos%20sur%20un%20produit';
+  if(ml&&ce)ml.href='mailto:'+ce;
+  if(tg&&ct){
+    // accepte @pseudo, un lien complet, ou un numéro
+    var url=ct;
+    if(/^https?:\/\//i.test(ct)){url=ct;}
+    else if(ct.charAt(0)==='@'){url='https://t.me/'+ct.slice(1);}
+    else if(/^\+?[0-9]+$/.test(ct)){url='https://t.me/'+ct.replace(/[^0-9+]/g,'');}
+    else{url='https://t.me/'+ct;}
+    tg.href=url;
   }
-  // Met aussi à jour l'e-mail affiché dans les réglages, s'il existe
-  if(mail){document.querySelectorAll('.set-desc').forEach(function(el){if(/@/.test(el.textContent)&&el.textContent.indexOf('gmail')>=0)el.textContent=mail;});}
 }
 // 🖼️ L'icône de l'application est le logo ◈ (fichiers icon-192/512.png). On NE laisse PLUS
 //    le logo admin écraser l'icône du téléphone : il reste seulement affiché dans l'en-tête.
@@ -2683,11 +2670,13 @@ function calcDeliveryFee(subtotal){
 const APP_VERSION=5;  // ↑ incrémenté à chaque mise à jour ; comparé à config.platformVersion
 const POINTS_PER_PURCHASE=10;
 const UC_EXCHANGE={points:700,uc:60};
-// 💰 Valeur d'un point : 1 point = 0.01 € (0.01 $). Utilisé partout (points gagnés,
-//    missions, remise panier). Modifiable ici seulement pour rester cohérent.
-const POINT_EUR=0.01;
-function ptsValueEur(p){return (+p||0)*POINT_EUR;}          // valeur en € d'un nombre de points
-function ptsValueStr(p){return fmtMoney(ptsValueEur(p));}   // valeur formatée (devise du client)
+// 💰 Valeur d'un point : 2 points = 0,01 $  →  1 point = 0,005 $.
+// La base des prix étant l'EUR, on convertit via USD : 1 pt = 0,005 $ / 1,16 = 0,00431 € env.
+const POINT_VALUE_USD=0.005;                 // 2 points = 0,01 $
+const USD_RATE=(CURRENCIES.usd&&CURRENCIES.usd.rate)||1.16;
+const POINT_VALUE_EUR=POINT_VALUE_USD/USD_RATE;  // valeur d'1 point en base € (interne)
+// Convertit un nombre de points en réduction (base €)
+function pointsToEur(pts){return Math.round(((+pts||0)*POINT_VALUE_EUR)*10000)/10000;}
 let ARENA_PACKS=[
   {pts:50,cost:1},{pts:120,cost:2},{pts:350,cost:5},{pts:800,cost:10}
 ];
@@ -2711,11 +2700,6 @@ function refreshRewardsUI(){
   const m=document.getElementById('w-money'),p=document.getElementById('w-points');
   if(m)m.textContent=fmtMoney(userData.walletBalance||0);
   if(p)p.textContent=(userData.points||0)+'';
-  // 💰 Valeur en argent des points (1 point = POINT_EUR)
-  var pe=document.getElementById('w-points-eur');
-  if(pe)pe.textContent='≈ '+ptsValueStr(userData.points||0);
-  var pu=document.getElementById('pt-unit-val');
-  if(pu)pu.textContent=fmtMoney(POINT_EUR);
   renderLoyalty();renderMissions();
 }
 /* ═══════════ FIDÉLITÉ PAR NIVEAUX (contrôlée par l'admin) ═══════════ */
@@ -2865,7 +2849,7 @@ function renderMissions(){
     return '<div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--border)">'
       +'<div style="font-size:24px">'+(m.icon||'🎯')+'</div>'
       +'<div style="flex:1;min-width:0"><div style="font-weight:700;font-size:13px">'+vEsc(m.title||'Mission')+' '+(done?'✅':'')+'</div>'
-      +'<div style="font-size:11px;color:var(--text3);margin-bottom:4px">'+(m.reward>0?'🎁 +'+m.reward+' pts (≈ '+ptsValueStr(m.reward)+') · ':'')+progTxt+'</div>'
+      +'<div style="font-size:11px;color:var(--text3);margin-bottom:4px">'+(m.reward>0?'🎁 +'+m.reward+' pts · ':'')+progTxt+'</div>'
       +'<div style="height:6px;background:var(--bg3);border-radius:99px;overflow:hidden"><div style="height:100%;width:'+pct+'%;background:linear-gradient(90deg,var(--accent),var(--accent2))"></div></div></div>'
       +(done?(got?'<span style="font-size:11px;color:var(--green);font-weight:700">✓ Reçu</span>':(m.reward>0?'<button style="padding:6px 10px;border:none;border-radius:8px;font-size:11px;font-weight:700;color:#052;background:linear-gradient(135deg,#00e676,#00b0ff)" onclick="claimMission('+i+')">Réclamer</button>':'')):'<button style="padding:6px 10px;border:none;border-radius:8px;font-size:11px;font-weight:700;color:#fff;background:linear-gradient(135deg,var(--accent),var(--accent2))" onclick="goMission('+i+')">Go</button>')
       +'</div>';
@@ -2943,7 +2927,7 @@ async function claimMission(i){
       },{merge:true});
     });
     _lcAdd(m.id);   // ✅ confirmé → verrou local permanent (le bouton ne reviendra plus)
-    showToast('🎉 Mission accomplie ! +'+(+m.reward||0)+' points (≈ '+ptsValueStr(+m.reward||0)+')');
+    showToast('🎉 Mission accomplie ! +'+(+m.reward||0)+' points');
   }catch(e){
     if(e&&e.message==='__ALREADY__'){
       _lcAdd(m.id);   // déjà pris côté serveur → on verrouille aussi en local
@@ -4300,20 +4284,6 @@ async function shareProfile(){
   }catch(e){/* annulé */}
 }
 
-// ⭐ Débite immédiatement les points de remise utilisés sur le panier (commandes en
-//    attente : Orange Money / PayTech). Ne s'exécute qu'une seule fois par commande.
-async function spendCartPointsNow(){
-  try{
-    if(!currentUser||!cartCheckoutData)return;
-    var spend=+cartCheckoutData.pointsUsed||0;
-    if(spend<=0||cartCheckoutData._pointsCommitted)return;
-    cartCheckoutData._pointsCommitted=true;
-    await db.collection('users').doc(currentUser.uid).set(
-      {points:firebase.firestore.FieldValue.increment(-spend)},{merge:true});
-    if(userData)userData.points=Math.max(0,((userData.points||0)-spend));
-    try{refreshRewardsUI();}catch(_){}
-  }catch(e){/* la remise reste affichée ; ressaie au prochain rafraîchissement */}
-}
 // Crédite 10 points après un achat (une seule fois par commande)
 async function awardPurchasePoints(orderId,amountSpent,items){
   if(!currentUser||!orderId)return;
@@ -4322,13 +4292,8 @@ async function awardPurchasePoints(orderId,amountSpent,items){
     const snap=await ref.get();const d=snap.data()||{};
     const done=d.awardedOrders||[];
     if(done.indexOf(orderId)>=0)return; // déjà crédité
-    // ⭐ Points dépensés en remise sur CE panier (déduits une seule fois)
-    var spend=0;
-    if(items&&cartCheckoutData&&(+cartCheckoutData.pointsUsed>0)&&!cartCheckoutData._pointsCommitted){
-      spend=+cartCheckoutData.pointsUsed||0;cartCheckoutData._pointsCommitted=true;
-    }
     const upd={
-      points:firebase.firestore.FieldValue.increment(POINTS_PER_PURCHASE-spend),
+      points:firebase.firestore.FieldValue.increment(POINTS_PER_PURCHASE),
       loyaltyXP:firebase.firestore.FieldValue.increment(POINTS_PER_PURCHASE),
       orderCount:firebase.firestore.FieldValue.increment(1),
       awardedOrders:firebase.firestore.FieldValue.arrayUnion(orderId)
@@ -5759,20 +5724,6 @@ function recomputeCheckout(ctx){
   if(ctx==='cart')renderCartLines();
   else renderAccLines();
 }
-// 🧮 Calcule le nombre MAX de points utilisables en remise sur le panier.
-//    Limite par produit (maxPointsDiscount) × quantité, plafonnée par les points
-//    du client ET par la valeur restant à payer (on ne descend jamais sous 0).
-function cartPointsCap(afterEur){
-  var capPts=0;
-  ((cartCheckoutData&&cartCheckoutData.items)||[]).forEach(function(it){
-    var p=allProducts.find(function(x){return x.id===it.id;})||{};
-    var lim=parseInt(p.maxPointsDiscount)||0;      // points max par unité (défini par l'admin)
-    if(lim>0)capPts+=lim*(+it.qty||1);
-  });
-  var userPts=(userData&&userData.points)||0;
-  var valuePts=Math.floor((+afterEur||0)/POINT_EUR); // ne pas dépasser le montant à payer
-  return Math.max(0,Math.min(capPts,userPts,valuePts));
-}
 function renderCartLines(){
   if(!cartCheckoutData)return;
   const sub=cartCheckoutData.subtotal;
@@ -5780,31 +5731,14 @@ function renderCartLines(){
   const disc=promoDiscount('cart',sub);
   const lvlPct=levelDiscountPct();
   const lvlDisc=lvlPct>0?Math.round((sub-disc)*lvlPct)/100:0;
-  // ── Remise par points (case « Utiliser mes points ») ──
-  var beforePts=Math.max(0,sub+fee-disc-lvlDisc);
-  var maxPts=cartPointsCap(beforePts);
-  var box=document.getElementById('cart-pts-box');
-  var chk=document.getElementById('cart-use-pts');
-  var ptsUsed=0,ptsDisc=0;
-  if(maxPts>0&&currentUser){
-    if(box)box.style.display='block';
-    if(chk&&chk.checked){ptsUsed=maxPts;ptsDisc=Math.round(ptsUsed*POINT_EUR*100)/100;}
-    var desc=document.getElementById('cart-pts-desc');
-    if(desc)desc.innerHTML='Solde : <b>'+((userData&&userData.points)||0)+' pts</b> · applique jusqu\'à <b>'+maxPts+' pts</b> = remise <b>'+fmtMoney(maxPts*POINT_EUR)+'</b>';
-  }else{
-    if(box)box.style.display='none';
-    if(chk)chk.checked=false;
-  }
-  const total=Math.max(0,beforePts-ptsDisc);
-  cartCheckoutData.deliveryFee=fee;cartCheckoutData.discount=disc+lvlDisc+ptsDisc;cartCheckoutData.total=total;
-  cartCheckoutData.pointsUsed=ptsUsed;cartCheckoutData.pointsDiscount=ptsDisc;cartCheckoutData._pointsCommitted=false;
+  const total=Math.max(0,sub+fee-disc-lvlDisc);
+  cartCheckoutData.deliveryFee=fee;cartCheckoutData.discount=disc+lvlDisc;cartCheckoutData.total=total;
   cartCheckoutData.promoCode=appliedPromo.cart?appliedPromo.cart.code:'';
   document.getElementById('cart-pay-lines').innerHTML=
     `<div class="pl"><span>Sous-total</span><span>${fmtMoney(sub)}</span></div>`+
     (fee>0?`<div class="pl"><span>Frais</span><span>+ ${fmtMoney(fee)}</span></div>`:'')+
     (disc>0?`<div class="pl disc"><span>Réduction (${appliedPromo.cart.code})</span><span>- ${fmtMoney(disc)}</span></div>`:'')+
     (lvlDisc>0?`<div class="pl disc"><span>${currentLevel().icon} Fidélité ${currentLevel().name} (-${lvlPct}%)</span><span>- ${fmtMoney(lvlDisc)}</span></div>`:'')+
-    (ptsDisc>0?`<div class="pl disc"><span>⭐ Remise points (${ptsUsed} pts)</span><span>- ${fmtMoney(ptsDisc)}</span></div>`:'')+
     `<div class="pl tot"><span>Total à payer</span><b>${fmtMoney(total)}</b></div>`;
   // Liste des méthodes : solde portefeuille + méthodes fermées par l'admin
   const wd=document.getElementById('cart-wallet-desc');
@@ -5961,10 +5895,8 @@ async function payCartPayTech(){
       playerId:playerId,playerName:(cartCheckoutData.playerName||""),account:_accData,userId:currentUser.uid,
       userName:currentUser.displayName||(currentUser.email||'').split('@')[0],
       email:currentUser.email||'',paymentMethod:'PayTech',status:'pending',
-      pointsUsed:(+cartCheckoutData.pointsUsed||0),
       createdAt:firebase.firestore.FieldValue.serverTimestamp()
     });
-    spendCartPointsNow(); // ⭐ débite les points de remise dès la création de la commande
     // 2) Demande le paiement PayTech (lié à la commande)
     const token=await currentUser.getIdToken();
     const r=await fetch('/api/paytech-request',{
@@ -6031,10 +5963,8 @@ async function payCartOrange(){
       userId:currentUser.uid,userName:currentUser.displayName||(currentUser.email||'').split('@')[0],
       email:currentUser.email||'',paymentMethod:'Orange Money (manuel)',status:'pending',
       proofUrl:proofUrl,payerPhone:payerPhone,txRef:txref,
-      pointsUsed:(+cartCheckoutData.pointsUsed||0),
       createdAt:firebase.firestore.FieldValue.serverTimestamp()
     });
-    spendCartPointsNow(); // ⭐ débite les points de remise dès l'envoi de la commande
     _omProofFile=null;
     var _f=document.getElementById('cart-om-file');if(_f)_f.value='';
     var _op=document.getElementById('cart-om-proof');if(_op){_op.style.display='none';_op.innerHTML='';}
@@ -6068,7 +5998,7 @@ async function finalizeCartVerified(url,payload,total,playerId,methodName,ref){
     const data=await res.json().catch(function(){return {};});
     if(data&&data.approved&&(data.amount>=total-0.05)){
       const oref=db.collection('orders').doc();
-      await oref.set({items:cartCheckoutData.items,subtotal:cartCheckoutData.subtotal,deliveryFee:cartCheckoutData.deliveryFee||0,discount:cartCheckoutData.discount||0,promoCode:cartCheckoutData.promoCode||'',total:total,playerId:playerId,playerName:(cartCheckoutData.playerName||""),account:_accData,userId:currentUser.uid,userName:currentUser.displayName||(currentUser.email||'').split('@')[0],email:currentUser.email||'',pointsUsed:(+cartCheckoutData.pointsUsed||0),paymentMethod:methodName,paymentRef:ref||'',status:'paid',createdAt:firebase.firestore.FieldValue.serverTimestamp()});
+      await oref.set({items:cartCheckoutData.items,subtotal:cartCheckoutData.subtotal,deliveryFee:cartCheckoutData.deliveryFee||0,discount:cartCheckoutData.discount||0,promoCode:cartCheckoutData.promoCode||'',total:total,playerId:playerId,playerName:(cartCheckoutData.playerName||""),account:_accData,userId:currentUser.uid,userName:currentUser.displayName||(currentUser.email||'').split('@')[0],email:currentUser.email||'',paymentMethod:methodName,paymentRef:ref||'',status:'paid',createdAt:firebase.firestore.FieldValue.serverTimestamp()});
       awardPurchasePoints(oref.id,total,cartCheckoutData.items);autoDeliverOrder(oref.id);
       showCartPaymentSuccess({id:oref.id});
     }else{
@@ -6287,7 +6217,6 @@ async function openCartCheckout(){
   renderCheckoutFields(detectCheckoutGame());
   document.getElementById('cart-promo').value='';
   document.getElementById('cart-promo-msg').style.display='none';
-  var _uc=document.getElementById('cart-use-pts');if(_uc)_uc.checked=false; // ⭐ remise points décochée par défaut
   renderCartLines();
   document.getElementById('adyen-cart-dropin').style.display='none';
   document.getElementById('adyen-cart-dropin').innerHTML='';
@@ -6458,7 +6387,6 @@ async function payCartWithWallet(){
         promoCode:cartCheckoutData.promoCode||'',total:total,
         playerId:playerId,playerName:(cartCheckoutData.playerName||""),account:_accData,userId:currentUser.uid,
         userName:currentUser.displayName||(currentUser.email||'').split('@')[0],
-        pointsUsed:(+cartCheckoutData.pointsUsed||0),
         email:currentUser.email||'',paymentMethod:'wallet',status:'paid',
         createdAt:firebase.firestore.FieldValue.serverTimestamp()
       });
@@ -6516,7 +6444,6 @@ async function finalizeCartFedaPay(transactionId,total,playerId){
         promoCode:cartCheckoutData.promoCode||'',total:total,
         playerId:playerId,playerName:(cartCheckoutData.playerName||""),account:_accData,userId:currentUser.uid,
         userName:currentUser.displayName||(currentUser.email||'').split('@')[0],
-        pointsUsed:(+cartCheckoutData.pointsUsed||0),
         email:currentUser.email||'',paymentMethod:'FedaPay',fedapayRef:transactionId,status:'paid',
         createdAt:firebase.firestore.FieldValue.serverTimestamp()
       });
@@ -8520,11 +8447,11 @@ if('serviceWorker'in navigator){
 <!-- FOOTER -->
 <footer>
   <div class="ft-inner">
-    <div class="ft-logo">LootR Store</div>
-    <div class="ft-links">
-      <a id="ft-wa" href="https://wa.me/22382131418?text=Bonjour%20LootR,%20je%20veux%20des%20infos%20sur%20un%20produit" target="_blank"><i class="fab fa-whatsapp"></i></a>
-      <a id="ft-mail" href="mailto:Asgmali821@gmail.com" target="_blank"><i class="fas fa-envelope"></i></a>
-      <a id="ft-tg" href="https://t.me/+22382131418" target="_blank"><i class="fab fa-telegram"></i></a>
+    <div class="ft-logo" id="ft-logo">LootR Store</div>
+    <div class="ft-links" id="ft-links">
+      <a href="https://wa.me/22382131418?text=Bonjour%20LootR,%20je%20veux%20des%20infos%20sur%20un%20produit" target="_blank" id="ft-wa"><i class="fab fa-whatsapp"></i></a>
+      <a href="mailto:Asgmali821@gmail.com" target="_blank" id="ft-mail"><i class="fas fa-envelope"></i></a>
+      <a href="https://t.me/+22382131418" target="_blank" id="ft-tg"><i class="fab fa-telegram"></i></a>
     </div>
     <div class="ft-copy">© 2026 LootR Store <svg viewBox="0 0 24 24" style="width:15px;height:15px;vertical-align:-2px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round"><rect x="2" y="6" width="20" height="12" rx="3"/><line x1="6" y1="12" x2="10" y2="12"/><line x1="8" y1="10" x2="8" y2="14"/><line x1="15" y1="13" x2="15.01" y2="13"/><line x1="18" y1="11" x2="18.01" y2="11"/></svg> Livraison instantanée<br>
       <span style="font-size:.7rem;opacity:.6">Support 8h–18h · Livraison 24h/24 · Rapide & Garantie</span>
