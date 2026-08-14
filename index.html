@@ -2501,6 +2501,10 @@ body.ios .pnotif .pn-ic{border-radius:11px}
       </div>
       <div class="promo-msg" id="cart-promo-msg" style="display:none"></div>
       <div class="pay-lines" id="cart-pay-lines"></div>
+      <div id="cart-points-check" style="display:none;align-items:center;gap:10px;margin:12px 0 4px;padding:12px;background:var(--bg3);border:1px solid var(--border);border-radius:12px;cursor:pointer" onclick="var c=document.getElementById('cart-points-cb');c.checked=!c.checked;toggleCartPoints(c.checked)">
+        <input type="checkbox" id="cart-points-cb" style="width:20px;height:20px;flex-shrink:0;accent-color:var(--accent)" onclick="event.stopPropagation();toggleCartPoints(this.checked)"/>
+        <span id="cart-points-label" style="font-size:13px;line-height:1.4">🎯 Utiliser mes points en réduction</span>
+      </div>
       <div style="font-weight:800;font-size:14px;margin:16px 0 8px">Méthode de paiement</div>
       <div class="rc-methods" id="cart-methods">
         <div class="rc-method" data-m="wallet" onclick="selectCartMethod('wallet')"><span class="rc-ic" style="font-size:21px">💰</span><div class="rc-tx"><div class="rc-n">Portefeuille LootR</div><div class="rc-d" id="cart-wallet-desc">Payer avec mon solde</div></div><span class="rc-chk"></span></div>
@@ -4301,6 +4305,12 @@ async function awardPurchasePoints(orderId,amountSpent,items){
       awardedOrders:firebase.firestore.FieldValue.arrayUnion(orderId)
     };
     if(amountSpent>0)upd.totalSpent=firebase.firestore.FieldValue.increment(+amountSpent);
+    // 🎯 Déduire les points utilisés en réduction sur cette commande (une seule fois).
+    var _ptsUsed=(cartCheckoutData&&+cartCheckoutData.pointsUsed>0)?+cartCheckoutData.pointsUsed:0;
+    if(_ptsUsed>0){
+      // On combine avec le gain : gain (POINTS_PER_PURCHASE) - points dépensés.
+      upd.points=firebase.firestore.FieldValue.increment(POINTS_PER_PURCHASE-_ptsUsed);
+    }
     // compteur d'achats de la semaine (mission « X achats/semaine »)
     var wk=weekKey();
     if(d.weekKey===wk)upd.weekBuys=firebase.firestore.FieldValue.increment(1);
@@ -5722,9 +5732,26 @@ function promoDiscount(ctx,subtotal){
   d=Math.min(d,subtotal);
   return Math.round(d*100)/100;
 }
+// 🎯 L'utilisateur coche/décoche « utiliser mes points »
+function toggleCartPoints(on){usePointsChecked=!!on;renderCartLines();}
 function recomputeCheckout(ctx){
   if(ctx==='cart')renderCartLines();
   else renderAccLines();
+}
+// 🎯 Points utilisables en réduction sur le panier.
+// Limite = somme (maxPointsDiscount × quantité) de chaque produit du panier,
+// plafonnée par le nombre de points que possède réellement l'utilisateur.
+let usePointsChecked=false; // l'utilisateur a-t-il coché « utiliser mes points » ?
+function cartPointsLimit(){
+  if(!cartCheckoutData||!cartCheckoutData.items)return 0;
+  var limit=0;
+  cartCheckoutData.items.forEach(function(it){
+    var prod=(allProducts||[]).find(function(p){return p.id===it.id;});
+    var per=(prod&&prod.maxPointsDiscount>0)?prod.maxPointsDiscount:0;
+    limit+=per*(it.qty||1);
+  });
+  var owned=(userData&&userData.points)||0;   // points possédés par le client
+  return Math.max(0,Math.min(limit,owned));
 }
 function renderCartLines(){
   if(!cartCheckoutData)return;
@@ -5733,15 +5760,34 @@ function renderCartLines(){
   const disc=promoDiscount('cart',sub);
   const lvlPct=levelDiscountPct();
   const lvlDisc=lvlPct>0?Math.round((sub-disc)*lvlPct)/100:0;
-  const total=Math.max(0,sub+fee-disc-lvlDisc);
-  cartCheckoutData.deliveryFee=fee;cartCheckoutData.discount=disc+lvlDisc;cartCheckoutData.total=total;
+  // 🎯 Réduction par points (si l'utilisateur a coché et a droit à des points)
+  const ptsLimit=cartPointsLimit();
+  if(ptsLimit<=0)usePointsChecked=false; // rien à utiliser → case forcée décochée
+  const ptsUsed=usePointsChecked?ptsLimit:0;
+  const ptsDisc=usePointsChecked?pointsToEur(ptsUsed):0;
+  const total=Math.max(0,sub+fee-disc-lvlDisc-ptsDisc);
+  cartCheckoutData.deliveryFee=fee;cartCheckoutData.discount=disc+lvlDisc+ptsDisc;cartCheckoutData.total=total;
+  cartCheckoutData.pointsUsed=ptsUsed;         // points à déduire au paiement
   cartCheckoutData.promoCode=appliedPromo.cart?appliedPromo.cart.code:'';
   document.getElementById('cart-pay-lines').innerHTML=
     `<div class="pl"><span>Sous-total</span><span>${fmtMoney(sub)}</span></div>`+
     (fee>0?`<div class="pl"><span>Frais</span><span>+ ${fmtMoney(fee)}</span></div>`:'')+
     (disc>0?`<div class="pl disc"><span>Réduction (${appliedPromo.cart.code})</span><span>- ${fmtMoney(disc)}</span></div>`:'')+
     (lvlDisc>0?`<div class="pl disc"><span>${currentLevel().icon} Fidélité ${currentLevel().name} (-${lvlPct}%)</span><span>- ${fmtMoney(lvlDisc)}</span></div>`:'')+
+    (ptsDisc>0?`<div class="pl disc"><span>🎯 Points utilisés (${ptsUsed} pts)</span><span>- ${fmtMoney(ptsDisc)}</span></div>`:'')+
     `<div class="pl tot"><span>Total à payer</span><b>${fmtMoney(total)}</b></div>`;
+  // 🎯 Case à cocher « utiliser mes points » (affichée seulement si le panier y donne droit)
+  var pc=document.getElementById('cart-points-check');
+  if(pc){
+    if(ptsLimit>0){
+      pc.style.display='flex';
+      var cb=document.getElementById('cart-points-cb');if(cb)cb.checked=usePointsChecked;
+      var lb=document.getElementById('cart-points-label');
+      if(lb)lb.innerHTML='🎯 Utiliser <b>'+ptsLimit+' points</b> en réduction (− '+fmtMoney(pointsToEur(ptsLimit))+')';
+    }else{
+      pc.style.display='none';
+    }
+  }
   // Liste des méthodes : solde portefeuille + méthodes fermées par l'admin
   const wd=document.getElementById('cart-wallet-desc');
   if(wd){const bal=userData.walletBalance||0;wd.innerHTML=currentUser?((bal>=total?'✅ ':'⚠️ ')+'Solde : <b>'+fmtMoney(bal)+'</b>'+(bal<total?' (insuffisant)':'')):'Connectez-vous';}
@@ -6210,6 +6256,7 @@ async function openCartCheckout(){
   const count=cart.reduce((s,i)=>s+i.qty,0);
   cartCheckoutData={items:cart.map(i=>({id:i.id,name:i.name,price:i.price,qty:i.qty})),subtotal:total,total};
   appliedPromo.cart=null;
+  usePointsChecked=false; // 🎯 case points décochée par défaut à chaque ouverture
   closeCart();
   document.getElementById('cart-pay-summary').innerHTML=`
     <div class="t">${count} article${count>1?'s':''}</div>
