@@ -2793,20 +2793,59 @@ function _recurringMissionIds(){
 }
 function missionProgress(m){
   var d=userData||{};
+  // 🎯 « Ligne de départ » : pour les missions CUMULATIVES (dépenses, commandes, invitations,
+  //    achats d'un produit), on ne compte que ce que le client fait APRÈS la création/découverte
+  //    de la mission. Sinon un client avec 53 commandes validerait « Passer 5 commandes » gratuitement.
+  var base=(d.missionBaselines&&m&&m.id&&d.missionBaselines[m.id]!=null)?(+d.missionBaselines[m.id]||0):0;
   switch(m.type){
     case 'buyWeek': return (d.weekKey===weekKey())?(d.weekBuys||0):0;
-    case 'spend':   return d.totalSpent||0;
+    case 'spend':   return Math.max(0,(d.totalSpent||0)-base);
     case 'firstBuy':
-    case 'orders':  return d.orderCount||0;
+    case 'orders':  return Math.max(0,(d.orderCount||0)-base);
     case 'review':  return d.reviewBonusGiven?1:0;
-    case 'invite':  return d.referralCount||0;
+    case 'invite':  return Math.max(0,(d.referralCount||0)-base);
     case 'wheel':   return (d.lastWheelDay===todayKey())?1:0;
-    case 'product': return (d.productBuys&&d.productBuys[(m.productName||'').toLowerCase()])||0;
+    case 'product': return Math.max(0,((d.productBuys&&d.productBuys[(m.productName||'').toLowerCase()])||0)-base);
     case 'profile': return ((currentUser&&currentUser.displayName)||d.name)&&d.phone?1:0;
     case 'notif':   return (typeof pushEnabled==='function'&&pushEnabled())?1:0;
     case 'install': return isAppInstalled()?1:0;
     case 'share':   return d.sharedShop?1:0;
     default: return 0;
+  }
+}
+// Valeur actuelle du compteur brut d'une mission cumulative (avant soustraction de la baseline).
+function _missionRawCounter(m){
+  var d=userData||{};
+  switch(m.type){
+    case 'spend':   return d.totalSpent||0;
+    case 'firstBuy':
+    case 'orders':  return d.orderCount||0;
+    case 'invite':  return d.referralCount||0;
+    case 'product': return (d.productBuys&&d.productBuys[(m.productName||'').toLowerCase()])||0;
+    default: return null; // mission non cumulative → pas de baseline
+  }
+}
+// 🎯 Enregistre la « ligne de départ » des missions cumulatives que le client découvre.
+//    Appelé quand les missions sont affichées. Une mission déjà réclamée n'est pas ré-enregistrée.
+async function ensureMissionBaselines(){
+  if(!currentUser||!_userLoaded)return;
+  var d=userData||{};
+  var baselines=d.missionBaselines||{};
+  var claimed=(d.claimedMissions||[]);
+  var toSave={};var changed=false;
+  (_adminMissions||[]).forEach(function(m){
+    if(!m||!m.id)return;
+    var raw=_missionRawCounter(m);
+    if(raw===null)return;                 // mission non cumulative → ignorer
+    if(baselines[m.id]!=null)return;      // baseline déjà posée
+    if(claimed.indexOf(m.id)>=0)return;   // déjà réclamée → ne pas toucher
+    baselines[m.id]=raw;                  // point de départ = compteur actuel
+    toSave['missionBaselines.'+m.id]=raw;
+    changed=true;
+  });
+  if(changed){
+    userData.missionBaselines=baselines;
+    try{await db.collection('users').doc(currentUser.uid).update(toSave);}catch(e){}
   }
 }
 // L'application est-elle installée / ouverte en mode standalone (PWA) ?
@@ -2835,6 +2874,16 @@ async function shareShop(){
 }
 function renderMissions(){
   var el=document.getElementById('missions-list');if(!el)return;
+  // 🎯 Pose la « ligne de départ » des nouvelles missions cumulatives, puis rafraîchit.
+  //    Le drapeau évite une boucle infinie (baseline → render → baseline…).
+  if(!renderMissions._basePending){
+    renderMissions._basePending=true;
+    ensureMissionBaselines().then(function(){
+      renderMissions._basePending=false;
+      // Si des baselines ont été posées, on ré-affiche une fois pour refléter 0/goal.
+      renderMissions();
+    }).catch(function(){renderMissions._basePending=false;});
+  }
   var list=_adminMissions.slice();
   // Missions par défaut si l'admin n'en a créé aucune
   if(!list.length){
