@@ -3581,6 +3581,7 @@ function openRecharge(){
   // boutons montants rapides
   // devise de recharge = devise choisie par le client (modifiable dans le modal)
   var _rcSel=document.getElementById('recharge-currency');if(_rcSel)_rcSel.value=currentCurrency();
+  _rcExactXof=null; // remise à zéro du montant XOF exact
   renderRcQuick();
   // réinitialise la sélection de méthode
   document.querySelectorAll('#recharge-step1 .rc-method').forEach(function(m){m.classList.remove('sel');});
@@ -3855,8 +3856,12 @@ function rechargeNext(){
   var raw=parseFloat((document.getElementById('recharge-amount').value||'').replace(',','.'));
   if(!raw||raw<=0){rechargeErr('Entrez un montant valide.');return;}
   // Reconversion vers la base € (les paiements en aval travaillent en EUR)
-  var _rate=(CURRENCIES[rcCurrency()]||CURRENCIES.eur).rate||1;
+  var _cur=rcCurrency();
+  var _rate=(CURRENCIES[_cur]||CURRENCIES.eur).rate||1;
   const amt=Math.round((raw/_rate)*100)/100;
+  // 💡 Si l'utilisateur a tapé directement en XOF, on garde SON montant exact
+  // pour l'affichage Orange Money (évite 500→499 dû au double arrondi €↔XOF).
+  _rcExactXof=(_cur==='xof')?Math.round(raw):null;
   if(!amt||amt<=0){rechargeErr('Entrez un montant valide.');return;}
   if(!_rcMethod){rechargeErr('Choisissez une méthode de paiement.');return;}
   if(_rcMethod==='fedapay'){startRechargeFedaPay(amt);return;}
@@ -3867,6 +3872,7 @@ function rechargeNext(){
   if(_rcMethod==='orange'){startRechargeOrange(amt);return;}
   submitRechargeRequest(amt,_rcMethod);
 }
+var _rcExactXof=null; // montant XOF exact tapé par l'utilisateur (ou null)
 /* ─── PayTech.sn : recharge par redirection (Orange Money, Wave, Free, carte…) ─── */
 async function startRechargePayTech(amtEuro){
   if(!currentUser){openAuthModal();return;}
@@ -3897,7 +3903,8 @@ function startRechargeOrange(amt){
   document.getElementById('recharge-step1').style.display='none';
   var ad=document.getElementById('recharge-adyen');if(ad)ad.style.display='none';
   const box=document.getElementById('recharge-orange');
-  const xof=Math.round((+amt||0)*(typeof EUR_XOF!=='undefined'?EUR_XOF:655.957));
+  // Si l'utilisateur a tapé en XOF, on affiche SON montant exact ; sinon on convertit.
+  const xof=(_rcExactXof&&_rcExactXof>0)?_rcExactXof:Math.round((+amt||0)*(typeof EUR_XOF!=='undefined'?EUR_XOF:655.957));
   const xofStr=xof.toLocaleString('fr-FR');
   box.style.display='block';
   box.innerHTML=`
@@ -3912,7 +3919,7 @@ function startRechargeOrange(amt){
       <div style="flex:1;min-width:0">
         <div style="font-weight:700;font-size:13.5px;margin-bottom:7px">Envoyez le montant via Orange Money</div>
         <div style="display:flex;align-items:center;gap:8px;background:var(--bg3);border:1px dashed var(--accent);border-radius:12px;padding:11px;margin-bottom:8px">
-          <div style="flex:1;min-width:0"><div style="font-size:11px;color:var(--text3)">Montant à envoyer</div><b style="font-family:Orbitron,monospace;font-size:18px;color:var(--accent)">${xofStr} XOF</b><div style="font-size:11px;color:var(--text3)">≈ ${fmtMoney(amt)}</div></div>
+          <div style="flex:1;min-width:0"><div style="font-size:11px;color:var(--text3)">Montant à envoyer</div><b style="font-family:Orbitron,monospace;font-size:18px;color:var(--accent)">${xofStr} XOF</b><div style="font-size:11px;color:var(--text3)">≈ ${(_rcExactXof&&_rcExactXof>0)?(xofStr+' XOF'):fmtMoney(amt)}</div></div>
           <button class="rw-btn" style="width:auto;padding:8px 11px;font-size:12px" onclick="copyText('${xof}','✓ Montant copié : ${xofStr} XOF')">📋</button>
         </div>
         <div style="display:flex;align-items:center;gap:8px;background:var(--bg3);border:1px dashed var(--accent);border-radius:12px;padding:11px">
