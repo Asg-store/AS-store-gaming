@@ -2671,9 +2671,11 @@ const APP_VERSION=5;  // ↑ incrémenté à chaque mise à jour ; comparé à c
 const POINTS_PER_PURCHASE=10;
 const UC_EXCHANGE={points:700,uc:60};
 // 💰 Valeur d'un point : 2 points = 0,01 $  →  1 point = 0,005 $.
-// La base des prix étant l'EUR, on convertit via USD : 1 pt = 0,005 $ / 1,16 = 0,00431 € env.
+// La base des prix étant l'EUR, on convertit via USD : 1 pt = 0,005 $ / 1,16 ≈ 0,00431 €.
 const POINT_VALUE_USD=0.005;                 // 2 points = 0,01 $
-const USD_RATE=(CURRENCIES.usd&&CURRENCIES.usd.rate)||1.16;
+// Note : on met le taux USD en dur ici (1.16) car CURRENCIES est défini plus bas
+// dans le fichier — y accéder maintenant planterait au chargement.
+const USD_RATE=1.16;
 const POINT_VALUE_EUR=POINT_VALUE_USD/USD_RATE;  // valeur d'1 point en base € (interne)
 // Convertit un nombre de points en réduction (base €)
 function pointsToEur(pts){return Math.round(((+pts||0)*POINT_VALUE_EUR)*10000)/10000;}
