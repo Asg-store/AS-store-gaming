@@ -4822,11 +4822,11 @@ function loadScheduledNotifs(){
       return '<div style="display:flex;align-items:center;gap:10px;padding:8px;border:1px solid var(--border);border-radius:10px">'+
         '<span style="font-size:18px">'+(n.sent?'✅':'⏰')+'</span>'+
         '<div style="flex:1;min-width:0"><div style="font-weight:700;font-size:12px">'+(n.title||'')+'</div><div style="font-size:10px;color:var(--text3)">'+dt+' · '+(n.sent?'envoyée':'en attente')+'</div></div>'+
-        (n.sent?'':'<button style="padding:6px 9px;border:1px solid var(--border);border-radius:8px;background:transparent;color:#ff5a5a;cursor:pointer" onclick="delSchedNotif(\''+d.id+'\')">🗑</button>')+'</div>';
+        '<button style="padding:6px 9px;border:1px solid var(--border);border-radius:8px;background:transparent;color:#ff5a5a;cursor:pointer" onclick="delSchedNotif(\''+d.id+'\')">🗑</button></div>';
     }).join('')||'<div style="font-size:12px;color:var(--text3)">Aucune notification programmée.</div>';
   },function(){});
 }
-async function delSchedNotif(id){try{await db.collection('scheduledNotifs').doc(id).delete();toast('✓ Annulée');}catch(e){toast('❌ '+e.message,true);}}
+async function delSchedNotif(id){try{await db.collection('scheduledNotifs').doc(id).delete();toast('🗑 Notification supprimée');}catch(e){toast('❌ '+e.message,true);}}
 
 // ── Parrainage : objectif et récompense ──
 async function loadInviteConfig(){
