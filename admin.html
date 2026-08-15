@@ -1205,7 +1205,7 @@ body{font-family:'Exo 2',sans-serif;background:var(--bg);color:var(--text);
       </div>
       <p style="font-size:12px;color:var(--text2);margin-bottom:12px">Choisissez un <b>produit du Catalogue</b> et fixez son <b>prix en points</b>. Le client l'achète avec ses points et il est <b>livré automatiquement via Flash Topup</b> (comme un achat normal).</p>
       <div class="form-grp"><label>Produit du Catalogue *</label>
-        <select class="inp inp-sel" id="pp-product"><option value="">— Choisir un produit —</option></select>
+        <select class="inp inp-sel" id="pp-product" onchange="autoFillPointsPrice()"><option value="">— Choisir un produit —</option></select>
       </div>
       <div class="f-row">
         <div class="form-grp" style="flex:1"><label>Prix (points) *</label><input class="inp" id="pp-cost" type="number" min="1" placeholder="700"/></div>
@@ -4153,6 +4153,20 @@ async function uploadPointsProductImg(e){
   finally{btn.disabled=false;btn.textContent=old;e.target.value='';}
 }
 // 🛒 Remplit la liste déroulante avec les produits du Catalogue.
+// 🎯 Quand l'admin choisit un produit, calcule automatiquement le prix en points.
+//    Base : 2 points = 0,01 $. Le prix produit est en € → on convertit en $ (×1,16) puis en points.
+//    Points = prix€ × 1,16 × 200  (car 1 $ = 200 points, puisque 0,01 $ = 2 pts).
+function autoFillPointsPrice(){
+  var sel=document.getElementById('pp-product');
+  var costField=document.getElementById('pp-cost');
+  if(!sel||!costField)return;
+  var prod=(products||[]).find(function(p){return p.id===sel.value;});
+  if(!prod){costField.value='';return;}
+  var priceEur=+prod.price||0;
+  var usdRate=1.16;
+  var points=Math.round(priceEur*usdRate*200);   // 0,01$=2pts → 1$=200pts
+  costField.value=points>0?points:'';
+}
 function fillPointsProductSelect(){
   var sel=document.getElementById('pp-product');if(!sel)return;
   var cur=sel.value;
