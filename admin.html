@@ -4896,18 +4896,28 @@ function loadHotVideosAdmin(){
   var el=document.getElementById('yt-admin-list');if(!el)return;
   el.innerHTML='<span class="hint">⏳ Chargement…</span>';
   if(_hotVideosUnsub){_hotVideosUnsub();_hotVideosUnsub=null;}
-  // 🎬 Affichage immédiat (get) — garantit que la liste apparaît dès l'ouverture,
-  //    sans attendre le premier snapshot temps réel.
+  // 🎬 Affichage immédiat (get) — garantit que la liste apparaît dès l'ouverture.
   db.collection('config').doc('shop').get().then(function(d){
-    try{_renderHotVideosAdmin(el,(d&&d.exists&&(d.data()||{}).hotVideos)||[]);}catch(_){}
-  }).catch(function(){});
-  // 🔄 Puis écoute temps réel pour les ajouts/suppressions.
+    var data=(d&&d.exists&&d.data())||{};
+    var vids=data.hotVideos||[];
+    // 🔎 DIAGNOSTIC : si vide, on montre ce que contient réellement la config.
+    if(!Array.isArray(vids)||!vids.length){
+      var keys=Object.keys(data).join(', ');
+      el.innerHTML='<div class="hint" style="padding:6px 0">Aucune vidéo publiée pour le moment.</div>'
+        +'<div style="font-size:10px;color:var(--text3);margin-top:6px">🔎 Champs config : '+aEsc(keys||'(vide)')+'</div>';
+      return;
+    }
+    _renderHotVideosAdmin(el,vids);
+  }).catch(function(e){
+    el.innerHTML='<div class="hint" style="color:#ff3b5c;padding:6px 0">Erreur lecture : '+aEsc((e&&e.message)||'inconnue')+'</div>';
+  });
+  // 🔄 Écoute temps réel pour les ajouts/suppressions.
   _hotVideosUnsub=db.collection('config').doc('shop').onSnapshot(function(d){
     var vids=[];
     try{vids=(d&&d.exists&&(d.data()||{}).hotVideos)||[];}catch(e){vids=[];}
     if(!Array.isArray(vids))vids=[];
-    _renderHotVideosAdmin(el,vids);
-  },function(err){el.innerHTML='<div class="hint" style="color:#ff3b5c;padding:6px 0">Erreur de chargement : '+aEsc((err&&err.message)||'inconnue')+'</div>';});
+    if(vids.length)_renderHotVideosAdmin(el,vids);   // ne pas écraser le diagnostic si vide
+  },function(err){});
 }
 // Rendu de la liste des vidéos (admin) — séparé pour être réutilisable.
 function _renderHotVideosAdmin(el,vids){
