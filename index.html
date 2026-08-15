@@ -8322,17 +8322,16 @@ async function setPushPref(on){
 // 🔔 Cloud Messaging : enregistre le jeton de l'appareil pour recevoir les annonces/promos
 // même quand l'application est en arrière-plan ou fermée (comme une vraie notif système).
 async function initFCM(){
-  if(!messaging||!('serviceWorker'in navigator)){showToast('⚠️ FCM: navigateur non compatible');return;}
+  if(!messaging||!('serviceWorker'in navigator)){console.warn('[LootR] FCM: navigateur non compatible');return;}
   if(!FCM_VAPID_KEY||FCM_VAPID_KEY.indexOf('COLLEZ')===0){
-    showToast('⚠️ FCM: clé VAPID manquante');
     console.warn('[ASG] Clé VAPID non configurée → notifications en arrière-plan désactivées.');
     return;
   }
-  if(Notification.permission!=='granted'){showToast('⚠️ FCM: permission = '+Notification.permission);return;}
+  if(Notification.permission!=='granted'){console.warn('[LootR] FCM: permission =',Notification.permission);return;}
   try{
     const reg=await navigator.serviceWorker.register('firebase-messaging-sw.js');
     const token=await messaging.getToken({vapidKey:FCM_VAPID_KEY,serviceWorkerRegistration:reg});
-    if(!token){showToast('⚠️ FCM: jeton vide');console.warn('[LootR] getToken vide');return;}
+    if(!token){console.warn('[LootR] getToken vide');return;}
     // Sauvegarde le jeton (clé = jeton pour dédoublonner par appareil)
     await db.collection('fcmTokens').doc(token).set({
       token,
@@ -8341,7 +8340,6 @@ async function initFCM(){
       platform:(navigator.userAgent||'').slice(0,120),
       updatedAt:firebase.firestore.FieldValue.serverTimestamp()
     },{merge:true});
-    showToast('✅ Appareil enregistré pour les notifications !');
     console.log('[LootR] ✅ Notifications prêtes (jeton enregistré)');
     // Notification reçue pendant que l'app est ouverte (premier plan)
     messaging.onMessage(payload=>{
@@ -8350,8 +8348,8 @@ async function initFCM(){
       notifyPhone(d.title||n.title||'📢 LootR',d.body||n.body||'Nouvelle annonce');
     });
   }catch(e){
-    // 🔎 DIAGNOSTIC : montre la vraie erreur pour comprendre le blocage
-    showToast('❌ FCM: '+((e&&e.message)?e.message:'erreur inconnue'));
+    // 🔇 Erreur silencieuse : ne rien montrer à l'utilisateur (cosmétique).
+    //    getToken échoue parfois au 1er chargement puis réussit au 2e essai.
     console.warn('[LootR] initFCM :',(e&&e.message)?e.message:e);
     if(!initFCM._retried){
       initFCM._retried=true;
