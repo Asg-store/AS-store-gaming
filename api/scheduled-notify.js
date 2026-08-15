@@ -45,11 +45,7 @@ module.exports = async (req, res) => {
       return ms && ms <= now.toMillis();
     });
 
-    if (!dueDocs.length) {
-      return res.status(200).json({ ok: true, due: 0, note: 'aucune notification à envoyer' });
-    }
-
-    // Tous les appareils enregistrés (diffusion générale)
+    // Compte les appareils abonnés (toujours, même sans notif due → affichage admin correct)
     const tokSnap = await db.collection('fcmTokens').get();
     let tokens = [];
     tokSnap.forEach(d => {
@@ -57,6 +53,10 @@ module.exports = async (req, res) => {
       if (t) tokens.push(t);
     });
     tokens = Array.from(new Set(tokens));
+
+    if (!dueDocs.length) {
+      return res.status(200).json({ ok: true, due: 0, devices: tokens.length, note: 'aucune notification à envoyer' });
+    }
 
     const results = [];
 
@@ -109,3 +109,4 @@ module.exports = async (req, res) => {
     return res.status(500).json({ error: e.message || 'Erreur serveur' });
   }
 };
+
