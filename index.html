@@ -2081,12 +2081,6 @@ body.ios .pnotif .pn-ic{border-radius:11px}
       <div id="missions-list"></div>
     </div>
 
-    <div class="reward-sec" id="arena-sec">
-      <h4>🏟️ Arène — Acheter des points</h4>
-      <p class="sub">Utilisez votre portefeuille pour obtenir des points instantanément. Gagnez aussi +10 points à chaque achat.</p>
-      <div class="pack-grid" id="arena-packs"></div>
-    </div>
-
     <div class="reward-sec" id="pts-shop-sec">
       <h4>🛒 Boutique Points</h4>
       <p class="sub">Achetez ces produits <b>uniquement avec vos points</b>. Indiquez votre ID joueur, la livraison se fait automatiquement.</p>
@@ -2634,6 +2628,7 @@ async function loadConfig(){
       checkMissionReset&&checkMissionReset();
       renderMissions&&renderMissions();
       renderLoyalty&&renderLoyalty(); // 🥉 la carte niveau reflète les seuils admin en direct
+      try{if(typeof loadHotVideos==='function')loadHotVideos();}catch(_){}  // 📺 vidéos à jour en temps réel
       try{refreshFooterContacts();}catch(_){}  // 📞 contacts du pied de page (WhatsApp/email/Telegram) gérés par l'admin
     }
   },()=>{});
@@ -3588,7 +3583,7 @@ function openPtsBuy(id){
 }
 function closePtsBuy(){document.getElementById('ptsbuy-overlay').classList.remove('open');}
 function ptsBuyErr(m){const e=document.getElementById('ptsbuy-error');if(!m){e.classList.remove('show');return;}e.textContent=m;e.classList.add('show');}
-// Confirme l'achat : débit des points (transaction atomique) + demande de livraison
+// Confirme l'achat : débit des points (transaction atomique) + VRAIE commande livrée par Flash Topup
 async function confirmPtsBuy(){
   ptsBuyErr('');
   const p=_ptsBuyTarget;if(!p||!currentUser)return;
@@ -3600,24 +3595,36 @@ async function confirmPtsBuy(){
   const btn=document.getElementById('ptsbuy-confirm');btn.disabled=true;btn.textContent='⏳ Paiement…';
   try{
     const uref=db.collection('users').doc(currentUser.uid);
-    const rref=db.collection('redemptions').doc();
+    const oref=db.collection('orders').doc();   // ⬅️ vraie COMMANDE (livrable Flash Topup)
     await db.runTransaction(async function(tx){
       const us=await tx.get(uref);
       const pts=((us.data()||{}).points)||0;
       if(pts<cost)throw new Error('Points insuffisants');
       tx.set(uref,{points:pts-cost},{merge:true});
-      tx.set(rref,{
-        type:'product',productId:p.id,productName:p.name||'Produit',
-        points:cost,imageUrl:p.imageUrl||'',
-        playerId:playerId,userId:currentUser.uid,
+      // 🔗 On met l'ftServiceCode ET l'id du produit catalogue dans l'item
+      //    → /api/flashtopup-deliver livre automatiquement le vrai produit.
+      tx.set(oref,{
+        items:[{
+          id:p.catalogProductId||p.id,
+          name:p.name||'Produit',
+          price:0, qty:1,
+          ftServiceCode:p.ftServiceCode||''
+        }],
+        subtotal:0,deliveryFee:0,discount:0,total:0,
+        pointsSpent:cost,paymentMethod:'points',
+        playerId:playerId,
+        userId:currentUser.uid,
         userName:currentUser.displayName||(currentUser.email||'').split('@')[0],
-        userEmail:currentUser.email||'',status:'pending',
+        email:currentUser.email||'',
+        status:'paid',
         createdAt:firebase.firestore.FieldValue.serverTimestamp()
       });
     });
+    // 🚀 Déclenche la livraison automatique Flash Topup (comme un achat normal)
+    try{autoDeliverOrder(oref.id);}catch(_){}
     closePtsBuy();
     showToast('✅ Acheté avec '+cost+' points !');
-    showDeliveryProgress({items:[{name:p.name||'Produit',qty:1}],playerId:playerId,paymentMethod:'points'});
+    showDeliveryProgress({items:[{name:p.name||'Produit',qty:1}],playerId:playerId,paymentMethod:'points',id:oref.id});
   }catch(e){ptsBuyErr(e.message==='Points insuffisants'?'Points insuffisants.':('Erreur : '+(e.message||'achat impossible')));}
   finally{btn.disabled=false;btn.textContent='✅ Payer avec mes points';}
 }
