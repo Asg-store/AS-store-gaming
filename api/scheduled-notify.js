@@ -31,14 +31,21 @@ module.exports = async (req, res) => {
     const db = admin.firestore();
     const now = admin.firestore.Timestamp.now();
 
-    // Notifications dues : pas encore envoyées ET sendAt <= maintenant
+    // Notifications dues : pas encore envoyées (filtre simple → PAS besoin d'index composite Firebase).
+    // On filtre ensuite « sendAt <= maintenant » directement dans le code.
     const snap = await db.collection('scheduledNotifs')
       .where('sent', '==', false)
-      .where('sendAt', '<=', now)
-      .limit(20)
+      .limit(50)
       .get();
 
-    if (snap.empty) {
+    // Ne garder que celles réellement arrivées à échéance (sendAt <= now)
+    const dueDocs = snap.docs.filter(doc => {
+      const sa = (doc.data() || {}).sendAt;
+      const ms = sa && sa.toMillis ? sa.toMillis() : 0;
+      return ms && ms <= now.toMillis();
+    });
+
+    if (!dueDocs.length) {
       return res.status(200).json({ ok: true, due: 0, note: 'aucune notification à envoyer' });
     }
 
@@ -53,7 +60,7 @@ module.exports = async (req, res) => {
 
     const results = [];
 
-    for (const doc of snap.docs) {
+    for (const doc of dueDocs) {
       const n = doc.data() || {};
       let sentCount = 0;
       const stale = [];
@@ -97,7 +104,7 @@ module.exports = async (req, res) => {
       results.push({ id: doc.id, title: n.title || '', sent: sentCount });
     }
 
-    return res.status(200).json({ ok: true, due: snap.size, devices: tokens.length, results });
+    return res.status(200).json({ ok: true, due: dueDocs.length, devices: tokens.length, results });
   } catch (e) {
     return res.status(500).json({ error: e.message || 'Erreur serveur' });
   }
