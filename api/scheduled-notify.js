@@ -67,10 +67,21 @@ module.exports = async (req, res) => {
 
       if (tokens.length) {
         const base = {
-          notification: { title: n.title || 'LootR', body: n.body || '' },
-          data: { type: 'scheduled', notifId: doc.id },
+          // ── Message "data" (construit côté service worker → fiable en arrière-plan) ──
+          data: {
+            title: String(n.title || 'LootR'),
+            body: String(n.body || ''),
+            url: '/',
+            icon: '/notif-logo.png',
+            type: 'scheduled',
+            notifId: doc.id
+          },
+          android: { priority: 'high' },
+          // ⚠️ INDISPENSABLE POUR LE WEB / PWA : sans l'en-tête Urgency, le téléphone
+          // (mode veille / app fermée) met la notif en file et ne l'affiche qu'à la
+          // réouverture. Urgency high = livraison immédiate même appareil endormi.
           webpush: {
-            notification: { icon: '/icon-192.png', badge: '/notif-badge.png' },
+            headers: { Urgency: 'high', TTL: '86400' },
             fcmOptions: { link: 'https://lootr.cc/' }
           }
         };
@@ -109,4 +120,3 @@ module.exports = async (req, res) => {
     return res.status(500).json({ error: e.message || 'Erreur serveur' });
   }
 };
-
