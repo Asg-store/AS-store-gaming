@@ -5370,6 +5370,7 @@ function showInvoice(id){
   addMeta('Méthode',o.paymentMethod);
   addMeta('Réf. paiement',o.paymentRef||o.fedapayRef||o.cinetpayRef||'');
   addMeta('ID joueur',o.playerId);
+  addMeta('Nom joueur',o.playerName||'');
   var money=(o.total||o.amount||0),pts=(o.pointsSpent||o._pts||0);
   var totalDisplay=money>0?fmtMoney(money):(pts>0?('⭐ '+pts+' pts'):fmtMoney(0));
   var host=document.createElement('div');
@@ -5768,6 +5769,16 @@ async function applyPromo(ctx){
     if(p.validFrom&&p.validFrom.toDate&&p.validFrom.toDate()>new Date()){appliedPromo[ctx]=null;msg.className='promo-msg err';msg.textContent='⏳ Ce code sera actif à partir du '+p.validFrom.toDate().toLocaleDateString('fr-FR')+'.';recomputeCheckout(ctx);return;}
     const sub=checkoutSubtotal(ctx);
     if(p.minAmount&&sub<p.minAmount){appliedPromo[ctx]=null;msg.className='promo-msg err';msg.textContent=`Minimum ${fmtMoney(p.minAmount)} requis pour ce code.`;recomputeCheckout(ctx);return;}
+    // 🎮 Code réservé à un jeu précis : vérifier que le panier contient bien ce jeu.
+    if(p.gameScope){
+      var _items=(ctx==='cart'&&cartCheckoutData&&cartCheckoutData.items)?cartCheckoutData.items:[];
+      var _okGame=_items.some(function(it){
+        var prod=(allProducts||[]).find(function(pr){return pr.id===it.id;});
+        var g=(prod&&(prod.game||prod.category))||'';
+        return String(g).trim().toLowerCase()===String(p.gameScope).trim().toLowerCase();
+      });
+      if(!_okGame){appliedPromo[ctx]=null;msg.className='promo-msg err';msg.textContent='❌ Ce code est valable uniquement pour '+p.gameScope+'.';recomputeCheckout(ctx);return;}
+    }
     appliedPromo[ctx]=p;
     msg.className='promo-msg ok';
     msg.textContent=`✓ Code « ${code} » appliqué : ${p.type==='percent'?'-'+p.value+'%':'-'+fmtMoney(+p.value)}`;

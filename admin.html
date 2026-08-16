@@ -1042,6 +1042,12 @@ body{font-family:'Exo 2',sans-serif;background:var(--bg);color:var(--text);
         <div class="form-grp"><label>Commence le</label><input class="inp" id="pr-start" type="date"/></div>
         <div class="form-grp"><label>Expire le</label><input class="inp" id="pr-exp" type="date"/></div>
       </div>
+      <div class="form-grp"><label>🎮 S'applique à</label>
+        <select class="inp inp-sel" id="pr-scope">
+          <option value="">Tout le catalogue (public)</option>
+        </select>
+        <span class="hint">« Tout le catalogue » = code public. Sinon, choisissez un jeu : le code ne marchera que pour ce jeu (ex : Free Fire uniquement).</span>
+      </div>
       <button class="save-btn" onclick="savePromo()">➕ Créer le code promo</button>
     </div>
   </div>
@@ -1802,6 +1808,7 @@ auth.onAuthStateChanged(user=>{
       products=snap.docs.map(d=>({id:d.id,...d.data()}));
       renderStats();renderList();renderPhotos();renderPhotoStats();
       try{fillPointsProductSelect();}catch(_){}  // 🛒 liste déroulante Boutique Points à jour
+      try{fillPromoScopeSelect();}catch(_){}    // 🎮 liste déroulante jeux (codes promo)
       if(dashLoaded)loadDashboard();
     },e=>toast('❌ Firebase: '+e.message,true));
     loadConfigForLogin();
@@ -2535,12 +2542,20 @@ async function updateOrderStatus(id,status){
     renderOrderStats();renderOrders();toast('✓ Statut mis à jour');
     // 🔔 Notifie le client (préparation / livraison en cours / livré / payé / annulé)
     if(o&&o.userId){
-      const ref=o.productName?(' · '+o.productName):'';
+      // 🎮 Détails enrichis : article (pack), ID joueur, nom du joueur
+      var _article=o.productName||((o.items&&o.items[0])?(o.items[0].name||o.items[0].title):'')||'';
+      var _pid=o.playerId||'';
+      var _pname=o.playerName||o.userName||'';
+      const ref=_article?(' · '+_article):'';
+      // Ligne de détails ajoutée à la notif (ID joueur + nom si dispo)
+      var _det='';
+      if(_pid)_det+='\nID joueur : '+_pid;
+      if(_pname)_det+='\nNom : '+_pname;
       const map={
-        processing:['⏳','Commande en préparation','Votre commande'+ref+' est en cours de préparation.'],
-        paid:['✅','Paiement confirmé','Votre paiement pour'+(ref||' votre commande')+' a bien été reçu.'],
-        shipped:['🚚','Livraison en cours','Votre commande'+ref+' est en cours de livraison.'],
-        delivered:['📦','Commande livrée','Votre commande'+ref+' a été livrée. Merci pour votre achat !'],
+        processing:['⏳','Commande en préparation','Votre commande'+ref+' est en cours de préparation.'+_det],
+        paid:['✅','Paiement confirmé','Votre paiement pour'+(ref||' votre commande')+' a bien été reçu.'+_det],
+        shipped:['🚚','Livraison en cours','Votre commande'+ref+' est en cours de livraison.'+_det],
+        delivered:['📦','Commande livrée','Votre commande'+ref+' a été livrée. Merci pour votre achat !'+_det],
         cancelled:['❌','Commande annulée','Votre commande'+ref+' a été annulée. Contactez le support si besoin.']
       };
       if(map[status]){
@@ -2554,10 +2569,12 @@ async function updateOrderStatus(id,status){
             +'<div style="background:linear-gradient(135deg,#1c1c22,#0b0b0d);padding:20px;text-align:center"><div style="font-size:26px;font-weight:800;color:#e8c766;letter-spacing:2px">◈ LOOTR</div></div>'
             +'<div style="padding:22px;font-size:14px;line-height:1.7;color:#ddd">'
             +'<h2 style="color:#e8c766;margin:0 0 10px">'+m[0]+' '+m[1]+'</h2>'
-            +'<p>Bonjour '+((o.userName||'').replace(/</g,''))+',</p>'
-            +'<p>'+m[2]+'</p>'
+            +'<p>Bonjour '+((_pname||'').replace(/</g,''))+',</p>'
+            +'<p>'+String(m[2]).split('\n')[0]+'</p>'
             +'<div style="background:#141418;border-radius:10px;padding:14px;margin:12px 0"><b>Référence :</b> '+_cref
-            +(o.productName?('<br><b>Produit :</b> '+String(o.productName).replace(/</g,'')):'')
+            +(_article?('<br><b>Article :</b> '+String(_article).replace(/</g,'')):'')
+            +(_pid?('<br><b>ID joueur :</b> '+String(_pid).replace(/</g,'')):'')
+            +(_pname?('<br><b>Nom joueur :</b> '+String(_pname).replace(/</g,'')):'')
             +((o.total||o.amount)?('<br><b>Total :</b> '+(((+o.total||+o.amount)||0).toFixed(2))+' €'):'')+'</div>'
             +'</div>'
             +'<div style="padding:14px;text-align:center;font-size:11px;color:#888;border-top:1px solid #222">LootR — https://lootr.cc</div></div>'
@@ -3121,12 +3138,16 @@ async function delAnnounce(id){
 async function savePromo(){
   const code=(document.getElementById('pr-code').value||'').trim().toUpperCase();
   const type=document.getElementById('pr-type').value;
+  // (le sélecteur de jeu est rempli par fillPromoScopeSelect au chargement des produits)
   const value=parseFloat(document.getElementById('pr-value').value);
   const min=parseFloat(document.getElementById('pr-min').value)||0;
   const expStr=document.getElementById('pr-exp').value;
   if(!code){toast('❌ Code requis',true);return;}
   if(isNaN(value)||value<=0){toast('❌ Valeur invalide',true);return;}
   const data={code,type,value,minAmount:min,active:true,createdAt:firebase.firestore.FieldValue.serverTimestamp()};
+  // 🎮 Restriction par jeu (vide = tout le catalogue)
+  var _scopeSel=document.getElementById('pr-scope');
+  data.gameScope=(_scopeSel&&_scopeSel.value)?_scopeSel.value:'';
   if(expStr)data.expiresAt=firebase.firestore.Timestamp.fromDate(new Date(expStr+'T23:59:59'));
   const startStr=document.getElementById('pr-start').value;
   if(startStr)data.validFrom=firebase.firestore.Timestamp.fromDate(new Date(startStr+'T00:00:00'));
@@ -4166,6 +4187,22 @@ function autoFillPointsPrice(){
   var usdRate=1.16;
   var points=Math.round(priceEur*usdRate*200);   // 0,01$=2pts → 1$=200pts
   costField.value=points>0?points:'';
+}
+// 🎮 Remplit le sélecteur "S'applique à" du code promo avec les jeux du catalogue.
+function fillPromoScopeSelect(){
+  var sel=document.getElementById('pr-scope');if(!sel)return;
+  var cur=sel.value;
+  // Jeux uniques présents dans le catalogue (champ game), triés
+  var games=[];
+  (products||[]).forEach(function(p){
+    var g=(p.game||p.category||'').toString().trim();
+    if(g&&games.indexOf(g)<0)games.push(g);
+  });
+  games.sort();
+  var opts='<option value="">Tout le catalogue (public)</option>';
+  games.forEach(function(g){opts+='<option value="'+aEsc(g)+'">'+aEsc(g)+' uniquement</option>';});
+  sel.innerHTML=opts;
+  if(cur)sel.value=cur;
 }
 function fillPointsProductSelect(){
   var sel=document.getElementById('pp-product');if(!sel)return;
