@@ -135,9 +135,24 @@ module.exports = async (req, res) => {
       snap.forEach(d => { const t = (d.data() && d.data().token) || d.id; if (t) toks.push(t); });
       const uniq = Array.from(new Set(toks));
       if (uniq.length) {
+        const _openUrl = 'https://lootr.cc/?open=invite';
+        const _icon = 'https://lootr.cc/notif-logo.png';
         const resp = await admin.messaging().sendEachForMulticast({
-          data: { title: notifTitle, body: notifBody, url: '/', icon: '/notif-logo.png' },
+          data: { title: notifTitle, body: notifBody, url: _openUrl, type: 'invite', icon: _icon },
           android: { priority: 'high' },
+          // Web/PWA : bloc notification → livraison fiable même app fermée
+          webpush: {
+            headers: { Urgency: 'high', TTL: '86400' },
+            notification: {
+              title: String(notifTitle || 'LootR'),
+              body: String(notifBody || ''),
+              icon: _icon,
+              badge: 'https://lootr.cc/notif-badge.png',
+              requireInteraction: true,
+              data: { type: 'invite', url: _openUrl }
+            },
+            fcmOptions: { link: _openUrl }
+          },
           tokens: uniq
         });
         pushed = resp.successCount;
