@@ -2534,6 +2534,8 @@ body.ios .pnotif .pn-ic{border-radius:11px}
   <div class="bo-ico" id="bo-ico">🚫</div>
   <h2 id="bo-title">Compte suspendu</h2>
   <p id="bo-msg">Votre compte a été temporairement suspendu par un administrateur. Contactez le support pour plus d'informations.</p>
+  <div id="bo-countdown" style="display:none;font-family:'Orbitron',monospace;font-size:15px;font-weight:800;color:var(--accent);background:var(--bg3);border:1px solid var(--border);border-radius:12px;padding:10px 18px;margin-bottom:18px"></div>
+  <button id="bo-wa" style="display:none;padding:13px 26px;border-radius:var(--radius);background:#25D366;border:0;color:#fff;font-weight:800;cursor:pointer;margin-bottom:10px">💬 Contacter le support</button>
   <button id="bo-btn" onclick="doSignOut();document.getElementById('blocked-overlay').classList.remove('open')">Se déconnecter</button>
 </div>
 
@@ -5131,6 +5133,7 @@ auth.onAuthStateChanged(user=>{
 
 // Surveille le statut du compte (active / suspended / blocked) défini par l'admin
 let _statusUnsub=null;
+let _suspendTimer=null;   // compte à rebours de suspension
 function watchAccountStatus(uid){
   if(_statusUnsub)_statusUnsub();
   _statusUnsub=db.collection('users').doc(uid).onSnapshot(d=>{
@@ -5159,6 +5162,17 @@ function watchAccountStatus(uid){
       boBtn.onclick=function(){doSignOut();document.getElementById('blocked-overlay').classList.remove('open');};
     }
     if(st==='blocked'||st==='suspended'||st==='deleted'){
+      // ⏱️ Suspension avec durée : si le délai est passé, réactivation automatique.
+      if(st==='suspended' && data.suspendUntil){
+        var _until=data.suspendUntil.toMillis?data.suspendUntil.toMillis():(+data.suspendUntil||0);
+        if(_until>0 && Date.now()>=_until){
+          // Délai terminé → on réactive le compte tout de suite (côté client + base)
+          try{db.collection('users').doc(uid).set({accountStatus:'active',suspendUntil:null},{merge:true});}catch(e){}
+          bo.classList.remove('open');
+          if(_suspendTimer){clearInterval(_suspendTimer);_suspendTimer=null;}
+          return;
+        }
+      }
       const ico={blocked:'🚫',suspended:'⏸️',deleted:'🗑️'}[st];
       const title={blocked:'Compte bloqué',suspended:'Compte suspendu',deleted:'Compte supprimé'}[st];
       const msg={
@@ -5169,8 +5183,46 @@ function watchAccountStatus(uid){
       document.getElementById('bo-ico').textContent=ico;
       document.getElementById('bo-title').textContent=title;
       document.getElementById('bo-msg').textContent=msg;
+      // ⏱️ Compte à rebours si suspension à durée déterminée
+      if(_suspendTimer){clearInterval(_suspendTimer);_suspendTimer=null;}
+      var cd=document.getElementById('bo-countdown');
+      if(st==='suspended' && data.suspendUntil){
+        var untilMs=data.suspendUntil.toMillis?data.suspendUntil.toMillis():(+data.suspendUntil||0);
+        if(cd&&untilMs>0){
+          cd.style.display='block';
+          var tick=function(){
+            var left=untilMs-Date.now();
+            if(left<=0){ // fini → réactivation
+              clearInterval(_suspendTimer);_suspendTimer=null;
+              try{db.collection('users').doc(uid).set({accountStatus:'active',suspendUntil:null},{merge:true});}catch(e){}
+              bo.classList.remove('open');return;
+            }
+            var s=Math.floor(left/1000),d2=Math.floor(s/86400),h=Math.floor((s%86400)/3600),m=Math.floor((s%3600)/60),ss=s%60;
+            var parts=[];
+            if(d2>0)parts.push(d2+'j');
+            parts.push((h<10?'0':'')+h+'h');
+            parts.push((m<10?'0':'')+m+'m');
+            parts.push((ss<10?'0':'')+ss+'s');
+            cd.textContent='⏱️ Réactivation dans '+parts.join(' ');
+          };
+          tick();_suspendTimer=setInterval(tick,1000);
+        }
+      }else if(cd){cd.style.display='none';cd.textContent='';}
+      // 📞 Bouton « Contacter le support » (WhatsApp) — bloqué + suspendu
+      var boWa=document.getElementById('bo-wa');
+      if(boWa){
+        if(st==='blocked'||st==='suspended'){
+          boWa.style.display='block';
+          boWa.onclick=function(){
+            var num=(shopConfig.contactWhatsapp||'22382131418').toString().replace(/[^0-9]/g,'');
+            var uname=(currentUser&&(currentUser.displayName||currentUser.email))||'';
+            var txt='Bonjour LootR, mon compte est '+(st==='blocked'?'bloqué':'suspendu')+'. '+(uname?('Compte : '+uname+'. '):'')+'Pouvez-vous m\'aider à le réactiver ?';
+            window.open('https://wa.me/'+num+'?text='+encodeURIComponent(txt),'_blank');
+          };
+        }else{boWa.style.display='none';}
+      }
       bo.classList.add('open');
-    }else{bo.classList.remove('open');}
+    }else{bo.classList.remove('open');if(_suspendTimer){clearInterval(_suspendTimer);_suspendTimer=null;}}
   },()=>{});
 }
 

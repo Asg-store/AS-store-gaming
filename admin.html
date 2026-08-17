@@ -2039,7 +2039,7 @@ function openClientDetail(id){
     acts+=`<button class="btn-ghost" onclick="resetClientPin('${id}','')">🔒 Réinitialiser le code PIN</button>`;
   }
   if(st==='active'){
-    acts+=`<button class="btn-ghost" onclick="setClientStatus('${id}','suspended')">⏸ Suspendre le compte</button>`;
+    acts+=`<button class="btn-ghost" onclick="suspendWithDuration('${id}')">⏸ Suspendre le compte</button>`;
     acts+=`<button class="btn-del" onclick="setClientStatus('${id}','blocked')">🚫 Bloquer le compte</button>`;
   }else if(st==='suspended'||st==='blocked'){
     acts+=`<button class="btn-ok" onclick="setClientStatus('${id}','active')">✅ Débloquer / Réactiver</button>`;
@@ -2202,13 +2202,44 @@ async function loadWalletHistory(id){
       '</div>';}).join('');
   }catch(e){el.innerHTML='<span style="font-size:11px;color:var(--red)">'+aEsc(e.message)+'</span>';}
 }
+// ⏸️ Suspendre un compte avec une durée (minutes / heures / jours / mois)
+function suspendWithDuration(id){
+  var val=prompt('Durée de la suspension ?\n\nExemples :\n30m = 30 minutes\n2h = 2 heures\n7j = 7 jours\n1mois = 1 mois\n\n(laisser vide = suspension sans limite)','1j');
+  if(val===null)return; // annulé
+  val=(val||'').trim().toLowerCase();
+  var until=null;
+  if(val){
+    var m=val.match(/^(\d+)\s*(m|min|h|j|jour|jours|mois|d|day|days)?/);
+    if(m){
+      var n=parseInt(m[1])||0;var unit=m[2]||'j';var ms=0;
+      if(unit==='m'||unit==='min')ms=n*60*1000;
+      else if(unit==='h')ms=n*3600*1000;
+      else if(unit==='mois')ms=n*30*86400*1000;
+      else ms=n*86400*1000; // j / jour / jours / défaut
+      if(ms>0)until=Date.now()+ms;
+    }
+  }
+  setClientStatus(id,'suspended',until);
+}
 // Suspendre / bloquer / débloquer un compte (le client app applique le statut en temps réel)
-async function setClientStatus(id,status){
+async function setClientStatus(id,status,suspendUntilMs){
   const labels={active:'réactivé',suspended:'suspendu',blocked:'bloqué'};
   try{
-    await db.collection('users').doc(id).set({accountStatus:status,statusUpdatedAt:firebase.firestore.FieldValue.serverTimestamp()},{merge:true});
-    const c=clients.find(x=>x.id===id);if(c)c.accountStatus=status;
-    toast('✓ Compte '+(labels[status]||status));
+    var payload={accountStatus:status,statusUpdatedAt:firebase.firestore.FieldValue.serverTimestamp()};
+    // ⏱️ Durée de suspension (timestamp de fin) ; null si sans limite ou autre statut
+    if(status==='suspended'){
+      payload.suspendUntil=(suspendUntilMs&&suspendUntilMs>0)?firebase.firestore.Timestamp.fromMillis(suspendUntilMs):null;
+    }else{
+      payload.suspendUntil=null;
+    }
+    await db.collection('users').doc(id).set(payload,{merge:true});
+    const c=clients.find(x=>x.id===id);if(c){c.accountStatus=status;}
+    var extra='';
+    if(status==='suspended'&&suspendUntilMs&&suspendUntilMs>0){
+      var mins=Math.round((suspendUntilMs-Date.now())/60000);
+      extra=' ('+(mins>=1440?Math.round(mins/1440)+' jour(s)':mins>=60?Math.round(mins/60)+'h':mins+' min')+')';
+    }
+    toast('✓ Compte '+(labels[status]||status)+extra);
     openClientDetail(id);renderClients();
   }catch(e){toast('❌ '+e.message,true);}
 }
