@@ -71,28 +71,47 @@ module.exports = async (req, res) => {
     tokens = Array.from(new Set(tokens));
     if (!tokens.length) return res.status(200).json({ ok: true, sent: 0, note: 'aucun appareil enregistré' });
 
-    // ── Message "data" (construit côté service worker → fiable en arrière-plan) ──
+    // ── Lien ABSOLU (obligatoire pour le Web Push : FCM refuse un lien relatif) ──
+    // On dérive l'origine du site depuis la requête, sinon on retombe sur lootr.cc.
+    const _host = (req.headers['x-forwarded-host'] || req.headers.host || 'lootr.cc').split(',')[0].trim();
+    const _origin = 'https://' + _host.replace(/^https?:\/\//, '');
+    // URL d'ouverture : /?open=<type> → l'app ouvre directement la bonne section.
+    const _openUrl = _origin + '/?open=' + encodeURIComponent(String(type || ''));
+    const _iconUrl = _origin + '/notif-logo.png';
+    const _badgeUrl = _origin + '/notif-badge.png';
+
     const base = {
+      // data → utilisé au premier plan (onMessage) et pour le routage
       data: {
         title: String(title || 'LootR'),
         body: String(body || ''),
-        url: String(url || '/'),
+        url: _openUrl,
         type: String(type || ''),
-        icon: '/notif-logo.png'
+        icon: _iconUrl
       },
       // Priorité HAUTE pour l'app Android native (WebView / FCM natif)
       android: { priority: 'high' },
-      // ⚠️ INDISPENSABLE POUR LE WEB / PWA : le bloc "android" ci-dessus est
-      // IGNORÉ par le Web Push. Sans l'en-tête Urgency, le navigateur reçoit
-      // la notif en priorité « normale » → le téléphone (mode veille / Doze /
-      // navigateur fermé) la MET EN FILE et ne l'affiche qu'à la réouverture
-      // de l'app. C'était la cause du « reçu seulement quand j'ouvre l'app ».
+      // ⚠️ WEB / PWA : le bloc "android" est ignoré par le Web Push.
+      //  • On fournit un bloc "notification" → le navigateur AFFICHE la notif
+      //    lui-même, en priorité utilisateur : elle arrive même APP FERMÉE,
+      //    sans attendre la réouverture (contrairement à un message "data" seul
+      //    qui est souvent mis en file d'attente par Android/Doze).
+      //  • Urgency:high + TTL → livraison immédiate, gardée 24 h si hors ligne.
+      //  • fcmOptions.link (ABSOLU) → section ouverte au clic.
       webpush: {
         headers: {
-          Urgency: 'high',   // livraison immédiate même quand l'appareil dort
-          TTL: '86400'       // garde le message 24 h si l'appareil est hors ligne
+          Urgency: 'high',
+          TTL: '86400'
         },
-        fcmOptions: { link: String(url || '/') }
+        notification: {
+          title: String(title || 'LootR'),
+          body: String(body || ''),
+          icon: _iconUrl,
+          badge: _badgeUrl,
+          requireInteraction: true,
+          data: { type: String(type || ''), url: _openUrl }
+        },
+        fcmOptions: { link: _openUrl }
       }
     };
 
