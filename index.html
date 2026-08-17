@@ -8601,7 +8601,20 @@ if('serviceWorker'in navigator){
 })();
 // Service worker + notifications : si l'autorisation a déjà été accordée, on (ré)active le push
 if('serviceWorker'in navigator){
-  navigator.serviceWorker.register('firebase-messaging-sw.js').catch(()=>{});
+  navigator.serviceWorker.register('firebase-messaging-sw.js').then(function(reg){
+    // 🔄 Force le téléchargement de la dernière version du SW (défait le cache tenace).
+    try{reg.update();}catch(e){}
+    // Si une nouvelle version est trouvée, on l'active immédiatement (pas d'attente).
+    reg.addEventListener&&reg.addEventListener('updatefound',function(){
+      var nw=reg.installing;
+      if(nw)nw.addEventListener('statechange',function(){
+        if(nw.state==='installed'&&navigator.serviceWorker.controller){
+          // Nouveau SW prêt → il prendra le contrôle. On recharge une fois pour l'appliquer.
+          try{nw.postMessage&&nw.postMessage({__skipWaiting:true});}catch(e){}
+        }
+      });
+    });
+  }).catch(function(){});
   if(('Notification'in window)&&Notification.permission==='granted'&&localStorage.getItem('nex-push')!=='off'){
     localStorage.setItem('nex-push','on');
     setTimeout(initFCM,1500);

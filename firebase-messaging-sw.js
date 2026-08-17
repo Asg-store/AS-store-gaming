@@ -86,3 +86,7 @@ self.addEventListener('notificationclick', function(event){
 // Activation immédiate du nouveau SW (pas besoin de fermer tous les onglets)
 self.addEventListener('install', function(){ self.skipWaiting(); });
 self.addEventListener('activate', function(e){ e.waitUntil(self.clients.claim()); });
+// 🔄 Le client peut demander l'activation immédiate d'une nouvelle version
+self.addEventListener('message', function(e){
+  if(e && e.data && e.data.__skipWaiting){ self.skipWaiting(); }
+});
