@@ -1,5 +1,6 @@
 /* ════════════════════════════════════════════════════════════════
    LootR — Service Worker des notifications push (FCM)
+   Version 3 — clic notification ouvre la bonne section (postMessage + ?open=)
    Ce fichier DOIT être à la racine du site (même niveau que index.html),
    accessible à l'adresse : https://lootr.cc/firebase-messaging-sw.js
    C'est lui qui affiche la notification dans la barre du téléphone
@@ -59,18 +60,20 @@ self.addEventListener('notificationclick', function(event){
   event.notification.close();
   if (event.action === 'close') return;   // bouton « Fermer » → on ne fait rien
   var d = event.notification.data || {};
-  // 🎯 Construit l'URL avec le type de notif → l'app ouvre directement la bonne section.
-  var target = d.url || '/';
   var type = d.type || d.link || '';
-  if (type && target.indexOf('open=') < 0) {
-    target = '/?open=' + encodeURIComponent(type);
-  }
+  var target = d.url && d.url.indexOf('open=') >= 0 ? d.url : ('/?open=' + encodeURIComponent(type || ''));
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then(function(list){
       for (var i = 0; i < list.length; i++) {
         var c = list[i];
-        if ('focus' in c) { try { c.navigate(target); } catch(e) {} return c.focus(); }
+        if ('focus' in c) {
+          // 📨 App déjà ouverte : on lui envoie directement le type (plus fiable que navigate)
+          try { c.postMessage({ __lootrOpen: type || '' }); } catch(e) {}
+          try { c.navigate(target); } catch(e) {}
+          return c.focus();
+        }
       }
+      // App fermée : on l'ouvre avec le paramètre dans l'URL
       if (clients.openWindow) return clients.openWindow(target);
     })
   );
