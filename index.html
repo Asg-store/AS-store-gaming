@@ -7460,7 +7460,7 @@ function loadNotifs(){
       const newest=notifList[0];const t=notifTime(newest);
       // Notification téléphone (+ sonnerie) pour toute NOUVELLE annonce/promo
       if(_annInit&&t>_annLastT&&localStorage.getItem('nex-notif-pref')!=='off'){
-        notifyPhone((newest.icon||'📢')+' '+(newest.title||'Annonce LootR'),newest.body||'Nouvelle annonce de la boutique');
+        notifyPhone((newest.icon||'📢')+' '+(newest.title||'Annonce LootR'),newest.body||'Nouvelle annonce de la boutique','announce');
       }
       _annLastT=Math.max(_annLastT,t);
     }
@@ -7485,7 +7485,7 @@ function loadUserNotifs(uid){
           const sc=document.getElementById('screen-chat');
           const onChat=sc&&sc.classList.contains('open');
           if(!(newest.type==='message'&&onChat)){
-            notifyPhone((newest.icon||'🔔')+' '+(newest.title||'LootR'),newest.body||'');
+            notifyPhone((newest.icon||'🔔')+' '+(newest.title||'LootR'),newest.body||'',(newest.link||newest.type||''));
           }
         }
         _unLastT=Math.max(_unLastT,t);
@@ -7953,7 +7953,7 @@ function subscribeChat(){
       if(_chatMsgCount&&msgs.length>_chatMsgCount){
         const last=msgs[msgs.length-1];
         const sc=document.getElementById('screen-chat');const onChat=sc&&sc.classList.contains('open');
-        if(last&&last.from==='bot'&&!onChat)notifyPhone('🤖 Assistant LootR',last.text||'Nouveau message');
+        if(last&&last.from==='bot'&&!onChat)notifyPhone('🤖 Assistant LootR',last.text||'Nouveau message','message');
       }
       _chatMsgCount=msgs.length;
     },()=>{});
@@ -8471,7 +8471,7 @@ async function initFCM(){
     messaging.onMessage(payload=>{
       const d=(payload&&payload.data)||{};
       const n=(payload&&payload.notification)||{};
-      notifyPhone(d.title||n.title||'📢 LootR',d.body||n.body||'Nouvelle annonce');
+      notifyPhone(d.title||n.title||'📢 LootR',d.body||n.body||'Nouvelle annonce',(d.type||d.link||''));
     });
   }catch(e){
     // 🔇 Erreur silencieuse : ne rien montrer à l'utilisateur (cosmétique).
@@ -8510,7 +8510,7 @@ function linkNativeTokenToUser(){
   }catch(e){}
 }
 // Affiche une notification "style téléphone" DANS l'app (One UI / iOS), visible même au premier plan
-function phoneNotif(title,body){
+function phoneNotif(title,body,type){
   var stack=document.getElementById('phone-notif-stack');if(!stack)return;
   // Titre propre : on retire un éventuel emoji de tête (l'icône logo suffit)
   var t=(title||'Notification').replace(/^[\s\u2000-\u3300\uD83C-\uDBFF\uDC00-\uDFFF]+/,'').trim()||(title||'Notification');
@@ -8525,7 +8525,12 @@ function phoneNotif(title,body){
     '<div class="pn-t"></div><div class="pn-b"></div></div>';
   card.querySelector('.pn-t').textContent=t;
   card.querySelector('.pn-b').textContent=body||'';
-  card.addEventListener('click',function(){close();openScreen&&openScreen('notifications');});
+  card.addEventListener('click',function(){close();
+    // 🎯 Ouvre DIRECTEMENT la bonne section selon le type ; sinon la liste des notifs
+    var _ty=(type||'').toLowerCase();
+    if(_ty&&typeof openSectionByType==='function'){openSectionByType(_ty);}
+    else if(typeof openScreen==='function'){openScreen('notifications');}
+  });
   function close(){card.classList.remove('in');card.classList.add('out');setTimeout(function(){if(card.parentNode)card.parentNode.removeChild(card);},450);}
   stack.appendChild(card);
   // limiter à 3 cartes affichées
@@ -8535,17 +8540,23 @@ function phoneNotif(title,body){
   card.addEventListener('click',function(){clearTimeout(to);});
   return card;
 }
-function notifyPhone(title,body){
+function notifyPhone(title,body,type){
   if(localStorage.getItem('nex-notif-pref')==='off')return;
   try{playRingtone();}catch(e){}
+  var _ty=(type||'').toLowerCase();
+  // Cible d'ouverture quand on clique la notif système (barre du téléphone)
+  var _url='/?open='+encodeURIComponent(_ty);
   // 1) Bannière interne "style téléphone" (toujours visible dans l'app)
-  phoneNotif(title,body);
+  phoneNotif(title,body,_ty);
   // 2) Notification système (utile en arrière-plan, si autorisée)
   if(!pushEnabled())return;
   try{
+    // 🎯 On attache le type + l'URL « ?open= » dans data → au clic, le service
+    //    worker sait vers quelle section aller (sinon l'app restait sur l'Accueil).
+    var _opts={body:body,icon:'notif-logo.png',badge:'notif-badge.png',vibrate:[120,60,120],tag:'asg-'+(_ty||'msg')+'-'+Date.now(),renotify:true,data:{type:_ty,url:_url}};
     if(navigator.serviceWorker&&navigator.serviceWorker.ready){
-      navigator.serviceWorker.ready.then(reg=>reg.showNotification(title,{body,icon:'notif-logo.png',badge:'notif-badge.png',vibrate:[120,60,120],tag:'asg-msg',renotify:true})).catch(()=>{new Notification(title,{body});});
-    }else{new Notification(title,{body});}
+      navigator.serviceWorker.ready.then(reg=>reg.showNotification(title,_opts)).catch(()=>{new Notification(title,{body:body,data:{type:_ty,url:_url}});});
+    }else{new Notification(title,{body:body,data:{type:_ty,url:_url}});}
   }catch(e){}
 }
 
@@ -8662,13 +8673,14 @@ function openSectionByType(open){
   open=(open||'').toLowerCase();if(!open)return;
   try{
     if(open==='message'||open==='chat'||open==='support'){(typeof openChat==='function')?openChat():openScreen('chat');}
-    else if(open==='order'||open==='delivery'){(typeof openPayHistory==='function')?openPayHistory():openScreen('wallet');}
+    else if(open==='order'||open==='orders'||open==='payments'||open==='delivery'||open==='account'){(typeof openPayHistory==='function')?openPayHistory():openScreen('wallet');}
     else if(open==='points'||open==='reward'||open==='mission'){openScreen('points');}
-    else if(open==='wallet'){openScreen('wallet');}
+    else if(open==='wallet'||open==='credit'||open==='recharge'){openScreen('wallet');}
     else if(open==='listing'||open==='marketplace'){openScreen('marketplace');}
     else if(open==='vpn'){openScreen('vpn');}
     else if(open==='video'||open==='social'){openScreen('social');}
-    else if(open==='referral'){openScreen('points');}
+    else if(open==='referral'||open==='invite'){openScreen('points');}
+    else if(open==='announce'){openScreen('notifications');}
     else if(open==='info'||open===''){/* accueil, rien à ouvrir */}
     else{openScreen('notifications');}
   }catch(e){}

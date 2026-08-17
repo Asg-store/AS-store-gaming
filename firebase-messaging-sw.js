@@ -28,14 +28,13 @@ messaging.onBackgroundMessage(function(payload){
   var data = (payload && payload.data) || {};
   var n    = (payload && payload.notification) || {};
   var _type = data.type || data.link || '';
-  // 🔎 DIAGNOSTIC TEMPORAIRE : affiche le type reçu dans le titre pour vérifier la transmission
-  var title = (data.title || n.title || '📢 LootR') + ' [type='+(_type||'VIDE')+']';
+  var title = data.title || n.title || '📢 LootR';
   var body  = data.body  || n.body  || 'Vous avez une nouvelle notification';
   var image = data.image || n.image || undefined;
 
   // Tag UNIQUE → les notifications s'empilent au lieu de s'écraser entre elles
   // (sauf si le serveur impose volontairement un tag pour remplacer la précédente)
-  var tag = data.tag || ('lootr-' + Date.now());
+  var tag = data.tag || ('asg-' + Date.now());
 
   var options = {
     body: body,
