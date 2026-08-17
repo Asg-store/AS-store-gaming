@@ -66,23 +66,32 @@ module.exports = async (req, res) => {
       const stale = [];
 
       if (tokens.length) {
+        const _openUrl = 'https://lootr.cc/?open=' + encodeURIComponent(String(n.link || n.type || ''));
+        const _icon = 'https://lootr.cc/notif-logo.png';
         const base = {
-          // ── Message "data" (construit côté service worker → fiable en arrière-plan) ──
           data: {
             title: String(n.title || 'LootR'),
             body: String(n.body || ''),
-            url: '/',
-            icon: '/notif-logo.png',
-            type: 'scheduled',
+            url: _openUrl,
+            icon: _icon,
+            type: String(n.link || n.type || 'scheduled'),
             notifId: doc.id
           },
           android: { priority: 'high' },
-          // ⚠️ INDISPENSABLE POUR LE WEB / PWA : sans l'en-tête Urgency, le téléphone
-          // (mode veille / app fermée) met la notif en file et ne l'affiche qu'à la
-          // réouverture. Urgency high = livraison immédiate même appareil endormi.
+          // Web/PWA : bloc "notification" → le navigateur affiche la notif en
+          // priorité utilisateur, elle arrive même APP FERMÉE (au lieu d'être
+          // mise en file jusqu'à la réouverture). Urgency high + lien absolu.
           webpush: {
             headers: { Urgency: 'high', TTL: '86400' },
-            fcmOptions: { link: 'https://lootr.cc/' }
+            notification: {
+              title: String(n.title || 'LootR'),
+              body: String(n.body || ''),
+              icon: _icon,
+              badge: 'https://lootr.cc/notif-badge.png',
+              requireInteraction: true,
+              data: { type: String(n.link || n.type || 'scheduled'), url: _openUrl }
+            },
+            fcmOptions: { link: _openUrl }
           }
         };
         for (let i = 0; i < tokens.length; i += 500) {
