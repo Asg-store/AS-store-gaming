@@ -8594,10 +8594,12 @@ if('serviceWorker'in navigator){
   try{
     var params=new URLSearchParams(location.search||'');
     var open=(params.get('open')||'').toLowerCase();
+    // 🔎 DIAGNOSTIC : montre ce que l'URL contient au démarrage
+    showToast('🔎 URL open = "'+open+'" | search = "'+(location.search||'(vide)')+'"');
     if(!open)return;
     if(history.replaceState)history.replaceState(null,'',location.pathname);
     setTimeout(function(){openSectionByType(open);},1200);
-  }catch(e){}
+  }catch(e){showToast('🔎 Erreur diag: '+e.message);}
 })();
 // Service worker + notifications : si l'autorisation a déjà été accordée, on (ré)active le push
 if('serviceWorker'in navigator){
