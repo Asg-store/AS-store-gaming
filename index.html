@@ -7945,13 +7945,15 @@ function subscribeChat(){
           if(!txt&&!hasMedia)return'';
           const side=(m.from==='admin'||m.from==='bot')?'admin':'user';
           const tag=m.from==='bot'?'<b style="display:block;font-size:10px;opacity:.7;margin-bottom:2px">🤖 Assistant LootR</b>':(m.from==='admin'?'<b style="display:block;font-size:10px;opacity:.7;margin-bottom:2px">👨‍💼 Admin</b>':'');
-          let body=txt.replace(/</g,'&lt;');
+          let body=txt?`<span class="msg-tx" dir="auto">${txt.replace(/</g,'&lt;')}</span>`:'';
           if(hasMedia){const i=mIdx++;body+=chatMediaHTML(m.media,'chat-c',i);}
           // Le client peut supprimer ses propres messages
           const del=m.from==='user'?`<span class="msg-del" onclick="delMyMsg('${m._id}')" title="Supprimer">×</span>`:'';
           return`<div class="msg ${side} ${m.from==='user'?'deletable':''}">${del}${tag}${body}<span class="t">${fmtChatTime(m.createdAt)}</span></div>`;
         }).join('');
       }
+      // 🌐 Traduit les messages dans la langue du client (si ≠ français)
+      try{translateChatBubbles();}catch(e){}
       requestAnimationFrame(()=>{el.scrollTop=el.scrollHeight;});
       setTimeout(()=>{el.scrollTop=el.scrollHeight;},120);
       // Les bannières des messages admin sont gérées par les notifications perso (loadUserNotifs).
@@ -7963,6 +7965,45 @@ function subscribeChat(){
       }
       _chatMsgCount=msgs.length;
     },()=>{});
+}
+/* ─── 🌐 TRADUCTION AUTOMATIQUE DES MESSAGES DU SUPPORT ───
+   Chaque message affiché dans « Support & Échange » est traduit dans la langue
+   choisie par le client (Paramètres → Langue). La base des messages est en
+   français : si la langue du client est « fr », on n'appelle rien. */
+var _trCache={};
+function chatTargetLang(){return (localStorage.getItem('nex-lang')||'fr').toLowerCase();}
+function translateText(text,tl){
+  return new Promise(function(resolve){
+    text=(text||'');
+    tl=(tl||'fr').toLowerCase();
+    if(!text.trim()||tl==='fr'){resolve(text);return;}   // base FR → rien à traduire
+    var key=tl+'::'+text;
+    if(_trCache[key]!=null){resolve(_trCache[key]);return;}
+    var url='https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl='+encodeURIComponent(tl)+'&dt=t&q='+encodeURIComponent(text);
+    fetch(url).then(function(r){return r.json();}).then(function(d){
+      var out='';
+      try{ (d[0]||[]).forEach(function(seg){ if(seg&&seg[0])out+=seg[0]; }); }catch(e){ out=''; }
+      if(!out)out=text;                 // en cas de réponse vide → texte original
+      _trCache[key]=out; resolve(out);
+    }).catch(function(){ resolve(text); }); // en cas d'échec réseau → texte original
+  });
+}
+// Traduit tous les bulles de message déjà affichées dans la langue du client
+function translateChatBubbles(){
+  var tl=chatTargetLang();
+  var nodes=document.querySelectorAll('#chat-msgs .msg-tx');
+  if(!nodes.length)return;
+  if(tl==='fr'){ // remettre l'original si on repasse en français
+    for(var i=0;i<nodes.length;i++){var o=nodes[i].getAttribute('data-o');if(o!=null&&nodes[i].getAttribute('data-tr')){nodes[i].textContent=o;nodes[i].removeAttribute('data-tr');}}
+    return;
+  }
+  nodes.forEach(function(node){
+    if(node.getAttribute('data-tr')===tl)return;         // déjà traduit dans cette langue
+    var orig=node.getAttribute('data-o');if(orig==null){orig=node.textContent;node.setAttribute('data-o',orig);}
+    translateText(orig,tl).then(function(tr){
+      if(chatTargetLang()===tl){node.textContent=tr;node.setAttribute('data-tr',tl);}
+    });
+  });
 }
 function chatMediaHTML(media,regKey,idx){
   if(!media||!media.url)return'';
@@ -8392,6 +8433,7 @@ function applyLang(lang,save){
     localStorage.setItem('nex-lang',lang);
     showToast('✓ '+({fr:'Langue : Français',en:'Language: English',ar:'اللغة: العربية',bm:'Kan: Bamanankan',es:'Idioma: Español'}[lang]||'OK'));
     refreshRewardsUI&&refreshRewardsUI();   // réaffiche les vraies valeurs (solde, points)
+    try{translateChatBubbles();}catch(e){}  // 🌐 retraduit le chat dans la nouvelle langue
   }
 }
 applyLang(localStorage.getItem('nex-lang')||'fr',false);
@@ -8769,16 +8811,12 @@ function watchAdminPresence(){
     },function(){ _adminPresenceLoaded=true; });
   }catch(e){ _adminPresenceLoaded=true; }
 }
-// Met à jour le petit statut « en ligne / hors ligne » dans l'en-tête du chat
+// Statut « en ligne / hors ligne » masqué à la demande du client.
+// La détection de présence reste active (l'IA répond quand l'admin est hors ligne),
+// on n'affiche simplement plus le petit texte dans l'en-tête du chat.
 function updateChatPresenceUI(){
   var el=document.getElementById('chat-presence');if(!el)return;
-  if(_adminIsOnline){
-    el.innerHTML='<span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--green,#00e676);margin-right:5px"></span>Administrateur en ligne';
-    el.style.color='var(--green,#00e676)';
-  }else{
-    el.innerHTML='<span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--text3,#7a8aac);margin-right:5px"></span>🤖 Assistant automatique · admin hors ligne';
-    el.style.color='var(--text3,#7a8aac)';
-  }
+  el.style.display='none';el.innerHTML='';
 }
 // 🎯 Ouvre une section selon le type de notification (réutilisé par l'URL ?open= et le message du SW)
 function openSectionByType(open){
