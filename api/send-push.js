@@ -41,7 +41,7 @@ module.exports = async (req, res) => {
     let payload = req.body;
     if (typeof payload === 'string') { try { payload = JSON.parse(payload); } catch (e) { payload = {}; } }
     payload = payload || {};
-    const { userId, token, title, body, url } = payload;
+    const { userId, token, title, body, url, type } = payload;
 
     // ── 📧 Envoi email OPTIONNEL (indépendant du push) ──────────────
     // Si le body contient email:{to,subject,html}, on envoie aussi un
@@ -77,6 +77,7 @@ module.exports = async (req, res) => {
         title: String(title || 'LootR'),
         body: String(body || ''),
         url: String(url || '/'),
+        type: String(type || ''),
         icon: '/notif-logo.png'
       },
       // Priorité HAUTE pour l'app Android native (WebView / FCM natif)
