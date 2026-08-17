@@ -58,7 +58,13 @@ messaging.onBackgroundMessage(function(payload){
 self.addEventListener('notificationclick', function(event){
   event.notification.close();
   if (event.action === 'close') return;   // bouton « Fermer » → on ne fait rien
-  var target = (event.notification.data && event.notification.data.url) || '/';
+  var d = event.notification.data || {};
+  // 🎯 Construit l'URL avec le type de notif → l'app ouvre directement la bonne section.
+  var target = d.url || '/';
+  var type = d.type || d.link || '';
+  if (type && target.indexOf('open=') < 0) {
+    target = '/?open=' + encodeURIComponent(type);
+  }
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then(function(list){
       for (var i = 0; i < list.length; i++) {
