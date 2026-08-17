@@ -35,7 +35,7 @@ messaging.onBackgroundMessage(function(payload){
 
   // Tag UNIQUE → les notifications s'empilent au lieu de s'écraser entre elles
   // (sauf si le serveur impose volontairement un tag pour remplacer la précédente)
-  var tag = data.tag || ('asg-' + Date.now());
+  var tag = data.tag || ('lootr-' + Date.now());
 
   var options = {
     body: body,
