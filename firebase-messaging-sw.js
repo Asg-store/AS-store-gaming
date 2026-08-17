@@ -1,6 +1,6 @@
 /* ════════════════════════════════════════════════════════════════
    LootR — Service Worker des notifications push (FCM)
-   Version 4 — le type est conservé dans la notif (clic → bonne section)
+   Version 5 — DIAGNOSTIC : affiche le type dans le titre de la notif
    Ce fichier DOIT être à la racine du site (même niveau que index.html),
    accessible à l'adresse : https://lootr.cc/firebase-messaging-sw.js
    C'est lui qui affiche la notification dans la barre du téléphone
@@ -27,7 +27,9 @@ messaging.onBackgroundMessage(function(payload){
   // On accepte les deux formats : message "data" (envoyé par send-push) ET "notification"
   var data = (payload && payload.data) || {};
   var n    = (payload && payload.notification) || {};
-  var title = data.title || n.title || '📢 LootR';
+  var _type = data.type || data.link || '';
+  // 🔎 DIAGNOSTIC TEMPORAIRE : affiche le type reçu dans le titre pour vérifier la transmission
+  var title = (data.title || n.title || '📢 LootR') + ' [type='+(_type||'VIDE')+']';
   var body  = data.body  || n.body  || 'Vous avez une nouvelle notification';
   var image = data.image || n.image || undefined;
 

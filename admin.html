@@ -2426,9 +2426,11 @@ function showAdminInvoice(id){
   addMeta('Méthode',o.paymentMethod);
   addMeta('Réf. paiement',o.paymentRef||o.fedapayRef||o.cinetpayRef||'');
   addMeta('ID joueur',o.playerId);
-  addMeta('📱 N° Orange Money',o.payerPhone);
+  var _isWaveOrd=/wave/i.test(o.paymentMethod||'');
+  var _payLbl=_isWaveOrd?'Wave':'Orange Money';
+  addMeta((_isWaveOrd?'📱 N° Wave':'📱 N° Orange Money'),o.payerPhone);
   addMeta('🔖 N° transaction',o.txRef);
-  if(o.amountFcfa)addMeta('Payé (Orange Money)',(+o.amountFcfa).toLocaleString('fr-FR')+' FCFA');
+  if(o.amountFcfa)addMeta('Payé ('+_payLbl+')',(+o.amountFcfa).toLocaleString('fr-FR')+' FCFA');
   addMeta('ID commande',o.id);
   var proofBlock=o.proofUrl?('<div style="margin-top:14px"><div style="font-size:11px;font-weight:800;letter-spacing:1px;color:var(--text3);text-transform:uppercase;margin-bottom:6px">📸 Preuve de paiement</div><a href="'+aEsc(o.proofUrl)+'" target="_blank" rel="noopener"><img src="'+aEsc(o.proofUrl)+'" style="max-width:100%;border-radius:12px;border:1px solid var(--border);display:block"></a><div style="font-size:11px;color:var(--text3);margin-top:4px">Touchez l\'image pour l\'agrandir</div></div>'):'';
   var accountBlock='';
@@ -3916,14 +3918,17 @@ async function loadWalletRequests(){
       const phone=r.senderPhone?aEsc(r.senderPhone):'';
       const txref=r.txRef?aEsc(r.txRef):'';
       const proofOk=!!r.proofImage;
+      const isWaveReq=/wave/i.test(r.method||'');
+      const payLabel=isWaveReq?'Wave':'Orange Money';
+      const payLogoUrl=isWaveReq?'/wave-logo.png':'/orange-logo.png';
       return `<div class="order-summary" style="display:block;margin-bottom:12px;border:1px solid var(--border);border-radius:14px;padding:12px">
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
-        <span style="width:30px;height:30px;border-radius:50%;background:linear-gradient(135deg,#ff7900,#ff4e00);flex-shrink:0"></span>
+        <img src="${payLogoUrl}" alt="${payLabel}" style="width:30px;height:30px;border-radius:8px;object-fit:cover;flex-shrink:0" onerror="this.outerHTML='<span style=\\'width:30px;height:30px;border-radius:50%;background:linear-gradient(135deg,#ff7900,#ff4e00);flex-shrink:0;display:inline-block\\'></span>'"/>
         <div style="flex:1;min-width:0">
           <div style="font-weight:800;font-size:14px">${aEsc(r.userName||r.email||'Client')}</div>
           <div style="font-size:11px;color:var(--text3);word-break:break-word">${aEsc(r.email||'')} · ${fmtDateTime(r.createdAt)}</div>
         </div>
-        <span style="background:rgba(255,153,0,.15);color:#ff9900;font-size:10px;font-weight:800;padding:4px 9px;border-radius:99px;white-space:nowrap;flex-shrink:0">🟠 ${aEsc(r.method||'Orange Money')}</span>
+        <span style="background:${isWaveReq?'rgba(0,190,255,.15)':'rgba(255,153,0,.15)'};color:${isWaveReq?'#00beff':'#ff9900'};font-size:10px;font-weight:800;padding:4px 9px;border-radius:99px;white-space:nowrap;flex-shrink:0">${isWaveReq?'🌊':'🟠'} ${aEsc(r.method||payLabel)}</span>
       </div>
 
       <div style="background:var(--bg2);border-radius:10px;padding:10px;margin-bottom:8px">
@@ -3932,7 +3937,7 @@ async function loadWalletRequests(){
           <b style="font-size:16px">${eur.toFixed(2)} €</b>
         </div>
         <div style="display:flex;justify-content:space-between;align-items:center;margin-top:3px">
-          <span style="font-size:11px;color:var(--text3)">Payé par le client (Orange Money)</span>
+          <span style="font-size:11px;color:var(--text3)">Payé par le client (${payLabel})</span>
           <b style="font-size:13px;color:var(--gold)">${fcfa.toLocaleString('fr-FR')} FCFA</b>
         </div>
       </div>
