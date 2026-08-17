@@ -8567,27 +8567,36 @@ updateAuthUI=function(user){_origUpdateAuthUI(user);if(user)watchChatBadge();};
 
 // ─ Init
 loadConfig();loadProducts();renderCart();initPlatform();
+// 🎯 Ouvre une section selon le type de notification (réutilisé par l'URL ?open= et le message du SW)
+function openSectionByType(open){
+  open=(open||'').toLowerCase();if(!open)return;
+  try{
+    if(open==='message'||open==='chat'||open==='support'){(typeof openChat==='function')?openChat():openScreen('chat');}
+    else if(open==='order'||open==='delivery'){(typeof openPayHistory==='function')?openPayHistory():openScreen('wallet');}
+    else if(open==='points'||open==='reward'||open==='mission'){openScreen('points');}
+    else if(open==='wallet'){openScreen('wallet');}
+    else if(open==='listing'||open==='marketplace'){openScreen('marketplace');}
+    else if(open==='vpn'){openScreen('vpn');}
+    else if(open==='video'||open==='social'){openScreen('social');}
+    else if(open==='referral'){openScreen('points');}
+    else if(open==='info'||open===''){/* accueil, rien à ouvrir */}
+    else{openScreen('notifications');}
+  }catch(e){}
+}
+// 📨 Message envoyé par le service worker quand on clique une notif (app déjà ouverte)
+if('serviceWorker'in navigator){
+  navigator.serviceWorker.addEventListener('message',function(ev){
+    var d=ev&&ev.data;if(d&&typeof d.__lootrOpen!=='undefined'){setTimeout(function(){openSectionByType(d.__lootrOpen);},300);}
+  });
+}
 // 🎯 Ouverture directe depuis le clic sur une notification système (?open=type)
 (function(){
   try{
     var params=new URLSearchParams(location.search||'');
     var open=(params.get('open')||'').toLowerCase();
     if(!open)return;
-    // Nettoie l'URL pour ne pas rouvrir à chaque rechargement
     if(history.replaceState)history.replaceState(null,'',location.pathname);
-    setTimeout(function(){
-      try{
-        if(open==='message'||open==='chat'||open==='support'){(typeof openChat==='function')?openChat():openScreen('chat');}
-        else if(open==='order'||open==='delivery'){(typeof openPayHistory==='function')?openPayHistory():openScreen('wallet');}
-        else if(open==='points'||open==='reward'||open==='mission'){openScreen('points');}
-        else if(open==='wallet'){openScreen('wallet');}
-        else if(open==='listing'||open==='marketplace'){openScreen('marketplace');}
-        else if(open==='vpn'){openScreen('vpn');}
-        else if(open==='video'||open==='social'){openScreen('social');}
-        else if(open==='referral'){openScreen('points');}
-        else{openScreen('notifications');}
-      }catch(e){}
-    },1200); // laisse l'app se charger d'abord
+    setTimeout(function(){openSectionByType(open);},1200);
   }catch(e){}
 })();
 // Service worker + notifications : si l'autorisation a déjà été accordée, on (ré)active le push
