@@ -1,2 +1,2 @@
-# AS-store-gaming
-    Boutique e-commerce ASG Store Mali - Vente de consoles, jeux et accessoires Gaming au Mali
+# lootr.cc 
+    Boutique e-commerce lootr Mali - Vente de consoles, jeux et accessoires Gaming au Mali
