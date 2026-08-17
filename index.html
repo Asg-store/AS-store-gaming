@@ -2006,6 +2006,7 @@ body.ios .pnotif .pn-ic{border-radius:11px}
   <div class="screen-head">
     <div class="back-btn" onclick="goBack()"><svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path d="M19 12H5M12 19l-7-7 7-7"/></svg></div>
     <div class="screen-title">💬 Support & Échange</div>
+    <div id="chat-presence" style="font-size:11px;font-weight:600;margin-left:auto;white-space:nowrap"></div>
   </div>
   <div class="chat-wrap">
     <div class="chat-ads" id="chat-ads" style="display:none"></div>
@@ -7891,7 +7892,7 @@ function contactSupportAbout(id){
 }
 function openChat(){
   if(!currentUser){openAuthModal();showToast('🔐 Connectez-vous pour discuter');return;}
-  openScreen('chat');subscribeChat();loadChatAds();
+  openScreen('chat');subscribeChat();loadChatAds();updateChatPresenceUI();
   db.collection('chats').doc(currentUser.uid).set({unreadUser:0},{merge:true}).catch(()=>{});
 }
 // 📢 Annonces sponsorisées affichées dans l'échange (pub payée par les vendeurs)
@@ -7986,11 +7987,12 @@ async function sendChat(){
       unreadAdmin:firebase.firestore.FieldValue.increment(1)
     },{merge:true});
     await db.collection('chats').doc(uid).collection('messages').add({from:'user',text,createdAt:firebase.firestore.FieldValue.serverTimestamp()});
-    // 🤖 L'IA répond au client AVANT que l'admin ne le contacte (tant qu'aucun admin n'a répondu)
-    if(!_adminJoined){
+    // 🤖 L'IA répond automatiquement quand l'administrateur est HORS LIGNE.
+    //    (Si l'admin est en ligne, il répond lui-même en direct → pas de réponse auto.)
+    if(!_adminIsOnline){
       var reply;
       try{ reply=aiAutoReply(text); }catch(err){ reply=''; }
-      if(!reply)reply="Merci pour votre message ✅ Un administrateur va vous répondre très vite. Vous pouvez me demander : prix, paiement, livraison, ID joueur, VPN, points, portefeuille.";
+      if(!reply)reply="Merci pour votre message ✅ Un administrateur vous répondra dès son retour en ligne.\n\nEn attendant je peux vous renseigner sur : prix, paiement, livraison, ID joueur, VPN, points, portefeuille, vente de compte…";
       setTimeout(function(){
         db.collection('chats').doc(uid).collection('messages').add({from:'bot',text:reply,createdAt:firebase.firestore.FieldValue.serverTimestamp()}).catch(function(e){
           // Nouvel essai unique en cas d'échec réseau, pour ne jamais laisser le client sans réponse
@@ -8131,14 +8133,24 @@ function aiPayList(){
   if(pm.wallet!==false)o.push('votre portefeuille LootR');
   return o.length?o.join(', '):'Orange Money, Wave et votre portefeuille LootR';
 }
+// Prénom du client (pour personnaliser les réponses, ex : « Bonjour Amadou 👋 »)
+function aiClientName(){
+  try{
+    var u=(typeof currentUser!=='undefined'&&currentUser)?currentUser:null;
+    var n=(u&&u.displayName)?u.displayName:((u&&u.email)?u.email.split('@')[0]:'');
+    n=(n||'').trim().split(/\s+/)[0]||'';         // premier mot uniquement
+    if(!n)return '';
+    return n.charAt(0).toUpperCase()+n.slice(1);   // Première lettre en majuscule
+  }catch(e){return '';}
+}
 var AI_INTENTS=[
   // 🛍️ Achat d'un compte de la marketplace (message envoyé par « Contacter via le support »)
   {k:['id annonce','annonce','compte a vendre','acheter compte','marketplace','interesse par ce compte','achat compte'],
    r:function(){return "Bonjour 👋 Merci pour votre intérêt !\n\nJ'ai bien reçu l'ID de l'annonce, un conseiller vérifie la disponibilité du compte.\n\n💳 Vous pouvez payer directement depuis la fiche du compte : carte bancaire, Google Pay, Apple Pay, Mobile Money (FedaPay) ou Orange Money Mali (CinetPay).\n💰 Pour les comptes officiels LootR, le portefeuille et les points sont aussi acceptés.\n\nAprès paiement, les identifiants vous sont remis ici même. Avez-vous une question sur le contenu du compte ?";}},
   {k:['identifiants','mot de passe compte','login compte','livraison compte','recu mon compte'],
    r:function(){return "Après validation du paiement, les identifiants du compte vous sont envoyés directement dans cette conversation ⚡\n\nPensez à changer le mot de passe et l'e-mail de récupération dès la réception, pour sécuriser votre achat. Si vous avez déjà payé, indiquez-moi l'ID de l'annonce et je vérifie tout de suite.";}},
-  {k:['bonjour','salut','bonsoir','hello','coucou','cava','ca va','slm','salam','bjr'],
-   r:function(){return"Bonjour 👋 Bienvenue sur LootR ! Je suis l'assistant automatique. Posez votre question (prix, paiement, livraison, VPN, points, compte…) — un administrateur prendra ensuite le relais.";}},
+  {k:['bonjour','salut','bonsoir','hello','coucou','cava','ca va','slm','salam','bjr','hi','hey','yo','bonj'],
+   r:function(){var n=aiClientName();var hi=n?('Bonjour '+n+' 👋'):'Bonjour 👋';return hi+" Bienvenue sur LootR ! 🎮\n\nJe suis l'assistant automatique et je vous aide tout de suite. Je peux vous renseigner sur : 🏷️ les prix, 💳 le paiement ("+aiPayList()+"), 🚚 la livraison, 🎮 votre ID joueur, 🔐 la Boutique VPN, ⭐ les points & missions, 💰 le portefeuille et 🛒 la vente de comptes.\n\nQue puis-je faire pour vous ?";}},
 
   {k:['prix','combien','coute','cout','tarif','fcfa','euro','cher','montant'],
    r:function(){return"🏷️ Les prix sont affichés sur chaque produit du catalogue ("+aiGamesList()+"). Dites-moi quel jeu et quel pack vous intéresse et je vous oriente. Vous pouvez aussi changer la devise (€ / $ / XOF) dans les Paramètres.";}},
@@ -8212,8 +8224,65 @@ var AI_INTENTS=[
   {k:['installer','application','app','telecharger','apk','pwa','ecran accueil'],
    r:function(){return"📲 Installez LootR sur votre écran d'accueil : menu → « Télécharger l'application ». Vous l'ouvrirez comme une vraie appli, avec les notifications.";}},
 
-  {k:['merci','thanks','cool','super','parfait','ok','daccord','bien'],
-   r:function(){return"Avec plaisir 🙏 Un administrateur vous répondra bientôt pour finaliser. Autre chose ?";}}
+  {k:['comment acheter','comment commander','acheter recharge','passer commande','etapes achat','comment ca marche','comment faire'],
+   r:function(){return"🛒 Pour commander en 4 étapes :\n1️⃣ Ouvrez le Catalogue et choisissez votre jeu ("+aiGamesList()+")\n2️⃣ Sélectionnez le pack (UC, Diamants, CP…) et entrez votre ID joueur\n3️⃣ Ajoutez au panier puis choisissez le paiement ("+aiPayList()+")\n4️⃣ Validez : la livraison arrive sur votre ID en quelques minutes ⚡";}},
+
+  {k:['recharger portefeuille','comment recharger','ajouter argent','crediter portefeuille','alimenter portefeuille','deposer'],
+   r:function(){return"💰 Pour recharger votre portefeuille LootR : ouvrez l'écran « Portefeuille », choisissez un montant, payez via "+aiPayList()+". Le solde est crédité aussitôt après validation et sert ensuite à payer en 1 clic, sans re-saisir votre paiement.";}},
+
+  {k:['carte cadeau','gift card','code cadeau','recharger code','activer carte','coupon cadeau'],
+   r:function(){return"🎁 Vous avez une carte cadeau ? Ouvrez « Mes Points » → « Carte cadeau », entrez le code et validez : le montant (points ou solde) est ajouté immédiatement à votre compte.";}},
+
+  {k:['offre flash','flash','vente flash','offre limitee','promo du jour','deal'],
+   r:function(){return"⚡ Les Offres Flash apparaissent sur l'accueil : ce sont des réductions limitées dans le temps. Un minuteur indique le temps restant — profitez-en avant la fin !";}},
+
+  {k:['devise','monnaie','euro dollar','xof','fcfa affichage','changer devise','franc'],
+   r:function(){return"💱 Vous pouvez afficher les prix en € (Euro), $ (Dollar) ou XOF (Franc CFA). Allez dans Paramètres → Devise pour choisir la vôtre.";}},
+
+  {k:['mode sombre','mode clair','theme','couleur app','apparence','dark','light','nuit jour'],
+   r:function(){return"🎨 Changez l'apparence dans Paramètres : mode sombre/clair, couleur d'accent et modèle de texte. L'app s'adapte aussi automatiquement au réglage de votre téléphone.";}},
+
+  {k:['avis','note','commentaire','evaluer','review','etoiles','laisser un avis'],
+   r:function(){return"⭐ Vous pouvez consulter et laisser un avis dans « Notes & avis » (menu). Votre retour aide les autres clients et nous permet de nous améliorer !";}},
+
+  {k:['reseau','reseaux sociaux','instagram','tiktok','facebook','telegram','youtube','suivre','page'],
+   r:function(){return"📱 Retrouvez-nous sur nos réseaux sociaux (menu → « Réseaux sociaux ») pour les promos, nouveautés et offres exclusives. Abonnez-vous pour ne rien rater !";}},
+
+  {k:['video','videos','hot video','daily','regarder','clip','short'],
+   r:function(){return"📺 L'onglet « Vidéos » (Daily Hot Videos) propose des vidéos de gameplay et nouveautés. Ouvrez-le depuis la barre du bas.";}},
+
+  {k:['compte suspendu','bloque','banni','desactive','suspendu','ban','compte bloque'],
+   r:function(){return"🚫 Si votre compte est suspendu, c'est souvent temporaire (vérification de sécurité). Décrivez-nous votre situation ici : un administrateur examine votre dossier dès son retour et vous répond.";}},
+
+  {k:['changer nom','modifier nom','changer email','changer numero','modifier profil','mon profil','pseudo'],
+   r:function(){return"👤 Pour modifier votre nom, e-mail ou numéro : ouvrez « Mon profil » (menu ou onglet Compte). Les changements sont enregistrés immédiatement.";}},
+
+  {k:['supprimer compte','fermer compte','effacer compte','desinscription','quitter'],
+   r:function(){return"🗑️ Vous souhaitez supprimer votre compte ? Écrivez-nous ici votre demande : un administrateur s'en occupe. Pensez à utiliser votre solde et vos points avant, car ils seront perdus.";}},
+
+  {k:['niveau fidelite','bronze','argent','or platine','diamant niveau','avantage niveau','cashback','remise fidelite'],
+   r:function(){return"🏆 Votre niveau de fidélité monte avec vos achats et missions : Bronze → Argent → Or → Diamant. Plus le niveau est élevé, plus vous profitez de réductions et d'avantages. Suivez votre progression dans « Mes Points ».";}},
+
+  {k:['pas recu uc','pas recu diamant','commande payee non livree','rien recu','paye mais rien','ou est ma recharge'],
+   r:function(){return"⏳ Une commande payée non reçue ? Vérifiez d'abord l'onglet « Paiements » (statut) et votre ID joueur. Si rien après 1h, envoyez-moi votre numéro de commande + la capture du paiement : un administrateur corrige ou livre en priorité.";}},
+
+  {k:['compte pirate','vole','hacke','pirate','securiser mon compte de jeu','recuperer compte'],
+   r:function(){return"🔐 Pour un compte de JEU piraté, contactez l'éditeur du jeu (support officiel). Pour votre compte LootR, changez vite votre mot de passe (« Mot de passe oublié ») et écrivez-nous ici — nous sécurisons votre accès.";}},
+
+  {k:['orange money','om','numero orange','payer orange'],
+   r:function(){return"🟠 Paiement Orange Money : choisissez « Orange Money » à la validation, effectuez le transfert au numéro indiqué, puis envoyez-nous la capture d'écran du paiement ici. Un administrateur valide et votre commande est livrée.";}},
+
+  {k:['wave','payer wave','numero wave'],
+   r:function(){return"🌊 Paiement Wave : sélectionnez « Wave » au paiement et suivez les instructions. Gardez la preuve de paiement au cas où nous aurions besoin de vérifier.";}},
+
+  {k:['paypal','payer paypal','carte visa','mastercard','carte bancaire','google pay','apple pay'],
+   r:function(){return"💳 Carte bancaire, PayPal, Google Pay et Apple Pay sont acceptés directement en ligne : le paiement est instantané et la livraison automatique. Choisissez simplement ce moyen au moment de payer.";}},
+
+  {k:['merci','thanks','cool','super','parfait','ok','daccord','bien','top','genial','nickel'],
+   r:function(){var n=aiClientName();return"Avec plaisir"+(n?(' '+n):'')+" 🙏 Je reste disponible si vous avez d'autres questions. Un administrateur vous répondra aussi dès son retour en ligne. Autre chose ?";}},
+
+  {k:['au revoir','bye','a plus','bonne journee','a bientot','ciao','bonne nuit'],
+   r:function(){var n=aiClientName();return"À bientôt"+(n?(' '+n):'')+" 👋 Merci de votre visite sur LootR. Passez une excellente journée, et revenez quand vous voulez !";}}
 ];
 function aiAutoReply(msg){
   var t=aiNorm(msg);
@@ -8229,7 +8298,8 @@ function aiAutoReply(msg){
     if(score>bestScore){bestScore=score;best=it;}
   }
   if(best&&bestScore>0)return best.r();
-  return"Merci pour votre message ✅ Un administrateur va vous répondre très vite.\n\nEn attendant je peux vous renseigner sur : 🏷️ les prix, 💳 le paiement ("+aiPayList()+"), 🚚 la livraison, 🎮 votre ID joueur, 🔐 la Boutique VPN, ⭐ les points et missions, 💰 le portefeuille, 🛒 la vente de compte. Posez-moi votre question !";
+  var n=aiClientName();
+  return(n?('Merci '+n+' ✅'):'Merci pour votre message ✅')+" Je n'ai peut-être pas tout compris, mais je transmets votre demande à un administrateur qui vous répondra dès son retour en ligne.\n\nEn attendant, je peux vous aider sur : 🏷️ les prix, 💳 le paiement ("+aiPayList()+"), 🚚 la livraison, 🎮 votre ID joueur, 🔐 la Boutique VPN, ⭐ les points & missions, 💰 le portefeuille et 🛒 la vente de comptes. Reformulez votre question et je fais de mon mieux !";
 }
 function watchChatBadge(){
   if(!currentUser)return;
@@ -8681,7 +8751,35 @@ const _origUpdateAuthUI=updateAuthUI;
 updateAuthUI=function(user){_origUpdateAuthUI(user);if(user)watchChatBadge();};
 
 // ─ Init
-loadConfig();loadProducts();renderCart();initPlatform();
+loadConfig();loadProducts();renderCart();initPlatform();watchAdminPresence();
+// 🟢/🔴 Présence de l'administrateur (écrite par le panneau admin dans config/presence)
+var _adminIsOnline=false;        // l'admin est-il actuellement en ligne ?
+var _adminPresenceLoaded=false;  // a-t-on déjà reçu l'info au moins une fois ?
+function watchAdminPresence(){
+  try{
+    db.collection('config').doc('presence').onSnapshot(function(d){
+      _adminPresenceLoaded=true;
+      var data=(d&&d.data&&d.data())||{};
+      var online=data.adminOnline===true;
+      // Sécurité : si le dernier battement date de plus de 90 s, on considère l'admin hors ligne
+      var ls=data.adminLastSeen&&data.adminLastSeen.toMillis?data.adminLastSeen.toMillis():0;
+      if(online&&ls&&(Date.now()-ls>90000))online=false;
+      _adminIsOnline=online;
+      updateChatPresenceUI();
+    },function(){ _adminPresenceLoaded=true; });
+  }catch(e){ _adminPresenceLoaded=true; }
+}
+// Met à jour le petit statut « en ligne / hors ligne » dans l'en-tête du chat
+function updateChatPresenceUI(){
+  var el=document.getElementById('chat-presence');if(!el)return;
+  if(_adminIsOnline){
+    el.innerHTML='<span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--green,#00e676);margin-right:5px"></span>Administrateur en ligne';
+    el.style.color='var(--green,#00e676)';
+  }else{
+    el.innerHTML='<span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--text3,#7a8aac);margin-right:5px"></span>🤖 Assistant automatique · admin hors ligne';
+    el.style.color='var(--text3,#7a8aac)';
+  }
+}
 // 🎯 Ouvre une section selon le type de notification (réutilisé par l'URL ?open= et le message du SW)
 function openSectionByType(open){
   open=(open||'').toLowerCase();if(!open)return;

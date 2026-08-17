@@ -1814,10 +1814,43 @@ auth.onAuthStateChanged(user=>{
     loadConfigForLogin();
     loadClients().then(()=>{if(dashLoaded)loadDashboard();}).catch(()=>{});
     startAdminBadges();
+    startAdminPresence();   // 🟢 signale que l'administrateur est EN LIGNE (pour l'IA côté client)
     goTab('dashboard');   // 🏠 Ouvrir directement sur le Dashboard
   } else {
+    stopAdminPresence();  // 🔴 administrateur hors ligne
     loginScreen.classList.remove('hidden');
   }
+});
+
+/* ═══ PRÉSENCE ADMIN (en ligne / hors ligne) ═══
+   Écrit un « battement de cœur » dans config/presence. Le client considère
+   l'admin EN LIGNE si adminOnline===true ET adminLastSeen < 90 s.
+   Si l'admin est hors ligne, l'assistant IA répond automatiquement au client. */
+var _presenceTimer=null;
+function _presenceWrite(online){
+  try{
+    return db.collection('config').doc('presence').set({
+      adminOnline:!!online,
+      adminLastSeen:firebase.firestore.FieldValue.serverTimestamp()
+    },{merge:true});
+  }catch(e){return Promise.resolve();}
+}
+function startAdminPresence(){
+  _presenceWrite(true).catch(function(){});
+  if(_presenceTimer)clearInterval(_presenceTimer);
+  // battement toutes les 30 s → l'admin reste « en ligne » tant que l'onglet est ouvert
+  _presenceTimer=setInterval(function(){ _presenceWrite(true).catch(function(){}); },30000);
+}
+function stopAdminPresence(){
+  if(_presenceTimer){clearInterval(_presenceTimer);_presenceTimer=null;}
+  _presenceWrite(false).catch(function(){});
+}
+// Marque hors ligne quand l'admin ferme l'onglet ou passe l'app en arrière-plan
+window.addEventListener('beforeunload',function(){ if(auth.currentUser)_presenceWrite(false); });
+document.addEventListener('visibilitychange',function(){
+  if(!auth.currentUser)return;
+  if(document.visibilityState==='hidden'){ _presenceWrite(false); }
+  else { startAdminPresence(); }
 });
 
 async function loadConfigForLogin(){
