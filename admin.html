@@ -3631,9 +3631,10 @@ async function sendReply(){
   }catch(e){toast('❌ '+e.message,true);inp.value=text;}
 }
 // Envoie une notification push : userId fourni = ciblé ; sinon = diffusion à tous
-function pushNotif(title,body,userId,email){
+function pushNotif(title,body,userId,email,type){
   try{
     var payload={title:title,body:body,url:'/',userId:userId||null};
+    if(type)payload.type=type;               // 🎯 type → ouverture directe de la bonne section
     if(email&&email.to)payload.email=email; // 📧 email optionnel (même appel)
     fetch('/api/send-push',{
       method:'POST',headers:{'Content-Type':'application/json'},
@@ -3658,8 +3659,8 @@ function notifyUser(uid,n){
     createdAt:firebase.firestore.FieldValue.serverTimestamp()
   };
   try{ db.collection('users').doc(uid).collection('notifications').add(doc).catch(function(){}); }catch(e){}
-  // push système (app fermée / arrière-plan) + email optionnel (n.email)
-  pushNotif((n.icon?n.icon+' ':'')+(n.title||'LootR'),n.body||'',uid,n.email||null);
+  // push système (app fermée / arrière-plan) + email optionnel (n.email) + type pour ouverture directe
+  pushNotif((n.icon?n.icon+' ':'')+(n.title||'LootR'),n.body||'',uid,n.email||null,(n.link||n.type||''));
 }
 // Admin envoie une photo / vidéo / fichier au client
 async function sendReplyMedia(e){
