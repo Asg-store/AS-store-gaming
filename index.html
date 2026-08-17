@@ -7457,16 +7457,41 @@ function renderNotifs(){
     <div class="notif-del" onclick="event.stopPropagation();deleteNotif(${i})" title="Supprimer" style="padding:6px;cursor:pointer;color:var(--text3);align-self:center">🗑</div>
   </div>`).join('');
 }
-// 👆 Clic sur une notification → ouvre le détail complet ou l'écran concerné
+// 👆 Clic sur une notification → ouvre directement la section concernée
 function openNotifIdx(i){
   const n=_mergedNotifs[i];if(!n)return;
   if(n.ts>getLastRead())localStorage.setItem('nex-notif-read',n.ts);
   updateNotifBadge();renderNotifs();
-  const link=n.link||n.type;
-  if(link==='message'){closeScreen('notifications');openChat();return;}
-  if(link==='order'){closeScreen('notifications');if(typeof openPayHistory==='function'){openPayHistory();}else{showNotifDetail(n);}return;}
-  if(link==='listing'){closeScreen('notifications');openScreen('marketplace');return;}
-  if(link==='wallet'){closeScreen('notifications');openScreen('wallet');return;}
+  const link=(n.link||n.type||'').toLowerCase();
+  const title=(n.title||'').toLowerCase();
+  closeScreen('notifications');
+  // 💬 Message du support / chat → ouvre Support & Échange
+  if(link==='message'||link==='chat'||link==='support'||title.indexOf('support')>=0||title.indexOf('message')>=0){
+    if(typeof openChat==='function'){openChat();}else{openScreen('chat');}return;
+  }
+  // 📦 Commande / livraison / paiement → historique des paiements
+  if(link==='order'||link==='delivery'||title.indexOf('command')>=0||title.indexOf('livr')>=0||title.indexOf('paiement')>=0){
+    if(typeof openPayHistory==='function'){openPayHistory();}else{showNotifDetail(n);}return;
+  }
+  // ⭐ Points / récompenses / missions / défis → Mes Points
+  if(link==='points'||link==='reward'||link==='mission'||n.icon==='⭐'||title.indexOf('point')>=0||title.indexOf('récompense')>=0||title.indexOf('mission')>=0||title.indexOf('défi')>=0){
+    openScreen('points');return;
+  }
+  // 💰 Portefeuille / recharge → Portefeuille
+  if(link==='wallet'||title.indexOf('portefeuille')>=0||title.indexOf('recharge')>=0||title.indexOf('solde')>=0){
+    openScreen('wallet');return;
+  }
+  // 🛒 Marketplace / annonce → Marketplace
+  if(link==='listing'||link==='marketplace'||title.indexOf('annonce')>=0||title.indexOf('marketplace')>=0){
+    openScreen('marketplace');return;
+  }
+  // 🛡️ VPN → Boutique VPN
+  if(link==='vpn'||title.indexOf('vpn')>=0){openScreen('vpn');return;}
+  // 📺 Vidéos → Daily Hot Videos
+  if(link==='video'||link==='social'||title.indexOf('vidéo')>=0||title.indexOf('live')>=0){openScreen('social');return;}
+  // 🎁 Parrainage / invitation → Mes Points (section invite)
+  if(link==='referral'||title.indexOf('parrain')>=0||title.indexOf('ami')>=0||title.indexOf('invit')>=0){openScreen('points');return;}
+  // Par défaut : afficher le détail complet de la notification
   showNotifDetail(n);
 }
 function showNotifDetail(n){
@@ -8542,6 +8567,29 @@ updateAuthUI=function(user){_origUpdateAuthUI(user);if(user)watchChatBadge();};
 
 // ─ Init
 loadConfig();loadProducts();renderCart();initPlatform();
+// 🎯 Ouverture directe depuis le clic sur une notification système (?open=type)
+(function(){
+  try{
+    var params=new URLSearchParams(location.search||'');
+    var open=(params.get('open')||'').toLowerCase();
+    if(!open)return;
+    // Nettoie l'URL pour ne pas rouvrir à chaque rechargement
+    if(history.replaceState)history.replaceState(null,'',location.pathname);
+    setTimeout(function(){
+      try{
+        if(open==='message'||open==='chat'||open==='support'){(typeof openChat==='function')?openChat():openScreen('chat');}
+        else if(open==='order'||open==='delivery'){(typeof openPayHistory==='function')?openPayHistory():openScreen('wallet');}
+        else if(open==='points'||open==='reward'||open==='mission'){openScreen('points');}
+        else if(open==='wallet'){openScreen('wallet');}
+        else if(open==='listing'||open==='marketplace'){openScreen('marketplace');}
+        else if(open==='vpn'){openScreen('vpn');}
+        else if(open==='video'||open==='social'){openScreen('social');}
+        else if(open==='referral'){openScreen('points');}
+        else{openScreen('notifications');}
+      }catch(e){}
+    },1200); // laisse l'app se charger d'abord
+  }catch(e){}
+})();
 // Service worker + notifications : si l'autorisation a déjà été accordée, on (ré)active le push
 if('serviceWorker'in navigator){
   navigator.serviceWorker.register('firebase-messaging-sw.js').catch(()=>{});
