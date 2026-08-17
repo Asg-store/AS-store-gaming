@@ -7519,44 +7519,68 @@ function renderNotifs(){
       <div class="notif-c"><div class="notif-t">${(n.title||'').replace(/</g,'&lt;')}</div>
         <div class="notif-b">${ptBody(n.body)}</div>
         <div class="notif-d">${fmtNotifDate(n.raw.createdAt)}</div></div>
+      <div class="notif-go">›</div>
     </div>
     <div class="notif-del" onclick="event.stopPropagation();deleteNotif(${i})" title="Supprimer" style="padding:6px;cursor:pointer;color:var(--text3);align-self:center">🗑</div>
   </div>`).join('');
 }
-// 👆 Clic sur une notification → ouvre directement la section concernée
+// 👆 Clic sur une notification → ouvre DIRECTEMENT la bonne section
 function openNotifIdx(i){
   const n=_mergedNotifs[i];if(!n)return;
   if(n.ts>getLastRead())localStorage.setItem('nex-notif-read',n.ts);
   updateNotifBadge();renderNotifs();
+  routeNotif(n);
+}
+// Ouvre l'écran « Support & Échange » (chat) de façon sûre
+function _goChat(){ if(typeof openChat==='function'){openChat();}else{openScreen('chat');} }
+// Ouvre l'historique des paiements / commandes de façon sûre
+function _goPayHistory(n){ if(typeof openPayHistory==='function'){openPayHistory();}else{showNotifDetail(n);} }
+// Aiguillage d'une notification vers sa section.
+// ▸ On se fie D'ABORD au champ « link » (défini de façon fiable côté serveur pour
+//   CHAQUE notification), puis, en repli, aux mots-clés du titre pour les
+//   anciennes notifications qui n'auraient pas de « link ».
+function routeNotif(n){
   const link=(n.link||n.type||'').toLowerCase();
   const title=(n.title||'').toLowerCase();
   closeScreen('notifications');
-  // 💬 Message du support / chat → ouvre Support & Échange
-  if(link==='message'||link==='chat'||link==='support'||title.indexOf('support')>=0||title.indexOf('message')>=0){
-    if(typeof openChat==='function'){openChat();}else{openScreen('chat');}return;
+  // 📢 Annonce / promo globale : pas de page dédiée → on affiche le détail (avec code promo)
+  if(n.src==='announce'||link==='announce'){ showNotifDetail(n); return; }
+  // ─── Table de routage principale, basée sur « link » ───
+  switch(link){
+    // 💬 Message du support → Support & Échange
+    case 'message': case 'chat': case 'support':
+      _goChat(); return;
+    // 📦 Commande / livraison / paiement / compte livré → Historique des paiements
+    case 'order': case 'orders': case 'payments': case 'delivery': case 'account':
+      _goPayHistory(n); return;
+    // 💰 Portefeuille / recharge → Portefeuille
+    case 'wallet': case 'credit': case 'recharge':
+      openScreen('wallet'); return;
+    // ⭐ Points / récompenses / missions → Mes Points
+    case 'points': case 'reward': case 'mission':
+      openScreen('points'); return;
+    // 🎁 Parrainage / invitation → Mes Points (section Inviter)
+    case 'referral': case 'invite':
+      openScreen('points'); return;
+    // 🛒 Annonce Marketplace (validée / vendue / refusée) → Marketplace
+    case 'listing': case 'marketplace':
+      openScreen('marketplace'); return;
+    // 🛡️ VPN → Boutique VPN
+    case 'vpn':
+      openScreen('vpn'); return;
+    // 📺 Vidéos → Daily Hot Videos
+    case 'video': case 'social':
+      openScreen('social'); return;
   }
-  // 📦 Commande / livraison / paiement → historique des paiements
-  if(link==='order'||link==='delivery'||title.indexOf('command')>=0||title.indexOf('livr')>=0||title.indexOf('paiement')>=0){
-    if(typeof openPayHistory==='function'){openPayHistory();}else{showNotifDetail(n);}return;
-  }
-  // ⭐ Points / récompenses / missions / défis → Mes Points
-  if(link==='points'||link==='reward'||link==='mission'||n.icon==='⭐'||title.indexOf('point')>=0||title.indexOf('récompense')>=0||title.indexOf('mission')>=0||title.indexOf('défi')>=0){
-    openScreen('points');return;
-  }
-  // 💰 Portefeuille / recharge → Portefeuille
-  if(link==='wallet'||title.indexOf('portefeuille')>=0||title.indexOf('recharge')>=0||title.indexOf('solde')>=0){
-    openScreen('wallet');return;
-  }
-  // 🛒 Marketplace / annonce → Marketplace
-  if(link==='listing'||link==='marketplace'||title.indexOf('annonce')>=0||title.indexOf('marketplace')>=0){
-    openScreen('marketplace');return;
-  }
-  // 🛡️ VPN → Boutique VPN
-  if(link==='vpn'||title.indexOf('vpn')>=0){openScreen('vpn');return;}
-  // 📺 Vidéos → Daily Hot Videos
-  if(link==='video'||link==='social'||title.indexOf('vidéo')>=0||title.indexOf('live')>=0){openScreen('social');return;}
-  // 🎁 Parrainage / invitation → Mes Points (section invite)
-  if(link==='referral'||title.indexOf('parrain')>=0||title.indexOf('ami')>=0||title.indexOf('invit')>=0){openScreen('points');return;}
+  // ─── Repli par mots-clés du titre (anciennes notifs sans « link ») ───
+  if(title.indexOf('support')>=0||title.indexOf('message')>=0){ _goChat(); return; }
+  if(title.indexOf('command')>=0||title.indexOf('livr')>=0||title.indexOf('paiement')>=0||title.indexOf('compte')>=0){ _goPayHistory(n); return; }
+  if(title.indexOf('portefeuille')>=0||title.indexOf('recharge')>=0||title.indexOf('solde')>=0){ openScreen('wallet'); return; }
+  if(n.icon==='⭐'||title.indexOf('point')>=0||title.indexOf('récompense')>=0||title.indexOf('mission')>=0||title.indexOf('défi')>=0){ openScreen('points'); return; }
+  if(title.indexOf('parrain')>=0||title.indexOf('invit')>=0){ openScreen('points'); return; }
+  if(title.indexOf('marketplace')>=0){ openScreen('marketplace'); return; }
+  if(title.indexOf('vpn')>=0){ openScreen('vpn'); return; }
+  if(title.indexOf('vidéo')>=0||title.indexOf('live')>=0){ openScreen('social'); return; }
   // Par défaut : afficher le détail complet de la notification
   showNotifDetail(n);
 }
