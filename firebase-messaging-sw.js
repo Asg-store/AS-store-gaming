@@ -1,6 +1,6 @@
 /* ════════════════════════════════════════════════════════════════
    LootR — Service Worker des notifications push (FCM)
-   Version 3 — clic notification ouvre la bonne section (postMessage + ?open=)
+   Version 4 — le type est conservé dans la notif (clic → bonne section)
    Ce fichier DOIT être à la racine du site (même niveau que index.html),
    accessible à l'adresse : https://lootr.cc/firebase-messaging-sw.js
    C'est lui qui affiche la notification dans la barre du téléphone
@@ -50,7 +50,11 @@ messaging.onBackgroundMessage(function(payload){
       { action: 'open', title: '👀 Ouvrir' },
       { action: 'close', title: '✖ Fermer' }
     ],
-    data: { url: data.url || n.click_action || '/' }
+    data: {
+      url: data.url || n.click_action || '/',
+      type: data.type || data.link || '',   // 🎯 conserve le type → clic ouvre la bonne section
+      icon: data.icon || ''
+    }
   };
   return self.registration.showNotification(title, options);
 });
