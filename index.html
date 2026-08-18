@@ -2577,6 +2577,23 @@ function getThemeMode(){var m=localStorage.getItem('nex-theme-mode');if(m==='lig
 let themeMode=getThemeMode();
 let isDark=(themeMode==='system')?_sysDark():(themeMode!=='light');
 let currentUser=null;
+// 🔐 « Auth prête » : Firebase restaure la session de façon asynchrone. Tant que
+//    ce n'est pas résolu, currentUser peut être vide à tort. whenAuthReady(cb)
+//    exécute cb dès que l'état de connexion est connu (évite d'ouvrir la fenêtre
+//    « Mon Compte » par erreur quand on clique une notification au démarrage).
+let _authResolved=false;
+const _authWaiters=[];
+function whenAuthReady(cb){
+  if(typeof cb!=='function')return;
+  if(_authResolved){cb();return;}
+  _authWaiters.push(cb);
+}
+function _flushAuthWaiters(){
+  _authResolved=true;
+  while(_authWaiters.length){try{_authWaiters.shift()();}catch(e){}}
+}
+// Sécurité : si l'état d'auth n'arrive jamais, on débloque après 5 s.
+setTimeout(function(){ if(!_authResolved)_flushAuthWaiters(); },5000);
 let userData={};            // profil Firestore (points, walletBalance, …)
 let _userLoaded=false;      // vrai UNIQUEMENT une fois les données Firestore reçues (évite les fausses réinitialisations)
 let authMode='login'; // 'login' | 'register'
@@ -5133,6 +5150,7 @@ function authErrorMsg(code){
 // Listen to auth state — met à jour l'UI
 auth.onAuthStateChanged(user=>{
   updateAuthUI(user);
+  _flushAuthWaiters();   // ✅ l'état de connexion est maintenant connu → routage notif sûr
   if(user){watchAccountStatus(user.uid);loadUserNotifs(user.uid);if(pushEnabled())initFCM();retryPendingReferral(user.uid);}
   else{const bo=document.getElementById('blocked-overlay');if(bo)bo.classList.remove('open');if(_statusUnsub){_statusUnsub();_statusUnsub=null;}stopUserNotifs();}
 });
@@ -8821,6 +8839,10 @@ function updateChatPresenceUI(){
 // 🎯 Ouvre une section selon le type de notification (réutilisé par l'URL ?open= et le message du SW)
 function openSectionByType(open){
   open=(open||'').toLowerCase();if(!open)return;
+  // ⏳ On attend que la session soit restaurée avant d'ouvrir : sinon les sections
+  //    qui exigent une connexion (Portefeuille, Paiements, Support) afficheraient
+  //    « Mon Compte » à tort alors que le client est déjà connecté.
+  whenAuthReady(function(){
   try{
     if(open==='message'||open==='chat'||open==='support'){(typeof openChat==='function')?openChat():openScreen('chat');}
     else if(open==='order'||open==='orders'||open==='payments'||open==='delivery'||open==='account'){(typeof openPayHistory==='function')?openPayHistory():openScreen('wallet');}
@@ -8834,6 +8856,7 @@ function openSectionByType(open){
     else if(open==='info'||open===''){/* accueil, rien à ouvrir */}
     else{openScreen('notifications');}
   }catch(e){}
+  });
 }
 // 📨 Message envoyé par le service worker quand on clique une notif (app déjà ouverte)
 if('serviceWorker'in navigator){
