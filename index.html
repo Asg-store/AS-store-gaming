@@ -2638,6 +2638,7 @@ async function loadConfig(){
     if(doc.exists){
       const d=doc.data();
       shopConfig=Object.assign(shopConfig,d);
+      try{applyCurrencyRates();}catch(_){}   // 💱 taux de change définis par l'admin
       try{renderInviteLabels();}catch(_){}   // libellés parrainage à jour
       if(typeof syncCinetPayKeys==='function')syncCinetPayKeys(); // 🔑 clés CinetPay depuis l'admin
       if(typeof refreshPayMethodsVisibility==='function')refreshPayMethodsVisibility(); // affiche/masque CinetPay en direct
@@ -7086,6 +7087,23 @@ const CURRENCIES={
   usd:{sym:'$',rate:1.16,dec:2,pos:'before'},
   xof:{sym:'XOF',rate:655.957,dec:0,pos:'after'}
 };
+// Valeurs par défaut (repli si l'admin n'a rien défini)
+const _CURRENCY_DEFAULTS={usd:1.16,xof:655.957};
+// 💱 Applique les taux de change définis par l'admin (config/shop → rateUsd, rateXof).
+//    Base = EUR (1). rateUsd = combien de $ pour 1 €. rateXof = combien de XOF pour 1 €.
+function applyCurrencyRates(){
+  var u=parseFloat(shopConfig&&shopConfig.rateUsd);
+  var x=parseFloat(shopConfig&&shopConfig.rateXof);
+  CURRENCIES.usd.rate=(isFinite(u)&&u>0)?u:_CURRENCY_DEFAULTS.usd;
+  CURRENCIES.xof.rate=(isFinite(x)&&x>0)?x:_CURRENCY_DEFAULTS.xof;
+  // Rafraîchit tous les prix affichés
+  try{renderProducts&&renderProducts();}catch(e){}
+  try{renderMarketplace&&renderMarketplace();}catch(e){}
+  try{renderVpnShop&&renderVpnShop();}catch(e){}
+  try{refreshRewardsUI&&refreshRewardsUI();}catch(e){}
+  try{renderCart&&renderCart();}catch(e){}
+  try{renderArenaPacks&&renderArenaPacks();}catch(e){}
+}
 function currentCurrency(){return localStorage.getItem('nex-currency')||'xof';}
 function setCurrency(c){
   if(!CURRENCIES[c])c='eur';
