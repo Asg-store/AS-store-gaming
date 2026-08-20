@@ -4062,9 +4062,6 @@ function startRechargeOrange(amt,method){
           <select id="om-indicatif" class="set-select" style="width:108px;flex-shrink:0"><option value="+223">🇲🇱 +223</option><option value="+225">🇨🇮 +225</option><option value="+221">🇸🇳 +221</option><option value="+226">🇧🇫 +226</option><option value="+227">🇳🇪 +227</option><option value="+224">🇬🇳 +224</option><option value="+229">🇧🇯 +229</option><option value="+228">🇹🇬 +228</option></select>
           <input id="om-phone" type="tel" inputmode="numeric" placeholder="Ex : 82131418" oninput="this.value=this.value.replace(/[^0-9]/g,'')" style="flex:1;min-width:0;padding:12px;border-radius:12px;border:1px solid var(--border);background:var(--bg3);color:var(--text);font-size:13px"/>
         </div>
-        <div style="font-weight:700;font-size:13.5px;margin-bottom:6px">N° de transaction ${payName} <span style="color:var(--text3);font-weight:500;font-size:11px">(recommandé)</span></div>
-        <input id="om-txref" type="text" placeholder="Ex : PP240612.1430.A12345" style="width:100%;padding:12px;border-radius:12px;border:1px solid var(--border);background:var(--bg3);color:var(--text);font-size:13px"/>
-        <div style="font-size:11px;color:var(--text3);margin-top:5px;line-height:1.5">📩 Vous le trouvez dans le SMS de confirmation ${payName}. Il accélère la vérification.</div>
       </div>
     </div>
 
@@ -4419,7 +4416,27 @@ async function awardPurchasePoints(orderId,amountSpent,items){
   }catch(e){}
 }
 
-// Vérifie la version de la plateforme → bannière de mise à jour
+// 🎯 Déduit du solde les points utilisés en réduction sur une commande.
+//    Idempotent : une même commande ne peut jamais retirer les points deux fois
+//    (garde-fou « pointsSpentOrders »). Utilisé pour les paiements MANUELS
+//    (Orange Money / Wave) où aucun crédit/débit automatique n'a lieu.
+async function deductUsedPoints(orderId,pts){
+  if(!currentUser||!orderId||!(+pts>0))return;
+  try{
+    var uref=db.collection('users').doc(currentUser.uid);
+    await db.runTransaction(async function(tx){
+      var snap=await tx.get(uref);
+      var d=snap.exists?(snap.data()||{}):{};
+      var spent=d.pointsSpentOrders||[];
+      if(spent.indexOf(orderId)>=0)return;                 // déjà déduit pour cette commande
+      var cur=+d.points||0;
+      tx.set(uref,{
+        points:Math.max(0,cur-(+pts||0)),                  // jamais négatif
+        pointsSpentOrders:spent.concat([orderId])
+      },{merge:true});
+    });
+  }catch(e){}
+}
 /* Affiche la version courante dans le menu latéral */
 function renderVersionTag(){
   var el=document.getElementById('sb-version');if(!el)return;
@@ -6016,9 +6033,6 @@ function renderCartOrangePanel(method){
           <select id="cart-om-indicatif" class="set-select" style="width:106px;flex-shrink:0"><option value="+223">🇲🇱 +223</option><option value="+225">🇨🇮 +225</option><option value="+221">🇸🇳 +221</option><option value="+226">🇧🇫 +226</option><option value="+227">🇳🇪 +227</option><option value="+224">🇬🇳 +224</option><option value="+229">🇧🇯 +229</option><option value="+228">🇹🇬 +228</option></select>
           <input id="cart-om-phone" type="tel" inputmode="numeric" placeholder="Ex : 82131418" oninput="this.value=this.value.replace(/[^0-9]/g,'')" style="flex:1;min-width:0;padding:11px;border-radius:12px;border:1px solid var(--border);background:var(--bg3);color:var(--text);font-size:13px"/>
         </div>
-        <div style="font-weight:700;font-size:13px;margin-bottom:6px">N° de transaction <span style="color:var(--text3);font-weight:500;font-size:11px">(recommandé)</span></div>
-        <input id="cart-om-txref" type="text" placeholder="Ex : PP240612.1430.A12345" style="width:100%;padding:11px;border-radius:12px;border:1px solid var(--border);background:var(--bg3);color:var(--text);font-size:13px"/>
-        <div style="font-size:11px;color:var(--text3);margin-top:5px;line-height:1.5">📩 Dans le SMS de confirmation Orange Money. Il accélère la vérification.</div>
       </div>
     </div>
 
@@ -6164,15 +6178,20 @@ async function payCartOrange(){
     if(!proofUrl&&comp&&comp.dataUrl&&comp.dataUrl.length<720000){proofUrl=comp.dataUrl;}
     if(!proofUrl){showToast('❌ La preuve n\'a pas pu être enregistrée, réessayez');if(btn){btn.disabled=false;btn.textContent='📤 Envoyer ma preuve de paiement';}return;}
     var xof=Math.round(total*(typeof EUR_XOF!=='undefined'?EUR_XOF:655.957));
-    await db.collection('orders').add({
+    // 🎯 Points utilisés en réduction sur cette commande → à retirer du solde
+    var _ptsUsed=(cartCheckoutData&&+cartCheckoutData.pointsUsed>0)?+cartCheckoutData.pointsUsed:0;
+    var _oref=await db.collection('orders').add({
       items:cartCheckoutData.items,subtotal:cartCheckoutData.subtotal,
       deliveryFee:cartCheckoutData.deliveryFee||0,discount:cartCheckoutData.discount||0,
       promoCode:cartCheckoutData.promoCode||'',total:total,amountFcfa:xof,playerId:playerId,playerName:(cartCheckoutData.playerName||""),account:_accData,
+      pointsUsed:_ptsUsed,
       userId:currentUser.uid,userName:currentUser.displayName||(currentUser.email||'').split('@')[0],
       email:currentUser.email||'',paymentMethod:(_cartMethod==='wave'?'Wave (manuel)':'Orange Money (manuel)'),status:'pending',
       proofUrl:proofUrl,payerPhone:payerPhone,txRef:txref,
       createdAt:firebase.firestore.FieldValue.serverTimestamp()
     });
+    // 🎯 On retire immédiatement les points utilisés (le client a bénéficié de la réduction)
+    if(_ptsUsed>0)deductUsedPoints(_oref.id,_ptsUsed);
     _omProofFile=null;
     var _f=document.getElementById('cart-om-file');if(_f)_f.value='';
     var _op=document.getElementById('cart-om-proof');if(_op){_op.style.display='none';_op.innerHTML='';}
