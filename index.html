@@ -5176,8 +5176,8 @@ function authErrorMsg(code){
 auth.onAuthStateChanged(user=>{
   updateAuthUI(user);
   _flushAuthWaiters();   // ✅ l'état de connexion est maintenant connu → routage notif sûr
-  if(user){watchAccountStatus(user.uid);loadUserNotifs(user.uid);if(pushEnabled())initFCM();retryPendingReferral(user.uid);}
-  else{const bo=document.getElementById('blocked-overlay');if(bo)bo.classList.remove('open');if(_statusUnsub){_statusUnsub();_statusUnsub=null;}stopUserNotifs();}
+  if(user){watchAccountStatus(user.uid);loadUserNotifs(user.uid);watchMyDeliveries(user.uid);if(pushEnabled())initFCM();retryPendingReferral(user.uid);}
+  else{const bo=document.getElementById('blocked-overlay');if(bo)bo.classList.remove('open');if(_statusUnsub){_statusUnsub();_statusUnsub=null;}stopUserNotifs();stopMyDeliveries();}
 });
 
 // Surveille le statut du compte (active / suspended / blocked) défini par l'admin
@@ -6758,8 +6758,9 @@ function showCartPaymentFailed(){
 
 /* ─── ÉCRAN DE LIVRAISON : progression estimée 1 à 2 minutes ─── */
 let _dlvTimers=[];
-function showDeliveryProgress(order){
+function showDeliveryProgress(order,fast){
   order=order||{};
+  if(order.id){try{_dlvSeenAdd(order.id);}catch(e){}}   // évite un double affichage par le watcher global
   _dlvTimers.forEach(clearTimeout);_dlvTimers=[];
   const ov=document.getElementById('delivery-overlay');
   const fill=document.getElementById('dlv-bar-fill');
@@ -6789,10 +6790,11 @@ function showDeliveryProgress(order){
   const titleEl=document.querySelector('#delivery-overlay .dlv-title');
   const etaEl=document.querySelector('#delivery-overlay .dlv-eta');
   // Progression : on complète les 4 étapes puis « livré » — l'écran ne reste JAMAIS bloqué
-  // Barre qui se remplit doucement sur ~1 min 30, puis « livré » + facture auto
-  try{fill.style.transition='width 87s linear';}catch(e){}
+  // fast=true (commande DÉJÀ confirmée par l'admin) → progression rapide (~5 s).
+  var _dur=fast?5:87;
+  try{fill.style.transition='width '+_dur+'s linear';}catch(e){}
   _dlvTimers.push(setTimeout(function(){fill.style.width='94%';},400));
-  const stepAt=[1000,25000,55000,90000]; // Paiement · Préparation · Livraison · Livré
+  const stepAt=fast?[400,1800,3200,4800]:[1000,25000,55000,90000]; // Paiement · Préparation · Livraison · Livré
   stepAt.forEach(function(ms,si){
     _dlvTimers.push(setTimeout(function(){
       const st=steps[si];if(st){st.classList.add('active');st.querySelector('.dlv-dot').innerHTML=check;}
@@ -6812,6 +6814,54 @@ function showDeliveryProgress(order){
 function closeDelivery(){
   _dlvTimers.forEach(clearTimeout);_dlvTimers=[];
   document.getElementById('delivery-overlay').classList.remove('open');
+}
+
+/* ─── 📦 SUIVI GLOBAL DES LIVRAISONS ───
+   Quand l'admin confirme une commande (Orange Money / Wave manuel, ou autre),
+   il passe son statut à « paid » / « delivered ». Ce watcher détecte ce
+   changement et affiche AUTOMATIQUEMENT l'écran de livraison au client —
+   qu'il soit encore dans l'app OU qu'il la rouvre plus tard. */
+let _dlvWatchUnsub=null;
+function _dlvSeenKey(){return 'nex-dlv-seen-'+((currentUser&&currentUser.uid)||'anon');}
+function _dlvBaseKey(){return 'nex-dlv-base-'+((currentUser&&currentUser.uid)||'anon');}
+function _dlvSeenGet(){try{return JSON.parse(localStorage.getItem(_dlvSeenKey())||'[]');}catch(e){return [];}}
+function _dlvSeenAdd(id){try{var a=_dlvSeenGet();if(a.indexOf(id)<0){a.push(id);if(a.length>150)a=a.slice(-150);localStorage.setItem(_dlvSeenKey(),JSON.stringify(a));}}catch(e){}}
+function stopMyDeliveries(){ if(_dlvWatchUnsub){_dlvWatchUnsub();_dlvWatchUnsub=null;} }
+function watchMyDeliveries(uid){
+  if(!uid)return;
+  stopMyDeliveries();
+  _dlvWatchUnsub=db.collection('orders').where('userId','==',uid).onSnapshot(function(snap){
+    var delivered=[];
+    snap.forEach(function(doc){
+      var o=doc.data()||{};o.id=doc.id;
+      if(o.status==='paid'||o.status==='delivered'||o.ftStatus==='success')delivered.push(o);
+    });
+    // 1er passage sur cet appareil : on marque les commandes DÉJÀ livrées comme
+    // « vues » sans rien afficher (évite de rejouer d'anciennes livraisons).
+    if(localStorage.getItem(_dlvBaseKey())!=='1'){
+      delivered.forEach(function(o){_dlvSeenAdd(o.id);});
+      localStorage.setItem(_dlvBaseKey(),'1');
+      return;
+    }
+    var seen=_dlvSeenGet();
+    var fresh=delivered.filter(function(o){return seen.indexOf(o.id)<0;});
+    if(!fresh.length)return;
+    // On affiche la plus récente et on marque toutes les nouvelles comme vues
+    fresh.sort(function(a,b){
+      var ta=(a.createdAt&&a.createdAt.toMillis)?a.createdAt.toMillis():0;
+      var tb=(b.createdAt&&b.createdAt.toMillis)?b.createdAt.toMillis():0;return tb-ta;
+    });
+    fresh.forEach(function(x){_dlvSeenAdd(x.id);});
+    showDeliveredScreen(fresh[0]);
+  },function(){});
+}
+// Affiche l'écran de livraison pour une commande confirmée par l'admin
+function showDeliveredScreen(order){
+  try{
+    showToast('✅ Votre commande est livrée !');
+    // Écran de livraison rapide (la commande est déjà confirmée)
+    showDeliveryProgress(order,true);
+  }catch(e){}
 }
 
 /* ═══════════ OFFRES FLASH (compte à rebours) ═══════════ */
