@@ -44,9 +44,12 @@
   --radius:14px;--radius-sm:10px;--transition:.2s ease;
   --topbar:56px;--bottombar:64px;
   /* Polices : par défaut TOUT est en texte normal (sans-serif lisible).
-     Le réglage « Modèle de texte » modifie ces deux variables → toute l'app suit. */
-  --font-body:'Inter','Segoe UI',Roboto,-apple-system,BlinkMacSystemFont,sans-serif;
-  --font-head:'Inter','Segoe UI',Roboto,-apple-system,BlinkMacSystemFont,sans-serif;
+     Le réglage « Modèle de texte » modifie ces deux variables → toute l'app suit.
+     ⚠️ La police emoji couleur est ajoutée à la fin → les emoji (👋 🎁 💎 🎮…)
+     s'affichent TOUJOURS en couleur, jamais en glyphe texte monochrome. */
+  --font-emoji:'Apple Color Emoji','Segoe UI Emoji','Segoe UI Symbol','Noto Color Emoji','Twemoji Mozilla',emoji;
+  --font-body:'Inter','Segoe UI',Roboto,-apple-system,BlinkMacSystemFont,sans-serif,'Apple Color Emoji','Segoe UI Emoji','Noto Color Emoji',emoji;
+  --font-head:'Inter','Segoe UI',Roboto,-apple-system,BlinkMacSystemFont,sans-serif,'Apple Color Emoji','Segoe UI Emoji','Noto Color Emoji',emoji;
 }
 [data-theme="light"]{
   --bg:#f0f4ff;--bg2:#e4eafc;--bg3:#dae2fa;--bg4:#cdd8f7;
@@ -2818,25 +2821,31 @@ function _recurringMissionIds(){
   try{(_adminMissions||[]).forEach(function(m){ if(m.type==='buyWeek'||m.type==='wheel') ids.push(m.id); });}catch(e){}
   return ids;
 }
+// Date (ms) à laquelle le client a « découvert » une mission (pour exiger une action FRAÎCHE)
+function _seenAt(m){return (userData&&userData.missionSeenAt&&m&&m.id&&+userData.missionSeenAt[m.id])||0;}
+// Mission booléenne : validée UNIQUEMENT si l'action a eu lieu APRÈS la découverte de la mission.
+//   → une mission ajoutée par l'admin ne peut pas être réclamée grâce à une action passée.
+function _freshBool(m,actionAt,stateNow){
+  var seen=_seenAt(m);
+  if(!seen)return stateNow?1:0;                        // pas de baseline (missions par défaut) → normal
+  return (stateNow && actionAt && +actionAt>=seen)?1:0; // état OK ET action APRÈS la découverte
+}
 function missionProgress(m){
   var d=userData||{};
-  // 🎯 « Ligne de départ » : pour les missions CUMULATIVES (dépenses, commandes, invitations,
-  //    achats d'un produit), on ne compte que ce que le client fait APRÈS la création/découverte
-  //    de la mission. Sinon un client avec 53 commandes validerait « Passer 5 commandes » gratuitement.
   var base=(d.missionBaselines&&m&&m.id&&d.missionBaselines[m.id]!=null)?(+d.missionBaselines[m.id]||0):0;
   switch(m.type){
     case 'buyWeek': return (d.weekKey===weekKey())?(d.weekBuys||0):0;
     case 'spend':   return Math.max(0,(d.totalSpent||0)-base);
     case 'firstBuy':
     case 'orders':  return Math.max(0,(d.orderCount||0)-base);
-    case 'review':  return d.reviewBonusGiven?1:0;
+    case 'review':  return _freshBool(m,d.reviewAt,d.reviewBonusGiven);
     case 'invite':  return Math.max(0,(d.referralCount||0)-base);
     case 'wheel':   return (d.lastWheelDay===todayKey())?1:0;
     case 'product': return Math.max(0,((d.productBuys&&d.productBuys[(m.productName||'').toLowerCase()])||0)-base);
-    case 'profile': return ((currentUser&&currentUser.displayName)||d.name)&&d.phone?1:0;
+    case 'profile': return _freshBool(m,d.profileAt,((currentUser&&currentUser.displayName)||d.name)&&d.phone);
     case 'notif':   return (typeof pushEnabled==='function'&&pushEnabled())?1:0;
     case 'install': return isAppInstalled()?1:0;
-    case 'share':   return d.sharedShop?1:0;
+    case 'share':   return _freshBool(m,d.shareAt,d.sharedShop);
     default: return 0;
   }
 }
@@ -2859,21 +2868,25 @@ async function ensureMissionBaselines(){
     if(!currentUser||!_userLoaded)return;
     var d=userData||{};
     var baselines=Object.assign({},d.missionBaselines||{});
+    var seenAt=Object.assign({},d.missionSeenAt||{});
     var claimed=(d.claimedMissions||[]);
     var changed=false;
     (_adminMissions||[]).forEach(function(m){
       if(!m||!m.id)return;
-      var raw=_missionRawCounter(m);
-      if(raw===null)return;                 // mission non cumulative → ignorer
-      if(baselines[m.id]!=null)return;      // baseline déjà posée
       if(claimed.indexOf(m.id)>=0)return;   // déjà réclamée → ne pas toucher
+      // 🎯 Date de découverte : toute mission ajoutée par l'admin démarre « à zéro »
+      //    pour le client (il doit l'accomplir, pas la réclamer grâce au passé).
+      if(seenAt[m.id]==null){ seenAt[m.id]=Date.now(); changed=true; }
+      var raw=_missionRawCounter(m);
+      if(raw===null)return;                 // mission non cumulative → baseline via seenAt seulement
+      if(baselines[m.id]!=null)return;      // baseline cumulative déjà posée
       baselines[m.id]=raw;                  // point de départ = compteur actuel
       changed=true;
     });
     if(changed){
       userData.missionBaselines=baselines;
-      // .set(merge) plutôt que .update() → fonctionne même si des champs manquent.
-      await db.collection('users').doc(currentUser.uid).set({missionBaselines:baselines},{merge:true});
+      userData.missionSeenAt=seenAt;
+      await db.collection('users').doc(currentUser.uid).set({missionBaselines:baselines,missionSeenAt:seenAt},{merge:true});
     }
   }catch(e){/* silencieux : ne doit jamais bloquer l'affichage */}
 }
@@ -2895,8 +2908,8 @@ async function shareShop(){
   }catch(e){}
   if(currentUser){
     try{
-      await db.collection('users').doc(currentUser.uid).set({sharedShop:true},{merge:true});
-      if(userData)userData.sharedShop=true;
+      await db.collection('users').doc(currentUser.uid).set({sharedShop:true,shareAt:Date.now()},{merge:true});
+      if(userData){userData.sharedShop=true;userData.shareAt=Date.now();}
       renderMissions();
     }catch(e){}
   }
@@ -2925,11 +2938,15 @@ function renderMissions(){
     var unit=m.type==='spend'?'':'';
     var progTxt=m.type==='spend'?(fmtMoney(prog)+' / '+fmtMoney(goal)):(prog+'/'+goal);
     return '<div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--border)">'
-      +'<div style="font-size:24px">'+(m.icon||'🎯')+'</div>'
-      +'<div style="flex:1;min-width:0"><div style="font-weight:700;font-size:13px">'+vEsc(m.title||'Mission')+' '+(done?'✅':'')+'</div>'
+      +'<div style="font-size:24px;font-family:var(--font-emoji);line-height:1">'+(m.icon||'🎯')+'</div>'
+      +'<div style="flex:1;min-width:0"><div style="font-weight:700;font-size:13px">'+vEsc(m.title||'Mission')+' '+(got?'✅':(done?'✅':''))+'</div>'
       +'<div style="font-size:11px;color:var(--text3);margin-bottom:4px">'+(m.reward>0?'🎁 +'+m.reward+' pts · ':'')+progTxt+'</div>'
       +'<div style="height:6px;background:var(--bg3);border-radius:99px;overflow:hidden"><div style="height:100%;width:'+pct+'%;background:linear-gradient(90deg,var(--accent),var(--accent2))"></div></div></div>'
-      +(done?(got?'<span style="font-size:11px;color:var(--green);font-weight:700">✓ Reçu</span>':(m.reward>0?'<button style="padding:6px 10px;border:none;border-radius:8px;font-size:11px;font-weight:700;color:#052;background:linear-gradient(135deg,#00e676,#00b0ff)" onclick="claimMission('+i+')">Réclamer</button>':'')):'<button style="padding:6px 10px;border:none;border-radius:8px;font-size:11px;font-weight:700;color:#fff;background:linear-gradient(135deg,var(--accent),var(--accent2))" onclick="goMission('+i+')">Go</button>')
+      +(got
+          ?'<span style="font-size:11px;color:var(--green);font-weight:700">✓ Reçu</span>'
+          :(done
+              ?(m.reward>0?'<button style="padding:6px 10px;border:none;border-radius:8px;font-size:11px;font-weight:700;color:#052;background:linear-gradient(135deg,#00e676,#00b0ff)" onclick="claimMission('+i+')">Réclamer</button>':'')
+              :'<button style="padding:6px 10px;border:none;border-radius:8px;font-size:11px;font-weight:700;color:#fff;background:linear-gradient(135deg,var(--accent),var(--accent2))" onclick="goMission('+i+')">Go</button>'))
       +'</div>';
   }).join('');
   window.__missList=list;
@@ -3316,10 +3333,13 @@ async function submitReview(){
         createdAt:firebase.firestore.FieldValue.serverTimestamp()
       });
       if(firstTime){
-        tx.set(uref,{reviewBonusGiven:true,points:firebase.firestore.FieldValue.increment(pts)},{merge:true});
+        tx.set(uref,{reviewBonusGiven:true,reviewAt:Date.now(),points:firebase.firestore.FieldValue.increment(pts)},{merge:true});
         awarded=pts;
+      }else{
+        tx.set(uref,{reviewAt:Date.now()},{merge:true});   // avis frais → valide une nouvelle mission « avis »
       }
     });
+    if(userData){userData.reviewBonusGiven=true;userData.reviewAt=Date.now();}
     _revStars=0;setReviewStars(0);document.getElementById('rev-comment').value='';
     var rp=document.getElementById('rev-photo');if(rp)rp.value='';
     if(awarded>0)showToast('✅ Merci ! +'+awarded+' points pour votre première note 🎉');
@@ -3850,9 +3870,9 @@ async function savePhoneNumber(){
   var btn=document.getElementById('ph-save-btn');
   if(btn){btn.disabled=true;btn.textContent='⏳ Enregistrement…';}
   try{
-    await db.collection('users').doc(currentUser.uid).set({phone:full},{merge:true});
+    await db.collection('users').doc(currentUser.uid).set({phone:full,profileAt:Date.now()},{merge:true});
     if(!userData)userData={};
-    userData.phone=full;
+    userData.phone=full;userData.profileAt=Date.now();
     refreshProfileUI();
     closePhoneSheet();
     showToast('✅ Numéro enregistré : '+full);
@@ -3912,7 +3932,8 @@ async function editProfileName(){
   if(nn.length<2){showToast('❌ Nom trop court');return;}
   try{
     await currentUser.updateProfile({displayName:nn});
-    await db.collection('users').doc(currentUser.uid).set({name:nn},{merge:true});
+    await db.collection('users').doc(currentUser.uid).set({name:nn,profileAt:Date.now()},{merge:true});
+    if(userData)userData.profileAt=Date.now();
     updateAuthUI(currentUser);
     showToast('✅ Nom mis à jour : '+nn);
   }catch(e){showToast('❌ '+e.message);}
@@ -8571,6 +8592,10 @@ function applyFont(v,save){
   // valeur concrète pour 'default' (évite la référence circulaire à --font-normal)
   var body=f.body.replace('var(--font-normal)',_FONT_NORMAL);
   var head=f.head.replace('var(--font-normal)',_FONT_NORMAL);
+  // 😀 On ajoute toujours la police emoji couleur en repli (icônes stables)
+  var _EMO=",'Apple Color Emoji','Segoe UI Emoji','Segoe UI Symbol','Noto Color Emoji','Twemoji Mozilla',emoji";
+  if(body.indexOf('Emoji')<0)body+=_EMO;
+  if(head.indexOf('Emoji')<0)head+=_EMO;
   root.style.setProperty('--font-body',body);
   root.style.setProperty('--font-head',head);
   if(save){localStorage.setItem('nex-font',v);showToast('✓ Police appliquée');}
