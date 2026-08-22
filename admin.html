@@ -5,6 +5,11 @@
 <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no"/>
 <title>Admin</title>
 <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;700&family=Exo+2:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+<!-- 😀 Twemoji : emoji couleur identiques partout (icônes de missions, etc.) -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/twemoji.min.js" crossorigin="anonymous"></script>
+<style>
+img.emoji{height:1em!important;width:1em!important;margin:0 .05em 0 .1em!important;vertical-align:-0.12em!important;display:inline-block!important}
+</style>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 :root{
@@ -1799,6 +1804,22 @@ body{font-family:'Exo 2',sans-serif;background:var(--bg);color:var(--text);
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-storage-compat.js"></script>
 <script>
 function brandName(n){return (!n||['ASG Store','Abg Store','Abg','ASG','NexShop',''].indexOf(String(n).trim())>=0)?'LootR':n;}
+
+// 😀 Twemoji : emoji couleur identiques sur tous les appareils
+function tweParse(el){
+  try{ if(window.twemoji){ window.twemoji.parse(el||document.body,{folder:'svg',ext:'.svg',base:'https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/'}); } }catch(e){}
+}
+(function initTwemoji(){
+  var t=null;
+  function run(){t=null;tweParse(document.body);}
+  function schedule(){if(t)return;t=setTimeout(run,250);}
+  function start(){
+    tweParse(document.body);
+    try{ new MutationObserver(function(muts){ for(var i=0;i<muts.length;i++){ if(muts[i].addedNodes&&muts[i].addedNodes.length){schedule();return;} } }).observe(document.body,{childList:true,subtree:true}); }catch(e){}
+  }
+  if(document.readyState!=='loading')start(); else document.addEventListener('DOMContentLoaded',start);
+  window.addEventListener('load',function(){setTimeout(function(){tweParse(document.body);},400);});
+})();
 
 firebase.initializeApp({apiKey:"AIzaSyDsWdTbAm4q1FC5opeKXFFd_PaqlnbdMHw",authDomain:"shop-7ddd7.firebaseapp.com",projectId:"shop-7ddd7",storageBucket:"shop-7ddd7.firebasestorage.app",messagingSenderId:"744435807868",appId:"1:744435807868:web:44c7b0b27e15cb00f43bf9"});
 const db=firebase.firestore();
