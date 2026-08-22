@@ -33,11 +33,10 @@
 <link rel="stylesheet" href="https://checkoutshopper-live.adyen.com/checkoutshopper/sdk/5.66.1/adyen.css" crossorigin="anonymous"/>
 <script src="https://checkoutshopper-live.adyen.com/checkoutshopper/sdk/5.66.1/adyen.js" crossorigin="anonymous"></script>
 <script src="https://cdn.fedapay.com/checkout.js?v=1.1.7"></script>
-<!-- 😀 Twemoji : rend TOUS les emoji identiques et en couleur sur tous les appareils
-     (corrige les emoji qui s'affichaient en glyphe monochrome sur certains téléphones). -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/twemoji.min.js" crossorigin="anonymous"></script>
+<!-- 😀 Emoji couleur 100% HORS-LIGNE : chaque emoji utilise la police emoji couleur
+     de l'appareil (aucun fichier, aucun CDN, aucune dépendance internet). -->
 <style>
-img.emoji{height:1em!important;width:1em!important;margin:0 .05em 0 .1em!important;vertical-align:-0.12em!important;display:inline-block!important}
+.emo{font-family:'Apple Color Emoji','Segoe UI Emoji','Noto Color Emoji','Twemoji Mozilla',emoji!important;font-style:normal!important;font-weight:400!important}
 </style>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
@@ -2640,34 +2639,56 @@ function closeSidebar(){
 }
 
 // ─ Config
-// 😀 Twemoji : convertit les emoji en images couleur (rendu identique partout).
-function tweParse(el){
+// 😀 Emoji couleur HORS-LIGNE : on entoure chaque emoji d'un <span class="emo">
+//    qui force la police emoji couleur de l'appareil. Aucun fichier/CDN requis.
+var _EMOJI_RE=null;
+try{_EMOJI_RE=new RegExp('(\\p{Extended_Pictographic}(?:\\uFE0F|\\u200D\\p{Extended_Pictographic})*|\\p{Regional_Indicator}{2})','gu');}catch(e){_EMOJI_RE=null;}
+function wrapEmoji(root){
+  if(!_EMOJI_RE)return;                      // très vieux navigateur → on laisse le rendu par défaut
+  root=root||document.body;if(!root)return;
   try{
-    if(window.twemoji){
-      window.twemoji.parse(el||document.body,{
-        folder:'svg',ext:'.svg',
-        base:'https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/'
-      });
-    }
+    var walker=document.createTreeWalker(root,NodeFilter.SHOW_TEXT,{
+      acceptNode:function(n){
+        if(!n.nodeValue)return NodeFilter.FILTER_REJECT;
+        _EMOJI_RE.lastIndex=0;
+        if(!_EMOJI_RE.test(n.nodeValue))return NodeFilter.FILTER_REJECT;
+        var p=n.parentNode;if(!p)return NodeFilter.FILTER_REJECT;
+        var tag=p.nodeName;
+        if(tag==='SCRIPT'||tag==='STYLE'||tag==='TEXTAREA'||tag==='INPUT'||tag==='OPTION')return NodeFilter.FILTER_REJECT;
+        if(p.classList&&p.classList.contains('emo'))return NodeFilter.FILTER_REJECT;
+        return NodeFilter.FILTER_ACCEPT;
+      }
+    });
+    var nodes=[],n;while(n=walker.nextNode())nodes.push(n);
+    nodes.forEach(function(node){
+      var txt=node.nodeValue,last=0,m,frag=document.createDocumentFragment();
+      _EMOJI_RE.lastIndex=0;
+      while(m=_EMOJI_RE.exec(txt)){
+        if(m.index>last)frag.appendChild(document.createTextNode(txt.slice(last,m.index)));
+        var em=m[0];
+        // force la présentation emoji (couleur) pour les symboles à défaut « texte » (↗ ✏ ☎ …)
+        if(em.indexOf('\u200D')<0&&em.indexOf('\uFE0F')<0&&!/\p{Regional_Indicator}/u.test(em))em+='\uFE0F';
+        var s=document.createElement('span');s.className='emo';s.textContent=em;
+        frag.appendChild(s);last=m.index+m[0].length;
+      }
+      if(last<txt.length)frag.appendChild(document.createTextNode(txt.slice(last)));
+      if(node.parentNode)node.parentNode.replaceChild(frag,node);
+    });
   }catch(e){}
 }
-// Re-convertit automatiquement à chaque changement du DOM (missions, chat, notifs,
-// après « Réclamer », après l'ajout d'une mission par l'admin, etc.).
-(function initTwemoji(){
+(function initEmoji(){
   var t=null;
-  function run(){t=null;tweParse(document.body);}
+  function run(){t=null;wrapEmoji(document.body);}
   function schedule(){if(t)return;t=setTimeout(run,250);}
   function start(){
-    tweParse(document.body);
+    wrapEmoji(document.body);
     try{
       new MutationObserver(function(muts){
         for(var i=0;i<muts.length;i++){ if(muts[i].addedNodes&&muts[i].addedNodes.length){schedule();return;} }
       }).observe(document.body,{childList:true,subtree:true});
     }catch(e){}
   }
-  if(document.readyState!=='loading')start();
-  else document.addEventListener('DOMContentLoaded',start);
-  window.addEventListener('load',function(){setTimeout(function(){tweParse(document.body);},400);});
+  if(document.readyState!=='loading')start();else document.addEventListener('DOMContentLoaded',start);
 })();
 let shopConfig={deliveryFeeType:'none',deliveryFeeValue:0};
 async function loadConfig(){

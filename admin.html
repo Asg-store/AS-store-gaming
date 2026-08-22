@@ -5,10 +5,9 @@
 <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no"/>
 <title>Admin</title>
 <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;700&family=Exo+2:wght@400;500;600;700&display=swap" rel="stylesheet"/>
-<!-- 😀 Twemoji : emoji couleur identiques partout (icônes de missions, etc.) -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/twemoji.min.js" crossorigin="anonymous"></script>
+<!-- 😀 Emoji couleur 100% hors-ligne (police emoji de l'appareil, aucun fichier externe) -->
 <style>
-img.emoji{height:1em!important;width:1em!important;margin:0 .05em 0 .1em!important;vertical-align:-0.12em!important;display:inline-block!important}
+.emo{font-family:'Apple Color Emoji','Segoe UI Emoji','Noto Color Emoji','Twemoji Mozilla',emoji!important;font-style:normal!important;font-weight:400!important}
 </style>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
@@ -1805,20 +1804,46 @@ body{font-family:'Exo 2',sans-serif;background:var(--bg);color:var(--text);
 <script>
 function brandName(n){return (!n||['ASG Store','Abg Store','Abg','ASG','NexShop',''].indexOf(String(n).trim())>=0)?'LootR':n;}
 
-// 😀 Twemoji : emoji couleur identiques sur tous les appareils
-function tweParse(el){
-  try{ if(window.twemoji){ window.twemoji.parse(el||document.body,{folder:'svg',ext:'.svg',base:'https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/'}); } }catch(e){}
+// 😀 Emoji couleur HORS-LIGNE : chaque emoji est entouré d'un <span class="emo">
+//    qui force la police emoji couleur de l'appareil (aucun fichier/CDN).
+var _EMOJI_RE=null;
+try{_EMOJI_RE=new RegExp('(\\p{Extended_Pictographic}(?:\\uFE0F|\\u200D\\p{Extended_Pictographic})*|\\p{Regional_Indicator}{2})','gu');}catch(e){_EMOJI_RE=null;}
+function wrapEmoji(root){
+  if(!_EMOJI_RE)return;root=root||document.body;if(!root)return;
+  try{
+    var walker=document.createTreeWalker(root,NodeFilter.SHOW_TEXT,{
+      acceptNode:function(n){
+        if(!n.nodeValue)return NodeFilter.FILTER_REJECT;
+        _EMOJI_RE.lastIndex=0;if(!_EMOJI_RE.test(n.nodeValue))return NodeFilter.FILTER_REJECT;
+        var p=n.parentNode;if(!p)return NodeFilter.FILTER_REJECT;
+        var tag=p.nodeName;
+        if(tag==='SCRIPT'||tag==='STYLE'||tag==='TEXTAREA'||tag==='INPUT'||tag==='OPTION')return NodeFilter.FILTER_REJECT;
+        if(p.classList&&p.classList.contains('emo'))return NodeFilter.FILTER_REJECT;
+        return NodeFilter.FILTER_ACCEPT;
+      }
+    });
+    var nodes=[],n;while(n=walker.nextNode())nodes.push(n);
+    nodes.forEach(function(node){
+      var txt=node.nodeValue,last=0,m,frag=document.createDocumentFragment();_EMOJI_RE.lastIndex=0;
+      while(m=_EMOJI_RE.exec(txt)){
+        if(m.index>last)frag.appendChild(document.createTextNode(txt.slice(last,m.index)));
+        var em=m[0];if(em.indexOf('\u200D')<0&&em.indexOf('\uFE0F')<0&&!/\p{Regional_Indicator}/u.test(em))em+='\uFE0F';
+        var s=document.createElement('span');s.className='emo';s.textContent=em;frag.appendChild(s);last=m.index+m[0].length;
+      }
+      if(last<txt.length)frag.appendChild(document.createTextNode(txt.slice(last)));
+      if(node.parentNode)node.parentNode.replaceChild(frag,node);
+    });
+  }catch(e){}
 }
-(function initTwemoji(){
+(function initEmoji(){
   var t=null;
-  function run(){t=null;tweParse(document.body);}
+  function run(){t=null;wrapEmoji(document.body);}
   function schedule(){if(t)return;t=setTimeout(run,250);}
   function start(){
-    tweParse(document.body);
+    wrapEmoji(document.body);
     try{ new MutationObserver(function(muts){ for(var i=0;i<muts.length;i++){ if(muts[i].addedNodes&&muts[i].addedNodes.length){schedule();return;} } }).observe(document.body,{childList:true,subtree:true}); }catch(e){}
   }
-  if(document.readyState!=='loading')start(); else document.addEventListener('DOMContentLoaded',start);
-  window.addEventListener('load',function(){setTimeout(function(){tweParse(document.body);},400);});
+  if(document.readyState!=='loading')start();else document.addEventListener('DOMContentLoaded',start);
 })();
 
 firebase.initializeApp({apiKey:"AIzaSyDsWdTbAm4q1FC5opeKXFFd_PaqlnbdMHw",authDomain:"shop-7ddd7.firebaseapp.com",projectId:"shop-7ddd7",storageBucket:"shop-7ddd7.firebasestorage.app",messagingSenderId:"744435807868",appId:"1:744435807868:web:44c7b0b27e15cb00f43bf9"});
